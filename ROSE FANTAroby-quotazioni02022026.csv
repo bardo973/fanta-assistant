@@ -1,0 +1,551 @@
+Ruolo,Calciatore,Squadra,,Quotazione,,SVINCOLATO
+P,Maignan,Milan,P,20,DODO,
+P,Svilar,Roma,P,19,BEPPE,
+P,Carnesecchi,Atalanta,P,18,NILO,
+P,Milinkovic-Savic V.,Napoli,P,18,ASTI,
+P,Butez,Como,P,17,PAOLO B.,
+P,Provedel,Lazio,P,17,BARDO,
+P,Di Gregorio,Juventus,P,16,GIOPPY,
+P,Falcone,Lecce,P,16,ROBY,
+P,Audero,Cremonese,P,15,LIBERO,SI
+P,Sommer,Inter,P,13,GALVA,
+P,Caprile,Cagliari,P,12,BEPPE,
+P,Muric,Sassuolo,P,12,LIBERO,SI
+P,De Gea,Fiorentina,P,11,ROBY,
+P,Corvi,Parma,P,11,LIBERO,SI
+P,Okoye,Udinese,P,11,ROBY,
+P,Ravaglia F.,Bologna,P,10,PECU,
+P,Skorupski,Bologna,P,10,PECU,
+P,Leali,Genoa,P,10,PECU,
+P,Bijlow,Genoa,P,10,LIBERO,SI
+P,Semper,Pisa,P,9,LIBERO,SI
+P,Montipò,Verona,P,9,LIBERO,SI
+P,Meret,Napoli,P,8,ASTI,
+P,Suzuki,Parma,P,8,LIBERO,SI
+P,Paleari,Torino,P,8,LIBERO,SI
+P,Padelli,Udinese,P,4,LIBERO,SI
+P,Perin,Juventus,P,3,GIOPPY,
+P,Rinaldi,Parma,P,3,LIBERO,SI
+P,Perilli,Verona,P,3,LIBERO,SI
+P,Scuffet,Pisa,P,2,LIBERO,SI
+P,Israel,Torino,P,2,LIBERO,SI
+P,Rossi F.,Atalanta,P,1,NILO,
+P,Sportiello,Atalanta,P,1,NILO,
+P,Pessina Mas.,Bologna,P,1,LIBERO,SI
+P,Ciocci,Cagliari,P,1,LIBERO,SI
+P,Vigorito,Como,P,1,PAOLO B.,
+P,Nava,Cremonese,P,1,LIBERO,SI
+P,Christensen O.,Fiorentina,P,1,LIBERO,SI
+P,Siegrist,Genoa,P,1,LIBERO,SI
+P,Sommariva,Genoa,P,1,LIBERO,SI
+P,Di Gennaro,Inter,P,1,GALVA,
+P,Martinez Jo.,Inter,P,1,GALVA,
+P,Pinsoglio,Juventus,P,1,GIOPPY,
+P,Furlanetto,Lazio,P,1,BARDO,
+P,Fruchtl,Lecce,P,1,LIBERO,SI
+P,Samooja,Lecce,P,1,LIBERO,SI
+P,Terracciano,Milan,P,1,DODO,
+P,Torriani,Milan,P,1,DODO,
+P,Contini,Napoli,P,1,ASTI,
+P,Nicolas,Pisa,P,1,LIBERO,SI
+P,Zelezny,Roma,P,1,LIBERO,SI
+P,Gollini,Roma,P,1,BEPPE,
+P,Satalino,Sassuolo,P,1,LIBERO,SI
+P,Turati,Sassuolo,P,1,LIBERO,SI
+P,Sava,Udinese,P,1,LIBERO,SI
+P,Vasquez D.,Roma,P,1,BEPPE,
+P,Nunziante,Udinese,P,1,LIBERO,SI
+P,Lezzerini,Fiorentina,P,1,LIBERO,SI
+P,Silvestri,Cremonese,P,1,LIBERO,SI
+P,Toniolo,Verona,P,1,LIBERO,SI
+P,Cavlina,Como,P,1,LIBERO,SI
+P,Ferrante,Napoli,P,1,LIBERO,SI
+P,Calligaris,Inter,P,1,LIBERO,SI
+P,Tornqvist,Como,P,1,LIBERO,SI
+P,Sherri,Cagliari,P,1,LIBERO,SI
+P,Motta,Lazio,P,1,LIBERO,SI
+D,Dimarco,Inter,D,31,DODO,
+D,Spinazzola,Napoli,D,20,LIBERO,SI
+D,Palestra,Cagliari,D,17,ASTI,
+D,Bastoni,Inter,D,17,BARDO,
+D,Kempf,Como,D,16,BARDO,
+D,Wesley,Roma,D,16,ROBY,
+D,Pavlovic,Milan,D,15,GALVA,
+D,Ostigard,Genoa,D,15,LIBERO,SI
+D,Martin,Genoa,D,14,ASTI,
+D,Bremer,Juventus,D,14,GIOPPY,
+D,Celik,Roma,D,14,LIBERO,SI
+D,Scalvini,Atalanta,D,13,BARDO,
+D,Holm,Juventus,D,13,ROBY,
+D,Carlos Augusto,Inter,D,13,ASTI,
+D,Baschirotto,Cremonese,D,13,GIOPPY,
+D,Bartesaghi,Milan,D,13,LIBERO,SI
+D,Vojvoda,Como,D,12,NILO,
+D,Bisseck,Inter,D,12,PAOLO B.,
+D,Kalulu,Juventus,D,12,DODO,
+D,Rrahmani,Napoli,D,12,GIOPPY,
+D,Di Lorenzo,Napoli,D,12,DODO,
+D,Kabasele,Udinese,D,12,LIBERO,SI
+D,Ramon,Como,D,12,ASTI,
+D,Kelly L.,Juventus,D,11,LIBERO,SI
+D,Terracciano F.,Cremonese,D,11,BEPPE,
+D,Zanoli,Udinese,D,11,PAOLO B.,
+D,Mancini,Roma,D,11,BEPPE,
+D,Coco,Torino,D,11,LIBERO,SI
+D,Maripan,Torino,D,11,PECU,
+D,Solet,Udinese,D,11,BEPPE,
+D,Akanji,Inter,D,11,GIOPPY,
+D,Miranda J.,Bologna,D,10,ASTI,
+D,Moreno Alb.,Como,D,10,LIBERO,SI
+D,Gosens,Fiorentina,D,10,ASTI,
+D,Vasquez,Genoa,D,10,BEPPE,
+D,Dumfries,Inter,D,10,PAOLO B.,
+D,Cabal,Juventus,D,10,LIBERO,SI
+D,Cambiaso,Juventus,D,10,PECU,
+D,Buongiorno,Napoli,D,10,BEPPE,
+D,Valeri,Parma,D,10,NILO,
+D,Hermoso,Roma,D,10,DODO,
+D,Belghali,Verona,D,10,LIBERO,SI
+D,Luperto,Cremonese,D,9,BARDO,
+D,Valle,Como,D,9,DODO,
+D,Barbieri,Cremonese,D,9,LIBERO,SI
+D,Romagnoli,Lazio,D,9,GALVA,
+D,Tiago Gabriel,Lecce,D,9,BEPPE,
+D,Circati,Parma,D,9,LIBERO,SI
+D,Delprato,Parma,D,9,BARDO,
+D,Angori,Pisa,D,9,DODO,
+D,Hien,Atalanta,D,8,GALVA,
+D,Kossounou,Atalanta,D,8,LIBERO,SI
+D,Zappacosta,Atalanta,D,8,GIOPPY,
+D,Mina,Cagliari,D,8,LIBERO,SI
+D,Idrissi R.,Cagliari,D,8,LIBERO,SI
+D,Zortea,Bologna,D,8,ROBY,
+D,Norton-Cuffy,Genoa,D,8,PAOLO B.,
+D,Gila,Lazio,D,8,PECU,
+D,Gallo,Lecce,D,8,PECU,
+D,Gabbia,Milan,D,8,PECU,
+D,Tomori,Milan,D,8,PAOLO B.,
+D,Muharemovic,Sassuolo,D,8,LIBERO,SI
+D,Cuadrado,Pisa,D,8,LIBERO,SI
+D,Idzes,Sassuolo,D,8,LIBERO,SI
+D,Heggem,Bologna,D,8,LIBERO,SI
+D,Bernasconi,Atalanta,D,8,LIBERO,SI
+D,Zappa,Cagliari,D,7,LIBERO,SI
+D,Folino,Cremonese,D,7,LIBERO,SI
+D,Comuzzo,Fiorentina,D,7,BEPPE,
+D,Dodò,Fiorentina,D,7,NILO,
+D,Parisi,Fiorentina,D,7,LIBERO,SI
+D,Marcandalli,Genoa,D,7,ROBY,
+D,Marusic,Lazio,D,7,PAOLO B.,
+D,Beukema,Napoli,D,7,GIOPPY,
+D,N'Dicka,Roma,D,7,BARDO,
+D,Angelino,Roma,D,7,ROBY,
+D,Britschgi,Parma,D,7,LIBERO,SI
+D,Diego Carlos,Como,D,7,LIBERO,SI
+D,Djimsiti,Atalanta,D,6,GIOPPY,
+D,Ahanor,Atalanta,D,6,LIBERO,SI
+D,Bellanova,Atalanta,D,6,ASTI,
+D,Lucumì,Bologna,D,6,PECU,
+D,Bianchetti,Cremonese,D,6,LIBERO,SI
+D,Ranieri L.,Fiorentina,D,6,PECU,
+D,Fortini,Fiorentina,D,6,LIBERO,SI
+D,De Winter,Milan,D,6,GALVA,
+D,Acerbi,Inter,D,6,NILO,
+D,Tavares N.,Lazio,D,6,ASTI,
+D,Valenti,Parma,D,6,DODO,
+D,Caracciolo A.,Pisa,D,6,GALVA,
+D,Walukiewicz,Sassuolo,D,6,LIBERO,SI
+D,Doig,Sassuolo,D,6,LIBERO,SI
+D,Ismajli,Torino,D,6,LIBERO,SI
+D,Lazaro,Torino,D,6,NILO,
+D,Bertola,Udinese,D,6,PAOLO B.,
+D,Kristensen T.,Udinese,D,6,PAOLO B.,
+D,Frese,Verona,D,6,NILO,
+D,Obrador,Torino,D,6,LIBERO,SI
+D,Obert,Cagliari,D,5,LIBERO,SI
+D,Gatti,Juventus,D,5,BEPPE,
+D,Pellegrini Lu.,Lazio,D,5,LIBERO,SI
+D,Veiga D.,Lecce,D,5,LIBERO,SI
+D,Canestrelli,Pisa,D,5,LIBERO,SI
+D,Calabresi,Pisa,D,5,LIBERO,SI
+D,Rensch,Roma,D,5,LIBERO,SI
+D,Kamara H.,Udinese,D,5,LIBERO,SI
+D,Bradaric,Verona,D,5,ROBY,
+D,Kolasinac,Atalanta,D,4,LIBERO,SI
+D,Vitik,Bologna,D,4,GALVA,
+D,Smolcic I.,Como,D,4,LIBERO,SI
+D,Floriani Mussolini,Cremonese,D,4,NILO,
+D,Pezzella Giu.,Cremonese,D,4,ROBY,
+D,Pongracic,Fiorentina,D,4,GALVA,
+D,De Vrij,Inter,D,4,GIOPPY,
+D,Lazzari,Lazio,D,4,BARDO,
+D,Gaspar K.,Lecce,D,4,GALVA,
+D,Pedersen,Torino,D,4,LIBERO,SI
+D,Ghilardi,Roma,D,4,PAOLO B.,
+D,Slotsager,Verona,D,4,LIBERO,SI
+D,Nelsson,Verona,D,4,LIBERO,SI
+D,Bella-Kotchap,Verona,D,4,LIBERO,SI
+D,Ziolkowski,Roma,D,4,LIBERO,SI
+D,Tsimikas,Roma,D,4,LIBERO,SI
+D,Lirola,Verona,D,4,LIBERO,SI
+D,Zatterstrom,Genoa,D,4,LIBERO,SI
+D,Provstgaard,Lazio,D,3,LIBERO,SI
+D,Ndaba,Lecce,D,3,LIBERO,SI
+D,Estupinan,Milan,D,3,ROBY,
+D,Juan Jesus,Napoli,D,3,PECU,
+D,Olivera,Napoli,D,3,GALVA,
+D,Ehizibue,Udinese,D,3,LIBERO,SI
+D,Zemura,Udinese,D,3,DODO,
+D,Valentini N.,Verona,D,3,LIBERO,SI
+D,Athekame,Milan,D,3,LIBERO,SI
+D,Gutierrez,Napoli,D,3,BARDO,
+D,Siebert,Lecce,D,3,LIBERO,SI
+D,Rodriguez Ju.,Cagliari,D,3,LIBERO,SI
+D,Albiol,Pisa,D,3,LIBERO,SI
+D,Helland,Bologna,D,3,LIBERO,SI
+D,Garcia U.,Sassuolo,D,3,LIBERO,SI
+D,Mlacic,Udinese,D,3,LIBERO,SI
+D,Casale,Bologna,D,2,LIBERO,SI
+D,De Silvestri,Bologna,D,2,LIBERO,SI
+D,Lykogiannis,Bologna,D,2,ASTI,
+D,Van Der Brempt,Como,D,2,LIBERO,SI
+D,Ceccherini,Cremonese,D,2,LIBERO,SI
+D,Otoa,Genoa,D,2,LIBERO,SI
+D,Sabelli,Genoa,D,2,LIBERO,SI
+D,Rugani,Fiorentina,D,2,BEPPE,
+D,Joao Mario,Bologna,D,2,DODO,
+D,Marianucci,Torino,D,2,LIBERO,SI
+D,Mazzocchi,Napoli,D,2,LIBERO,SI
+D,Coppola F.,Pisa,D,2,LIBERO,SI
+D,Biraghi,Torino,D,2,PECU,
+D,Ebosse,Torino,D,2,LIBERO,SI
+D,Candè,Sassuolo,D,2,LIBERO,SI
+D,Cham,Verona,D,2,LIBERO,SI
+D,Troilo,Parma,D,2,LIBERO,SI
+D,Nkounkou,Torino,D,2,LIBERO,SI
+D,Faye,Cremonese,D,2,LIBERO,SI
+D,Zè Pedro,Cagliari,D,2,LIBERO,SI
+D,Bozhinov,Pisa,D,2,LIBERO,SI
+D,Carboni F.,Parma,D,2,LIBERO,SI
+D,Edmundsson,Verona,D,2,LIBERO,SI
+D,Dossena,Cagliari,D,1,LIBERO,SI
+D,Goldaniga,Como,D,1,LIBERO,SI
+D,Darmian,Inter,D,1,ROBY,
+D,Gigot,Lazio,D,1,LIBERO,SI
+D,Patric,Lazio,D,1,LIBERO,SI
+D,Hysaj,Lazio,D,1,LIBERO,SI
+D,Jean,Lecce,D,1,LIBERO,SI
+D,Perez M.,Lecce,D,1,LIBERO,SI
+D,Romagna,Sassuolo,D,1,LIBERO,SI
+D,Pieragnolo,Sassuolo,D,1,LIBERO,SI
+D,Schuurs,Torino,D,1,LIBERO,SI
+D,Oyegoke,Verona,D,1,LIBERO,SI
+D,Denoon,Pisa,D,1,LIBERO,SI
+D,Ndiaye,Parma,D,1,LIBERO,SI
+D,Kouadio,Fiorentina,D,1,LIBERO,SI
+D,Lamptey,Fiorentina,D,1,LIBERO,SI
+D,Odogu,Milan,D,1,LIBERO,SI
+D,Coulibaly W.,Sassuolo,D,1,GIOPPY,
+D,Arizala,Udinese,D,1,LIBERO,SI
+D,Raterink,Cagliari,D,1,LIBERO,SI
+D,Pedro Felipe,Sassuolo,D,1,LIBERO,SI
+C,Pulisic,Milan,C,31,BEPPE,
+C,Paz N.,Como,C,30,NILO,
+C,Calhanoglu,Inter,C,28,NILO,
+C,McTominay,Napoli,C,24,PAOLO B.,
+C,Rabiot,Milan,C,24,GIOPPY,
+C,Orsolini,Bologna,C,23,BEPPE,
+C,Zielinski,Inter,C,20,GALVA,
+C,Modric,Milan,C,20,ROBY,
+C,De Bruyne,Napoli,C,20,NILO,
+C,Zaniolo,Udinese,C,20,NILO,
+C,Mandragora,Fiorentina,C,19,PECU,
+C,Saelemaekers,Milan,C,19,DODO,
+C,Odgaard,Bologna,C,18,BEPPE,
+C,Zambo Anguissa,Napoli,C,18,GALVA,
+C,Atta,Udinese,C,18,ASTI,
+C,Gudmundsson A.,Fiorentina,C,17,DODO,
+C,Konè M.,Roma,C,17,NILO,
+C,Vlasic,Torino,C,17,PAOLO B.,
+C,Perrone,Como,C,16,GALVA,
+C,Baturina,Como,C,16,ASTI,
+C,Zalewski,Atalanta,C,16,ROBY,
+C,Barella,Inter,C,16,ASTI,
+C,Neres,Napoli,C,16,DODO,
+C,Bernabè,Parma,C,16,ASTI,
+C,Konè I.,Sassuolo,C,16,GIOPPY,
+C,Pellegrini Lo.,Roma,C,15,BEPPE,
+C,Gaetano,Cagliari,C,14,BEPPE,
+C,Malinovskyi,Genoa,C,14,BEPPE,
+C,Thorsby,Cremonese,C,14,LIBERO,SI
+C,Locatelli,Juventus,C,14,GIOPPY,
+C,McKennie,Juventus,C,14,LIBERO,SI
+C,Thuram K.,Juventus,C,14,BARDO,
+C,Conceicao,Juventus,C,14,DODO,
+C,Isaksen,Lazio,C,14,DODO,
+C,Zaccagni,Lazio,C,14,PECU,
+C,Pasalic,Atalanta,C,13,DODO,
+C,Caqueret,Como,C,13,LIBERO,SI
+C,Da Cunha,Como,C,13,DODO,
+C,Vandeputte,Cremonese,C,13,ROBY,
+C,Kostic,Juventus,C,13,BARDO,
+C,Basic,Lazio,C,13,LIBERO,SI
+C,Coulibaly L.,Lecce,C,13,LIBERO,SI
+C,Ricci S.,Milan,C,13,LIBERO,SI
+C,Taylor K.,Lazio,C,13,LIBERO,SI
+C,Felici,Cagliari,C,12,LIBERO,SI
+C,Cataldi,Lazio,C,12,LIBERO,SI
+C,Berisha M.,Lecce,C,12,LIBERO,SI
+C,Loftus-Cheek,Milan,C,12,PECU,
+C,Cristante,Roma,C,12,PECU,
+C,Thorstvedt,Sassuolo,C,12,LIBERO,SI
+C,Volpato,Sassuolo,C,12,LIBERO,SI
+C,Ekkelenkamp,Udinese,C,12,BEPPE,
+C,Sottil,Lecce,C,12,LIBERO,SI
+C,Pobega,Bologna,C,11,LIBERO,SI
+C,Ellertsson,Genoa,C,11,LIBERO,SI
+C,Sucic P.,Inter,C,11,GALVA,
+C,Leris,Pisa,C,11,LIBERO,SI
+C,Fadera,Sassuolo,C,11,LIBERO,SI
+C,Serdar,Verona,C,11,LIBERO,SI
+C,Mazzitelli,Cagliari,C,11,LIBERO,SI
+C,De Roon,Atalanta,C,10,PECU,
+C,Ederson D.S.,Atalanta,C,10,ROBY,
+C,Brescianini,Fiorentina,C,10,LIBERO,SI
+C,Samardzic,Atalanta,C,10,BARDO,
+C,Strefezza,Parma,C,10,LIBERO,SI
+C,Mkhitaryan,Inter,C,10,GALVA,
+C,Miretti,Juventus,C,10,LIBERO,SI
+C,Fofana Y.,Milan,C,10,GIOPPY,
+C,Lobotka,Napoli,C,10,ROBY,
+C,Politano,Napoli,C,10,ASTI,
+C,Tourè I.,Pisa,C,10,LIBERO,SI
+C,Tramoni M.,Pisa,C,10,ROBY,
+C,Karlstrom,Udinese,C,10,LIBERO,SI
+C,Matic,Sassuolo,C,10,LIBERO,SI
+C,Harrison,Fiorentina,C,10,LIBERO,SI
+C,Frendrup,Genoa,C,9,LIBERO,SI
+C,Bernede,Verona,C,9,LIBERO,SI
+C,Zhegrova,Juventus,C,9,ASTI,
+C,Moro N.,Bologna,C,8,LIBERO,SI
+C,Fabbian,Fiorentina,C,8,DODO,
+C,Folorunsho,Cagliari,C,8,NILO,
+C,Fagioli,Fiorentina,C,8,BARDO,
+C,Keita M.,Parma,C,8,GIOPPY,
+C,Piotrowski,Udinese,C,8,GALVA,
+C,Rowe,Bologna,C,8,ASTI,
+C,Gagliardini,Verona,C,8,LIBERO,SI
+C,Adopo,Cagliari,C,7,LIBERO,SI
+C,Bondo,Cremonese,C,7,LIBERO,SI
+C,El Shaarawy,Roma,C,7,GIOPPY,
+C,Casadei,Torino,C,7,ROBY,
+C,Payero,Cremonese,C,7,LIBERO,SI
+C,Lorran,Pisa,C,7,LIBERO,SI
+C,Gandelman,Lecce,C,7,LIBERO,SI
+C,Loyola,Pisa,C,7,LIBERO,SI
+C,Zaragoza,Roma,C,7,LIBERO,SI
+C,Santos A.,Napoli,C,7,LIBERO,SI
+C,Ferguson,Bologna,C,6,GALVA,
+C,Deiola,Cagliari,C,6,LIBERO,SI
+C,Prati,Torino,C,6,BEPPE,
+C,Ndour,Fiorentina,C,6,LIBERO,SI
+C,Messias,Genoa,C,6,LIBERO,SI
+C,Luis Henrique,Inter,C,6,PAOLO B.,
+C,Vecino,Lazio,C,6,LIBERO,SI
+C,Pierotti,Lecce,C,6,PECU,
+C,Zerbin,Cremonese,C,6,DODO,
+C,Gilmour,Napoli,C,6,LIBERO,SI
+C,Akinsanmiro,Pisa,C,6,LIBERO,SI
+C,Pisilli,Roma,C,6,BEPPE,
+C,Baldanzi,Genoa,C,6,LIBERO,SI
+C,Sorensen O.,Parma,C,6,BARDO,
+C,Freuler,Bologna,C,5,PECU,
+C,Aebischer,Pisa,C,5,PECU,
+C,Bernardeschi,Bologna,C,5,LIBERO,SI
+C,Grassi,Cremonese,C,5,LIBERO,SI
+C,Masini,Genoa,C,5,LIBERO,SI
+C,Ramadani,Lecce,C,5,LIBERO,SI
+C,Musah,Atalanta,C,5,LIBERO,SI
+C,Estevez,Parma,C,5,LIBERO,SI
+C,Ondrejka,Parma,C,5,PAOLO B.,
+C,Piccinini G.,Pisa,C,5,LIBERO,SI
+C,Iannoni,Sassuolo,C,5,LIBERO,SI
+C,Niasse,Verona,C,5,LIBERO,SI
+C,Oristanio,Parma,C,5,GALVA,
+C,Elmas,Napoli,C,5,GIOPPY,
+C,Amorim,Genoa,C,5,LIBERO,SI
+C,Iling Junior,Pisa,C,5,LIBERO,SI
+C,Koopmeiners,Juventus,C,4,BARDO,
+C,Maleh,Cremonese,C,4,LIBERO,SI
+C,Sohm,Bologna,C,4,PAOLO B.,
+C,Marin M.,Pisa,C,4,LIBERO,SI
+C,El Aynaoui,Roma,C,4,LIBERO,SI
+C,Lipani,Sassuolo,C,4,LIBERO,SI
+C,Tameze,Torino,C,4,LIBERO,SI
+C,Gineitis,Torino,C,4,PAOLO B.,
+C,Maldini,Lazio,C,3,ASTI,
+C,Sergi Roberto,Como,C,3,LIBERO,SI
+C,Frattesi,Inter,C,3,ROBY,
+C,Belahyane,Lazio,C,3,LIBERO,SI
+C,Rovella,Lazio,C,3,BARDO,
+C,Dele-Bashiru,Lazio,C,3,GALVA,
+C,Ilic,Torino,C,3,LIBERO,SI
+C,Lovric,Verona,C,3,PECU,
+C,Harroui,Verona,C,3,LIBERO,SI
+C,Jashari,Milan,C,3,PAOLO B.,
+C,Miller L.,Udinese,C,3,LIBERO,SI
+C,Adzic,Juventus,C,3,LIBERO,SI
+C,Al-Musrati,Verona,C,3,LIBERO,SI
+C,Nicolussi Caviglia,Parma,C,3,NILO,
+C,Bakola,Sassuolo,C,3,LIBERO,SI
+C,Sulemana I.,Cagliari,C,2,LIBERO,SI
+C,Collocolo,Cremonese,C,2,PAOLO B.,
+C,Fazzini,Fiorentina,C,2,ASTI,
+C,Sabiri,Fiorentina,C,2,LIBERO,SI
+C,Helgason,Lecce,C,2,BARDO,
+C,Ordonez C.,Parma,C,2,LIBERO,SI
+C,Vural,Pisa,C,2,LIBERO,SI
+C,Boloca,Sassuolo,C,2,LIBERO,SI
+C,Anjorin,Torino,C,2,LIBERO,SI
+C,Zarraga,Udinese,C,2,LIBERO,SI
+C,Ilkhan,Torino,C,2,LIBERO,SI
+C,Vergara,Napoli,C,2,LIBERO,SI
+C,Diouf,Inter,C,2,LIBERO,SI
+C,Vranckx,Sassuolo,C,2,LIBERO,SI
+C,Gorter,Lecce,C,2,LIBERO,SI
+C,Onana J.,Genoa,C,2,LIBERO,SI
+C,Cornet,Genoa,C,2,LIBERO,SI
+C,Akpa Akpro,Verona,C,2,LIBERO,SI
+C,Przyborek,Lazio,C,2,LIBERO,SI
+C,Lahdo,Como,C,2,LIBERO,SI
+C,Liteta,Cagliari,C,1,LIBERO,SI
+C,Venturino,Roma,C,1,LIBERO,SI
+C,Marchwinski,Lecce,C,1,LIBERO,SI
+C,Hojholt,Pisa,C,1,LIBERO,SI
+C,Suslov,Verona,C,1,LIBERO,SI
+C,Cuenca H.,Genoa,C,1,LIBERO,SI
+C,Sala A.,Lecce,C,1,LIBERO,SI
+C,Stengs,Pisa,C,1,LIBERO,SI
+C,Cremaschi,Parma,C,1,LIBERO,SI
+C,Fofana Sa.,Lecce,C,1,LIBERO,SI
+C,Ngom,Lecce,C,1,LIBERO,SI
+A,Martinez L.,Inter,A,35,NILO,
+A,Yildiz,Juventus,A,31,GIOPPY,
+A,Thuram,Inter,A,30,ASTI,
+A,Leao,Milan,A,29,DODO,
+A,Soulè,Roma,A,25,GIOPPY,
+A,Davis K.,Udinese,A,25,GALVA,
+A,Hojlund,Napoli,A,25,PAOLO B.,
+A,Douvikas,Como,A,24,PECU,
+A,Scamacca,Atalanta,A,23,ROBY,
+A,Castro S.,Bologna,A,23,GALVA,
+A,Krstovic,Atalanta,A,22,BEPPE,
+A,Berardi,Sassuolo,A,22,NILO,
+A,Orban G.,Verona,A,22,NILO,
+A,Bonazzoli,Cremonese,A,20,PAOLO B.,
+A,Pellegrino M.,Parma,A,20,GALVA,
+A,Esposito F.P.,Inter,A,19,DODO,
+A,Simeone,Torino,A,19,GALVA,
+A,Laurientè,Sassuolo,A,19,BEPPE,
+A,Vardy,Cremonese,A,19,PECU,
+A,Moreo,Pisa,A,18,GIOPPY,
+A,De Ketelaere,Atalanta,A,17,DODO,
+A,Cambiaghi,Bologna,A,17,ASTI,
+A,Kean,Fiorentina,A,17,GIOPPY,
+A,Esposito Se.,Cagliari,A,17,PAOLO B.,
+A,Nkunku,Milan,A,17,GALVA,
+A,Bonny,Inter,A,16,ROBY,
+A,Raspadori,Atalanta,A,16,LIBERO,SI
+A,Ferguson E.,Roma,A,16,BEPPE,
+A,Adams C.,Torino,A,16,ASTI,
+A,Giovane,Napoli,A,16,GALVA,
+A,Lukaku,Napoli,A,15,BARDO,
+A,Durosinmi,Pisa,A,15,LIBERO,SI
+A,Malen,Roma,A,15,LIBERO,SI
+A,Colombo,Genoa,A,14,NILO,
+A,Vlahovic,Juventus,A,14,BARDO,
+A,Cancellieri,Lazio,A,14,LIBERO,SI
+A,Dovbyk,Roma,A,14,GALVA,
+A,Pinamonti,Sassuolo,A,14,PAOLO B.,
+A,Kilicsoy,Cagliari,A,14,LIBERO,SI
+A,Fullkrug,Milan,A,14,LIBERO,SI
+A,Ratkov,Lazio,A,14,LIBERO,SI
+A,Borrelli,Cagliari,A,13,LIBERO,SI
+A,David,Juventus,A,13,GIOPPY,
+A,Dybala,Roma,A,13,ASTI,
+A,Rodriguez Je.,Como,A,12,DODO,
+A,Vitinha O.,Genoa,A,12,LIBERO,SI
+A,Gimenez,Milan,A,12,PAOLO B.,
+A,Sulemana K.,Atalanta,A,11,ASTI,
+A,Addai,Como,A,11,LIBERO,SI
+A,Ekuban,Genoa,A,11,LIBERO,SI
+A,Noslin,Lazio,A,11,LIBERO,SI
+A,Banda,Lecce,A,11,LIBERO,SI
+A,Nzola,Sassuolo,A,11,BARDO,
+A,Ekhator,Genoa,A,10,LIBERO,SI
+A,N'Dri,Lecce,A,10,LIBERO,SI
+A,Vaz,Roma,A,10,LIBERO,SI
+A,Openda,Juventus,A,9,BARDO,
+A,Dallinga,Bologna,A,8,PECU,
+A,Piccoli,Fiorentina,A,8,ASTI,
+A,Benedyczak,Parma,A,8,LIBERO,SI
+A,Meister,Pisa,A,8,LIBERO,SI
+A,Buksa,Udinese,A,8,PECU,
+A,Belotti,Cagliari,A,8,GIOPPY,
+A,Pedro,Lazio,A,7,BEPPE,
+A,Mosquera,Verona,A,7,ROBY,
+A,Cheddira,Lecce,A,7,LIBERO,SI
+A,Stulic,Lecce,A,7,DODO,
+A,Solomon,Fiorentina,A,7,LIBERO,SI
+A,Kuhn,Como,A,6,DODO,
+A,Njie,Torino,A,6,LIBERO,SI
+A,Sanabria,Cremonese,A,6,PECU,
+A,Zapata D.,Torino,A,6,ROBY,
+A,Sarr A.,Verona,A,6,PECU,
+A,Bowie,Verona,A,6,LIBERO,SI
+A,Boga,Juventus,A,6,LIBERO,SI
+A,Dominguez B.,Bologna,A,5,ROBY,
+A,Dia,Lazio,A,5,BEPPE,
+A,Kulenovic,Torino,A,5,LIBERO,SI
+A,Diao,Como,A,4,ASTI,
+A,Camarda,Lecce,A,4,DODO,
+A,Stojilkovic,Pisa,A,4,LIBERO,SI
+A,Luvumbo,Cagliari,A,3,NILO,
+A,Almqvist,Parma,A,3,BARDO,
+A,Bayo V.,Udinese,A,3,LIBERO,SI
+A,Aboukhlal,Torino,A,3,ROBY,
+A,Morata,Como,A,3,BARDO,
+A,Djuric,Cremonese,A,2,NILO,
+A,Moro L.,Sassuolo,A,2,LIBERO,SI
+A,Moumbagna,Cremonese,A,2,LIBERO,SI
+A,Gueye,Udinese,A,2,LIBERO,SI
+A,Isaac,Verona,A,2,LIBERO,SI
+A,Pavoletti,Cagliari,A,1,LIBERO,SI
+A,Okereke,Cremonese,A,1,LIBERO,SI
+A,Milik,Juventus,A,1,LIBERO,SI
+A,Frigan,Parma,A,1,LIBERO,SI
+A,Kouamè,Fiorentina,A,1,LIBERO,SI
+A,Balentien,Milan,A,1,LIBERO,SI
+A,Arena A.,Roma,A,1,BEPPE,
+A,Trepy,Cagliari,A,1,LIBERO,SI
+A,Albarracin,Cagliari,A,1,LIBERO,SI
+A,Elphege,Parma,A,1,LIBERO,SI
+,,,,2,LIBERO,SI
+,,,,2,LIBERO,SI
+,,,,2,LIBERO,SI
+,,,,2,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,1,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
+,,,,,LIBERO,SI
