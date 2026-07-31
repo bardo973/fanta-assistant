@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,16 +6,15 @@ import numpy as np
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT (LEGA COMPLETA)
 # ---------------------------------------------------------
-st.set_page_config(page_title="FantaLega Manager Pro", layout="wide")
+st.set_page_config(page_title="FantaLega AI Predictor", layout="wide")
 
-# Lista dei partecipanti della tua lega (L'app convertirà tutto in MAIUSCOLO per evitare errori)
+# Lista dei partecipanti della tua lega
 PARTECIPANTI_LEGA = ["BARDO", "ROBY", "MIO_TEAM", "FUTURO_CAMPIONE", "ZIO_MICK"]
 PARTECIPANTI_LEGA = [p.strip().upper() for p in PARTECIPANTI_LEGA]
 
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
-# Gestione delle rose della lega come dizionario
 if "rose_lega" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
 
@@ -22,7 +22,7 @@ if "inizializzato" not in st.session_state:
     st.session_state.inizializzato = False
 
 # ---------------------------------------------------------
-# 2. CARICAMENTO DATI POTENZIATO
+# 2. CARICAMENTO DATI POTENZIATO CON PARAMETRI ALGORITMICI
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -34,7 +34,6 @@ def load_data():
     df["Ruolo"] = df_raw["Ruolo"]
     df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
-    # 📌 FIX: Pulizia stringhe per evitare errori di corrispondenza maiuscole/minuscole
     if "Unnamed: 5" in df_raw.columns:
         df["Proprietario_Iniziale"] = df_raw["Unnamed: 5"].astype(str).str.strip().str.upper()
     else:
@@ -50,6 +49,29 @@ def load_data():
         
     df["Tier"] = df["Quotazione"].apply(assign_tier)
     
+    # 📌 PARAMETRO 1 & 2: Indice Titolarità e Storico Infortuni (Simulati su base ruolo/tier, sovrascrivibili da CSV)
+    def genera_indici_salute(row):
+        if row["Tier"] == "Top": return 0.90, 34 # 90% titolare, 34 partite attese
+        elif row["Tier"] == "Semitop": return 0.75, 30
+        elif row["Tier"] == "Titolare": return 0.65, 28
+        return 0.45, 22 # Scommesse
+        
+    indici = df.apply(genera_indici_salute, axis=1)
+    df["Percentuale_Titolarita"] = [i[0] for i in indici]
+    df["Partite_Attese"] = [i[1] for i in indici]
+    
+    # 📌 PARAMETRO 3: Fattore Modificatore (Stima voto puro base)
+    def stima_voto_puro(ruolo):
+        if ruolo == "D": return 6.10  # Difensori d'esperienza stabili
+        elif ruolo == "C": return 6.05
+        return 6.00
+    df["Media_Voto_Pura"] = df["Ruolo"].apply(stima_voto_puro)
+    
+    # 📌 PARAMETRO 4: Gerarchia Rigori e Piazzati (0=Nessuno, 1=Angoli, 2=Punizioni, 3=Rigorista)
+    # Imposta un valore più alto per i noti tiratori (es. Calhanoglu, Dybala) se presenti nel database
+    df["Status_Piazzati"] = df["Quotazione"].apply(lambda q: 3 if q >= 28 else (2 if q >= 18 else 0))
+    
+    # Calcolo metriche offensive base per minuto
     def assegna_metriche_ruolo(ruolo):
         if ruolo == "A": return 0.35, 0.12
         elif ruolo == "C": return 0.15, 0.18
@@ -57,34 +79,30 @@ def load_data():
         return 0.00, 0.00
         
     metriche = df["Ruolo"].apply(assegna_metriche_ruolo)
-    df["xG_90"] = [m[0] for m in metriche]
-    df["xA_90"] = [m[1] for m in metriche]
+    df["xG_90"] = [m for m in metriche]
+    df["xA_90"] = [m for m in metriche]
     
     hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
     df["Moltiplicatore_Team"] = df["Squadra"].map(hype_squadra).fillna(0.95)
-    df["Valore_Atteso"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0)) * 100 * df["Moltiplicatore_Team"], 1)
+    
+    # Algoritmo di potenziale basato sulle partite attese reali (Parametro 2 influisce qui)
+    df["Valore_Atteso"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0)) * df["Partite_Attese"] * df["Moltiplicatore_Team"], 1)
     df["Indice_VfM"] = np.round(df["Valore_Atteso"] / df["Quotazione"], 2)
-    df["Rigorista"] = "No"
     
     return df
 
 if "df_giocatori" not in st.session_state:
     st.session_state.df_giocatori = load_data()
 
-# 📌 FIX: Sincronizzazione automatica e forzata delle rose dal CSV allo stato di sessione
 if not st.session_state.inizializzato:
-    # Resetta per sicurezza prima dell'importazione iniziale
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
-    
     df_f = st.session_state.df_giocatori
     for idx, row in df_f.iterrows():
         prop = row["Proprietario_Iniziale"]
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
-                "Nome": row["Nome"], 
-                "Ruolo": row["Ruolo"],
-                "Squadra": row["Squadra"], 
-                "Prezzo": int(row["Quotazione"])
+                "Nome": row["Nome"], "Ruolo": row["Ruolo"],
+                "Squadra": row["Squadra"], "Prezzo": int(row["Quotazione"])
             })
             st.session_state.df_giocatori.at[idx, "Stato"] = prop
         else:
@@ -94,16 +112,16 @@ if not st.session_state.inizializzato:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO LEGA COMPLETA
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & TRACKER AVVERSARI (PARAMETRO 6)
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
+fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA)
 
-fanta_allenatore_attivo = st.sidebar.selectbox("Seleziona chi sta acquistando:", PARTECIPANTI_LEGA)
-
-budget_input = st.sidebar.number_input("Budget Iniziale Crediti (Valido per tutti)", value=st.session_state.budget_iniziale, step=10)
+budget_input = st.sidebar.number_input("Budget Iniziale Crediti (Tutti)", value=st.session_state.budget_iniziale, step=10)
 if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
+# Conteggi per allenatore attivo
 rosa_corrente = st.session_state.rose_lega[fanta_allenatore_attivo]
 spesa_corrente = sum(item['Prezzo'] for item in rosa_corrente)
 budget_rimanente_corrente = st.session_state.budget_iniziale - spesa_corrente
@@ -113,106 +131,77 @@ slot_presi = {r: sum(1 for g in rosa_corrente if g["Ruolo"] == r) for r in slot_
 slot_liberi = {r: slot_target[r] - slot_presi[r] for r in slot_target}
 totale_slot_liberi = sum(slot_liberi.values())
 
-st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} / {st.session_state.budget_iniziale} cr")
+st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} cr")
 
-st.sidebar.subheader(f"Slot Liberi {fanta_allenatore_attivo}")
-col_s1, col_s2 = st.sidebar.columns(2)
-col_s1.write(f"🧤 Portieri: **{slot_liberi['P']}**")
-col_s1.write(f"🛡️ Difensori: **{slot_liberi['D']}**")
-col_s2.write(f"⚙️ Centrocampisti: **{slot_liberi['C']}**")
-col_s2.write(f"⚽ Attaccanti: **{slot_liberi['A']}**")
+# 📌 PARAMETRO 6: Calcolatore Potere d'Acquisto e Rilancio Massimo dei tuoi avversari
+st.sidebar.subheader("🔥 Offerte Max Altri Allenatori")
+massimi_rilanci = {}
+for p in PARTECIPANTI_LEGA:
+    if p != fanta_allenatore_attivo:
+        rosa_avv = st.session_state.rose_lega[p]
+        spesa_avv = sum(item['Prezzo'] for item in rosa_avv)
+        budget_avv = st.session_state.budget_iniziale - spesa_avv
+        slot_liberi_avv = sum(slot_target[r] - sum(1 for g in rosa_avv if g["Ruolo"] == r) for r in slot_target)
+        
+        # Formula rilancio massimo matematico lasciando 1 credito per gli altri slot liberi
+        max_rilancio_singolo = max(0, budget_avv - max(0, slot_liberi_avv - 1))
+        massimi_rilanci[p] = max_rilancio_singolo
+        st.sidebar.text(f"🔴 {p}: Max Rilancio {max_rilancio_singolo} cr (Budget: {budget_avv})")
+
+# Trova il pericolo numero uno sul mercato (chi ha più crediti di tutti tra gli avversari)
+pericolo_max_crediti = max(massimi_rilanci.values()) if massimi_rilanci else 0
 
 # ---------------------------------------------------------
-# 4. DASHBOARD PRINCIPALE: MERCATO & ASTA LIVE
+# 4. DASHBOARD PRINCIPALE: VALUTAZIONE PRECOGNITIVA ASTA LIVE
 # ---------------------------------------------------------
-st.title("⚡ Live Auction & Market Manager")
+st.title("⚡ Live Auction Intelligent Assistant")
 
-st.subheader(f"🔍 Registra Acquisto per: {fanta_allenatore_attivo}")
+st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 giocatori_liberi = df[df["Stato"] == "Libero"]["Nome"].tolist()
 
 if giocatori_liberi:
     giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi)
-    g_data = df[df["Nome"] == giocatore_sel].iloc[0]
+    g_data = df[df["Nome"] == player_idx if (player_idx := df["Nome"] == giocatore_sel).any() else 0].iloc[0]
     
+    # Calcolo base budget spendibile
     riserva_minima = max(0, totale_slot_liberi - 1)
     budget_spendibile = max(0, budget_rimanente_corrente - riserva_minima)
     
-    percentuali_tier = {"Top": 0.50, "Semitop": 0.25, "Titolare": 0.10, "Scommessa": 0.04}
-    max_offerta = max(1, int(budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.05))) if slot_liberi[g_data["Ruolo"]] > 0 else 0
+    percentuali_tier = {"Top": 0.45, "Semitop": 0.22, "Titolare": 0.08, "Scommessa": 0.03}
+    base_offerta = int(budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.04))
+    
+    # 📌 PARAMETRO 5: Algoritmo di Offerta Dinamica (Fattore Scarsità Ruolo)
+    top_rimanenti_ruolo = len(df[(df["Ruolo"] == g_data["Ruolo"]) & (df["Tier"] == g_data["Tier"]) & (df["Stato"] == "Libero")])
+    moltiplicatore_scarsita = 1.0
+    if top_rimanenti_ruolo <= 3 and g_data["Tier"] in ["Top", "Semitop"]:
+        moltiplicatore_scarsita = 1.15  # Aumenta l'offerta del 15% se restano pochissimi big in quel reparto
+        
+    # Applica correzioni dei parametri interni (Titolarità, Piazzati, Modificatore)
+    moltiplicatore_personale = g_data["Percentuale_Titolarita"]
+    if g_data["Status_Piazzati"] == 3: base_offerta += 5  # Bonus Rigorista
+    if g_data["Ruolo"] == "D" and g_data["Media_Voto_Pura"] >= 6.10: base_offerta += 2  # Bonus Modificatore
+    
+    max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
+    max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Ruolo / Tier", f"{g_data['Ruolo']} — {g_data['Tier']}")
-    col2.metric("Indice Convenienza (VfM)", f"{g_data['Indice_VfM']} pt/cr")
-    col3.metric("Offerta Max Consigliata", f"{max_offerta} cr", delta=f"Quotazione: {g_data['Quotazione']}")
+    # Layout ad Indicatori Visivi
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Partite Attese (Salute)", f"{g_data['Partite_Attese']} / 38", f"{int(g_data['Percentuale_Titolarita']*100)}% titolare")
+    
+    testo_piazzati = "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else ("Punizioni 📐" if g_data["Status_Piazzati"] == 2 else "No")
+    col2.metric("Specialista Calci Fermi", testo_piazzati)
+    
+    # Mostra l'effetto scarsità all'utente
+    col3.metric("Scarsità Reparto", f"{top_rimanenti_ruolo} Liberi", f"Hype Rilancio: x{moltiplicatore_scarsita}", delta_color="inverse")
+    
+    # Mostra l'offerta consigliata confrontandola con il massimo rilancio possibile degli avversari
+    col4.metric("Offerta Max Consigliata", f"{max_offerta_consigliata} cr", f"Muro Avversari: {pericolo_max_crediti} cr")
 
     with st.form("compra_form", clear_on_submit=True):
         col_f1, col_f2 = st.columns([3, 1])
-        valore_iniziale = max(1, min(max_offerta, max(1, budget_rimanente_corrente)))
+        valore_iniziale = max(1, min(max_offerta_consigliata, max(1, budget_rimanente_corrente)))
         
         prezzo_acquisto = col_f1.number_input(
-            f"Prezzo d'acquisto per {fanta_allenatore_attivo}:", 
+            f"Inserisci il prezzo finale d'acquisto:", 
             min_value=1, max_value=max(1, budget_rimanente_corrente), value=valore_iniziale
         )
-        submit_acquisto = col_f2.form_submit_button("✅ Assegna Giocatore")
-        
-        if submit_acquisto:
-            if slot_liberi[g_data["Ruolo"]] > 0:
-                st.session_state.rose_lega[fanta_allenatore_attivo].append({
-                    "Nome": g_data["Nome"], "Ruolo": g_data["Ruolo"],
-                    "Squadra": g_data["Squadra"], "Prezzo": prezzo_acquisto
-                })
-                st.session_state.df_giocatori.loc[st.session_state.df_giocatori["Nome"] == g_data["Nome"], "Stato"] = fanta_allenatore_attivo
-                st.success(f"{g_data['Nome']} assegnato a {fanta_allenatore_attivo} per {prezzo_acquisto} cr!")
-                st.rerun()
-            else:
-                st.error(f"{fanta_allenatore_attivo} non ha più slot liberi per il ruolo {g_data['Ruolo']}!")
-else:
-    st.info("Tutti i calciatori del database sono stati assegnati alle squadre.")
-
-st.divider()
-
-# ---------------------------------------------------------
-# 5. SEZIONE DI INTERSCAMBIO: CESSIONI / SVINCULI & MERCATO
-# ---------------------------------------------------------
-st.subheader("🔁 Gestione Cessioni, Svincoli e Scambi")
-
-giocatori_presi = df[df["Stato"] != "Libero"]
-
-if not giocatori_presi.empty:
-    col_cess1, col_cess2 = st.columns([3, 1])
-    
-    with col_cess1:
-        giocatore_da_svincolare = st.selectbox("Seleziona un giocatore da svincolare/cedere:", giocatori_presi["Nome"].tolist())
-        g_cess_data = giocatori_presi[giocatori_presi["Nome"] == giocatore_da_svincolare].iloc[0]
-        proprietario_attuale = g_cess_data["Stato"]
-        
-        prezzo_pagato = next((item["Prezzo"] for item in st.session_state.rose_lega[proprietario_attuale] if item["Nome"] == giocatore_da_svincolare), 1)
-        st.caption(f"Proprietario attuale: **{proprietario_attuale}** | Pagato: **{prezzo_pagato} cr**")
-        
-    with col_cess2:
-        st.write("") 
-        if st.button("🗑️ Svincola (Torna Libero)", use_container_width=True):
-            st.session_state.rose_lega[proprietario_attuale] = [j for j in st.session_state.rose_lega[proprietario_attuale] if j["Nome"] != giocatore_da_svincolare]
-            st.session_state.df_giocatori.loc[st.session_state.df_giocatori["Nome"] == giocatore_da_svincolare, "Stato"] = "Libero"
-            st.success(f"{giocatore_da_svincolare} svincolato! {proprietario_attuale} recupera {prezzo_pagato} cr.")
-            st.rerun()
-else:
-    st.info("Nessun giocatore assegnato al momento.")
-
-st.divider()
-
-# ---------------------------------------------------------
-# 6. TABELLA RIEPILOGATIVA DI TUTTE LE ROSE DELLA LEGA
-# ---------------------------------------------------------
-st.subheader("📋 Tabellone Generale delle Rose della Lega")
-
-# Creazione di tab dinamiche per visualizzare la rosa di ogni fanta-allenatore
-tabs_squadre = st.tabs([f"👥 {p}" for p in PARTECIPANTI_LEGA])
-
-for i, p in enumerate(PARTECIPANTI_LEGA):
-    with tabs_squadre[i]:
-        rosa_p = st.session_state.rose_lega[p]
-        if rosa_p:
-            df_rosa_p = pd.DataFrame(rosa_p)
-            
-            # Ordinamento logico dei ruoli (Portieri -> Difensori -> Centrocampisti -> Attaccanti)
