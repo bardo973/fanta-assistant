@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -49,43 +48,38 @@ def load_data():
         
     df["Tier"] = df["Quotazione"].apply(assign_tier)
     
-    # 📌 PARAMETRO 1 & 2: Indice Titolarità e Storico Infortuni (Simulati su base ruolo/tier, sovrascrivibili da CSV)
+    # 📌 PARAMETRO 1 & 2: Indice Titolarità e Storico Infortuni
     def genera_indici_salute(row):
-        if row["Tier"] == "Top": return 0.90, 34 # 90% titolare, 34 partite attese
-        elif row["Tier"] == "Semitop": return 0.75, 30
-        elif row["Tier"] == "Titolare": return 0.65, 28
-        return 0.45, 22 # Scommesse
+        if row["Tier"] == "Top": return pd.Series([0.90, 34])
+        elif row["Tier"] == "Semitop": return pd.Series([0.75, 30])
+        elif row["Tier"] == "Titolare": return pd.Series([0.65, 28])
+        return pd.Series([0.45, 22])
         
-    indici = df.apply(genera_indici_salute, axis=1)
-    df["Percentuale_Titolarita"] = [i[0] for i in indici]
-    df["Partite_Attese"] = [i[1] for i in indici]
+    df[["Percentuale_Titolarita", "Partite_Attese"]] = df.apply(genera_indici_salute, axis=1)
     
-    # 📌 PARAMETRO 3: Fattore Modificatore (Stima voto puro base)
+    # 📌 PARAMETRO 3: Fattore Modificatore
     def stima_voto_puro(ruolo):
-        if ruolo == "D": return 6.10  # Difensori d'esperienza stabili
+        if ruolo == "D": return 6.10
         elif ruolo == "C": return 6.05
         return 6.00
     df["Media_Voto_Pura"] = df["Ruolo"].apply(stima_voto_puro)
     
-    # 📌 PARAMETRO 4: Gerarchia Rigori e Piazzati (0=Nessuno, 1=Angoli, 2=Punizioni, 3=Rigorista)
-    # Imposta un valore più alto per i noti tiratori (es. Calhanoglu, Dybala) se presenti nel database
+    # 📌 PARAMETRO 4: Gerarchia Rigori e Piazzati (0=Nessuno, 2=Punizioni, 3=Rigorista)
     df["Status_Piazzati"] = df["Quotazione"].apply(lambda q: 3 if q >= 28 else (2 if q >= 18 else 0))
     
-    # Calcolo metriche offensive base per minuto
+    # 📌 FIX: Estrazione corretta dei valori xG e xA separandoli in colonne numeriche pulite
     def assegna_metriche_ruolo(ruolo):
-        if ruolo == "A": return 0.35, 0.12
-        elif ruolo == "C": return 0.15, 0.18
-        elif ruolo == "D": return 0.05, 0.08
-        return 0.00, 0.00
+        if ruolo == "A": return pd.Series([0.35, 0.12])
+        elif ruolo == "C": return pd.Series([0.15, 0.18])
+        elif ruolo == "D": return pd.Series([0.05, 0.08])
+        return pd.Series([0.00, 0.00])
         
-    metriche = df["Ruolo"].apply(assegna_metriche_ruolo)
-    df["xG_90"] = [m for m in metriche]
-    df["xA_90"] = [m for m in metriche]
+    df[["xG_90", "xA_90"]] = df["Ruolo"].apply(assegna_metriche_ruolo)
     
     hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
     df["Moltiplicatore_Team"] = df["Squadra"].map(hype_squadra).fillna(0.95)
     
-    # Algoritmo di potenziale basato sulle partite attese reali (Parametro 2 influisce qui)
+    # Calcolo del potenziale finale (ora tutte le colonne sono Float e numeriche)
     df["Valore_Atteso"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0)) * df["Partite_Attese"] * df["Moltiplicatore_Team"], 1)
     df["Indice_VfM"] = np.round(df["Valore_Atteso"] / df["Quotazione"], 2)
     
@@ -112,7 +106,7 @@ if not st.session_state.inizializzato:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO & TRACKER AVVERSARI (PARAMETRO 6)
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & TRACKER AVVERSARI
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA)
@@ -121,7 +115,6 @@ budget_input = st.sidebar.number_input("Budget Iniziale Crediti (Tutti)", value=
 if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
-# Conteggi per allenatore attivo
 rosa_corrente = st.session_state.rose_lega[fanta_allenatore_attivo]
 spesa_corrente = sum(item['Prezzo'] for item in rosa_corrente)
 budget_rimanente_corrente = st.session_state.budget_iniziale - spesa_corrente
@@ -133,7 +126,6 @@ totale_slot_liberi = sum(slot_liberi.values())
 
 st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} cr")
 
-# 📌 PARAMETRO 6: Calcolatore Potere d'Acquisto e Rilancio Massimo dei tuoi avversari
 st.sidebar.subheader("🔥 Offerte Max Altri Allenatori")
 massimi_rilanci = {}
 for p in PARTECIPANTI_LEGA:
@@ -143,12 +135,10 @@ for p in PARTECIPANTI_LEGA:
         budget_avv = st.session_state.budget_iniziale - spesa_avv
         slot_liberi_avv = sum(slot_target[r] - sum(1 for g in rosa_avv if g["Ruolo"] == r) for r in slot_target)
         
-        # Formula rilancio massimo matematico lasciando 1 credito per gli altri slot liberi
         max_rilancio_singolo = max(0, budget_avv - max(0, slot_liberi_avv - 1))
         massimi_rilanci[p] = max_rilancio_singolo
-        st.sidebar.text(f"🔴 {p}: Max Rilancio {max_rilancio_singolo} cr (Budget: {budget_avv})")
+        st.sidebar.text(f"🔴 {p}: Max Rilancio {max_rilancio_singolo} cr")
 
-# Trova il pericolo numero uno sul mercato (chi ha più crediti di tutti tra gli avversari)
 pericolo_max_crediti = max(massimi_rilanci.values()) if massimi_rilanci else 0
 
 # ---------------------------------------------------------
@@ -161,40 +151,35 @@ giocatori_liberi = df[df["Stato"] == "Libero"]["Nome"].tolist()
 
 if giocatori_liberi:
     giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi)
-    g_data = df[df["Nome"] == player_idx if (player_idx := df["Nome"] == giocatore_sel).any() else 0].iloc[0]
     
-    # Calcolo base budget spendibile
+    # 📌 FIX: Selezione sicura dell'indice riga senza errori di sintassi python
+    g_data = df[df["Nome"] == giocatore_sel].iloc[0]
+    
     riserva_minima = max(0, totale_slot_liberi - 1)
     budget_spendibile = max(0, budget_rimanente_corrente - riserva_minima)
     
     percentuali_tier = {"Top": 0.45, "Semitop": 0.22, "Titolare": 0.08, "Scommessa": 0.03}
     base_offerta = int(budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.04))
     
-    # 📌 PARAMETRO 5: Algoritmo di Offerta Dinamica (Fattore Scarsità Ruolo)
+    # Algoritmo di Offerta Dinamica (Fattore Scarsità Ruolo)
     top_rimanenti_ruolo = len(df[(df["Ruolo"] == g_data["Ruolo"]) & (df["Tier"] == g_data["Tier"]) & (df["Stato"] == "Libero")])
     moltiplicatore_scarsita = 1.0
     if top_rimanenti_ruolo <= 3 and g_data["Tier"] in ["Top", "Semitop"]:
-        moltiplicatore_scarsita = 1.15  # Aumenta l'offerta del 15% se restano pochissimi big in quel reparto
+        moltiplicatore_scarsita = 1.15
         
-    # Applica correzioni dei parametri interni (Titolarità, Piazzati, Modificatore)
     moltiplicatore_personale = g_data["Percentuale_Titolarita"]
-    if g_data["Status_Piazzati"] == 3: base_offerta += 5  # Bonus Rigorista
-    if g_data["Ruolo"] == "D" and g_data["Media_Voto_Pura"] >= 6.10: base_offerta += 2  # Bonus Modificatore
+    if g_data["Status_Piazzati"] == 3: base_offerta += 5
+    if g_data["Ruolo"] == "D" and g_data["Media_Voto_Pura"] >= 6.10: base_offerta += 2
     
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
     max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
-    # Layout ad Indicatori Visivi
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Partite Attese (Salute)", f"{g_data['Partite_Attese']} / 38", f"{int(g_data['Percentuale_Titolarita']*100)}% titolare")
+    col1.metric("Partite Attese (Salute)", f"{int(g_data['Partite_Attese'])} / 38", f"{int(g_data['Percentuale_Titolarita']*100)}% titolare")
     
     testo_piazzati = "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else ("Punizioni 📐" if g_data["Status_Piazzati"] == 2 else "No")
     col2.metric("Specialista Calci Fermi", testo_piazzati)
-    
-    # Mostra l'effetto scarsità all'utente
     col3.metric("Scarsità Reparto", f"{top_rimanenti_ruolo} Liberi", f"Hype Rilancio: x{moltiplicatore_scarsita}", delta_color="inverse")
-    
-    # Mostra l'offerta consigliata confrontandola con il massimo rilancio possibile degli avversari
     col4.metric("Offerta Max Consigliata", f"{max_offerta_consigliata} cr", f"Muro Avversari: {pericolo_max_crediti} cr")
 
     with st.form("compra_form", clear_on_submit=True):
@@ -205,3 +190,24 @@ if giocatori_liberi:
             f"Inserisci il prezzo finale d'acquisto:", 
             min_value=1, max_value=max(1, budget_rimanente_corrente), value=valore_iniziale
         )
+        submit_acquisto = col_f2.form_submit_button("✅ Conferma Assegnazione")
+        
+        if submit_acquisto:
+            if slot_liberi[g_data["Ruolo"]] > 0:
+                st.session_state.rose_lega[fanta_allenatore_attivo].append({
+                    "Nome": g_data["Nome"], "Ruolo": g_data["Ruolo"],
+                    "Squadra": g_data["Squadra"], "Prezzo": prezzo_acquisto
+                })
+                st.session_state.df_giocatori.loc[st.session_state.df_giocatori["Nome"] == g_data["Nome"], "Stato"] = fanta_allenatore_attivo
+                st.success(f"{g_data['Nome']} acquistato con successo!")
+                st.rerun()
+            else:
+                st.error(f"Posti esauriti nel reparto {g_data['Ruolo']}!")
+else:
+    st.info("Mercato terminato. Tutti i calciatori sono accasati.")
+
+st.divider()
+
+# ---------------------------------------------------------
+# 5. SEZIONE DI INTERSCAMBIO: CESSIONI / SVINCULI & MERCATO
+
