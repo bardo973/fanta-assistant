@@ -7,18 +7,8 @@ import numpy as np
 # ---------------------------------------------------------
 st.set_page_config(page_title="FantaLega AI Predictor", layout="wide")
 
-# Lista dei partecipanti della tua lega
-PARTECIPANTI_LEGA = ["BARDO", "ROBY", "MIO_TEAM", "FUTURO_CAMPIONE", "ZIO_MICK"]
-PARTECIPANTI_LEGA = [p.strip().upper() for p in PARTECIPANTI_LEGA]
-
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
-
-if "rose_lega" not in st.session_state:
-    st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
-
-if "inizializzato" not in st.session_state:
-    st.session_state.inizializzato = False
 
 # ---------------------------------------------------------
 # 2. CARICAMENTO DATI POTENZIATO CON PARAMETRI ALGORITMICI
@@ -33,8 +23,13 @@ def load_data():
     df["Ruolo"] = df_raw["Ruolo"]
     df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
+    # 📌 FIX: Pulizia radicale della colonna dei proprietari per evitare disallineamenti
     if "Unnamed: 5" in df_raw.columns:
         df["Proprietario_Iniziale"] = df_raw["Unnamed: 5"].astype(str).str.strip().str.upper()
+        # Se il campo è vuoto, NaN o contrassegnato come svincolato/libero, lo consideriamo Libero
+        df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
+            lambda x: "LIBERO" if x in ["NAN", "", "SVINCOLATO", "LIBERO"] else x
+        )
     else:
         df["Proprietario_Iniziale"] = "LIBERO"
         
@@ -48,7 +43,7 @@ def load_data():
         
     df["Tier"] = df["Quotazione"].apply(assign_tier)
     
-    # 📌 PARAMETRO 1 & 2: Indice Titolarità e Storico Infortuni
+    # Parametri algoritmici di salute e titolarità
     def genera_indici_salute(row):
         if row["Tier"] == "Top": return pd.Series([0.90, 34])
         elif row["Tier"] == "Semitop": return pd.Series([0.75, 30])
@@ -57,17 +52,14 @@ def load_data():
         
     df[["Percentuale_Titolarita", "Partite_Attese"]] = df.apply(genera_indici_salute, axis=1)
     
-    # 📌 PARAMETRO 3: Fattore Modificatore
     def stima_voto_puro(ruolo):
         if ruolo == "D": return 6.10
         elif ruolo == "C": return 6.05
         return 6.00
     df["Media_Voto_Pura"] = df["Ruolo"].apply(stima_voto_puro)
     
-    # 📌 PARAMETRO 4: Gerarchia Rigori e Piazzati (0=Nessuno, 2=Punizioni, 3=Rigorista)
     df["Status_Piazzati"] = df["Quotazione"].apply(lambda q: 3 if q >= 28 else (2 if q >= 18 else 0))
     
-    # 📌 FIX: Estrazione corretta dei valori xG e xA separandoli in colonne numeriche pulite
     def assegna_metriche_ruolo(ruolo):
         if ruolo == "A": return pd.Series([0.35, 0.12])
         elif ruolo == "C": return pd.Series([0.15, 0.18])
@@ -79,7 +71,6 @@ def load_data():
     hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
     df["Moltiplicatore_Team"] = df["Squadra"].map(hype_squadra).fillna(0.95)
     
-    # Calcolo del potenziale finale (ora tutte le colonne sono Float e numeriche)
     df["Valore_Atteso"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0)) * df["Partite_Attese"] * df["Moltiplicatore_Team"], 1)
     df["Indice_VfM"] = np.round(df["Valore_Atteso"] / df["Quotazione"], 2)
     
@@ -88,10 +79,25 @@ def load_data():
 if "df_giocatori" not in st.session_state:
     st.session_state.df_giocatori = load_data()
 
-if not st.session_state.inizializzato:
+df = st.session_state.df_giocatori
+
+# 📌 FIX AUTOMATICO: Estrae i nomi dei partecipanti REALI direttamente dal tuo file CSV
+# Trova tutti i valori unici nella colonna escludendo il valore "LIBERO"
+lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p != "LIBERO"]
+
+# Se il CSV è completamente vuoto o privo di assegnazioni, usa una lista di backup predefinita
+if not lista_proprietari_csv:
+    lista_proprietari_csv = ["BARDO", "ROBY", "MIO_TEAM"]
+
+PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
+
+# Inizializza il dizionario delle rose in session_state basandosi sui partecipanti rilevati
+if "rose_lega" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
-    df_f = st.session_state.df_giocatori
-    for idx, row in df_f.iterrows():
+
+if "inizializzato" not in st.session_state:
+    st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
+    for idx, row in df.iterrows():
         prop = row["Proprietario_Iniziale"]
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
@@ -151,8 +157,6 @@ giocatori_liberi = df[df["Stato"] == "Libero"]["Nome"].tolist()
 
 if giocatori_liberi:
     giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi)
-    
-    # 📌 FIX: Selezione sicura dell'indice riga senza errori di sintassi python
     g_data = df[df["Nome"] == giocatore_sel].iloc[0]
     
     riserva_minima = max(0, totale_slot_liberi - 1)
@@ -161,7 +165,6 @@ if giocatori_liberi:
     percentuali_tier = {"Top": 0.45, "Semitop": 0.22, "Titolare": 0.08, "Scommessa": 0.03}
     base_offerta = int(budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.04))
     
-    # Algoritmo di Offerta Dinamica (Fattore Scarsità Ruolo)
     top_rimanenti_ruolo = len(df[(df["Ruolo"] == g_data["Ruolo"]) & (df["Tier"] == g_data["Tier"]) & (df["Stato"] == "Libero")])
     moltiplicatore_scarsita = 1.0
     if top_rimanenti_ruolo <= 3 and g_data["Tier"] in ["Top", "Semitop"]:
@@ -206,8 +209,5 @@ if giocatori_liberi:
 else:
     st.info("Mercato terminato. Tutti i calciatori sono accasati.")
 
-st.divider()
 
-# ---------------------------------------------------------
-# 5. SEZIONE DI INTERSCAMBIO: CESSIONI / SVINCULI & MERCATO
 
