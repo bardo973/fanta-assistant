@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,13 +6,13 @@ import numpy as np
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT (LEGA COMPLETA)
 # ---------------------------------------------------------
-st.set_page_config(page_title="FantaLega AI Predictor", layout="wide")
+st.set_page_config(page_title="FantaLega AI Predictor & Contract Manager", layout="wide")
 
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. CARICAMENTO DATI POTENZIATO CON PARAMETRI ALGORITMICI
+# 2. CARICAMENTO DATI POTENZIATO CON PARAMETRI ALGORITMICI & CONTRATTI
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
@@ -23,10 +24,9 @@ def load_data():
     df["Ruolo"] = df_raw["Ruolo"]
     df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
-    # 📌 FIX: Pulizia radicale della colonna dei proprietari per evitare disallineamenti
+    # Pulizia radicale della colonna dei proprietari per evitare disallineamenti
     if "Unnamed: 5" in df_raw.columns:
         df["Proprietario_Iniziale"] = df_raw["Unnamed: 5"].astype(str).str.strip().str.upper()
-        # Se il campo è vuoto, NaN o contrassegnato come svincolato/libero, lo consideriamo Libero
         df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
             lambda x: "LIBERO" if x in ["NAN", "", "SVINCOLATO", "LIBERO"] else x
         )
@@ -35,13 +35,18 @@ def load_data():
         
     df["Stato"] = "Libero" 
     
-    def assign_tier(quot):
-        if quot >= 25: return "Top"
-        elif quot >= 15: return "Semitop"
-        elif quot >= 8: return "Titolare"
-        else: return "Scommessa"
+    # 📌 NOVITÀ: Generazione dinamica della Scadenza di Contratto basata sul Tier
+    def assign_tier_and_contract(quot):
+        if quot >= 25: 
+            return pd.Series(["Top", 2027])      # I top rinnovano spesso a breve termine o hanno scadenze imminenti
+        elif quot >= 15: 
+            return pd.Series(["Semitop", 2028])
+        elif quot >= 8: 
+            return pd.Series(["Titolare", 2029])
+        else: 
+            return pd.Series(["Scommessa", 2030]) # I giovani o le scommesse hanno contratti più lunghi
         
-    df["Tier"] = df["Quotazione"].apply(assign_tier)
+    df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(assign_tier_and_contract)
     
     # Parametri algoritmici di salute e titolarità
     def genera_indici_salute(row):
@@ -81,11 +86,8 @@ if "df_giocatori" not in st.session_state:
 
 df = st.session_state.df_giocatori
 
-# 📌 FIX AUTOMATICO: Estrae i nomi dei partecipanti REALI direttamente dal tuo file CSV
-# Trova tutti i valori unici nella colonna escludendo il valore "LIBERO"
+# Estrae i nomi dei partecipanti REALI direttamente dal tuo file CSV
 lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p != "LIBERO"]
-
-# Se il CSV è completamente vuoto o privo di assegnazioni, usa una lista di backup predefinita
 if not lista_proprietari_csv:
     lista_proprietari_csv = ["BARDO", "ROBY", "MIO_TEAM"]
 
@@ -102,7 +104,8 @@ if "inizializzato" not in st.session_state:
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
                 "Nome": row["Nome"], "Ruolo": row["Ruolo"],
-                "Squadra": row["Squadra"], "Prezzo": int(row["Quotazione"])
+                "Squadra": row["Squadra"], "Prezzo": int(row["Quotazione"]),
+                "Scadenza": int(row["Scadenza_Contratto"])
             })
             st.session_state.df_giocatori.at[idx, "Stato"] = prop
         else:
@@ -112,7 +115,7 @@ if "inizializzato" not in st.session_state:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO & TRACKER AVVERSARI
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & 📌 NUOVO MONITOR ROSE E SCADENZE
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA)
@@ -132,6 +135,29 @@ totale_slot_liberi = sum(slot_liberi.values())
 
 st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} cr")
 
+# 📌 NUOVO RIQUADRO A SINISTRA: Monitor Rose e Scadenze Contrattuali Dinamiche
+st.sidebar.divider()
+st.sidebar.subheader("📋 Esplora Rose & Scadenze")
+squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a lato:", PARTECIPANTI_LEGA, key="esplora_sidebar")
+
+rosa_selezionata_sidebar = st.session_state.rose_lega[squadra_da_esplorare]
+if rosa_selezionata_sidebar:
+    df_side = pd.DataFrame(rosa_selezionata_sidebar)
+    df_side = df_side.sort_values(by="Ruolo")
+    # Mostra una versione compatta ed elegantemente scannabile nella sidebar sinistra
+    st.sidebar.dataframe(
+        df_side[["Nome", "Ruolo", "Scadenza"]], 
+        use_container_width=True, 
+        hide_index=True
+    )
+    # Alert visivo se ci sono contratti in scadenza nel prossimo anno calcistico
+    scadenza_imminente = len(df_side[df_side["Scadenza"] <= 2027])
+    if scadenza_imminente > 0:
+        st.sidebar.warning(f"⚠️ {scadenza_imminente} contratti in scadenza nel 2027!")
+else:
+    st.sidebar.info("Questa rosa è attualmente vuota.")
+
+st.sidebar.divider()
 st.sidebar.subheader("🔥 Offerte Max Altri Allenatori")
 massimi_rilanci = {}
 for p in PARTECIPANTI_LEGA:
@@ -178,36 +204,9 @@ if giocatori_liberi:
     max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Partite Attese (Salute)", f"{int(g_data['Partite_Attese'])} / 38", f"{int(g_data['Percentuale_Titolarita']*100)}% titolare")
+    col1.metric("Partite Attese (Salute)", f"{int(g_data['Partite_Attese'])} / 38", f"Scadenza: {int(g_data['Scadenza_Contratto'])}")
     
     testo_piazzati = "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else ("Punizioni 📐" if g_data["Status_Piazzati"] == 2 else "No")
     col2.metric("Specialista Calci Fermi", testo_piazzati)
     col3.metric("Scarsità Reparto", f"{top_rimanenti_ruolo} Liberi", f"Hype Rilancio: x{moltiplicatore_scarsita}", delta_color="inverse")
-    col4.metric("Offerta Max Consigliata", f"{max_offerta_consigliata} cr", f"Muro Avversari: {pericolo_max_crediti} cr")
-
-    with st.form("compra_form", clear_on_submit=True):
-        col_f1, col_f2 = st.columns([3, 1])
-        valore_iniziale = max(1, min(max_offerta_consigliata, max(1, budget_rimanente_corrente)))
-        
-        prezzo_acquisto = col_f1.number_input(
-            f"Inserisci il prezzo finale d'acquisto:", 
-            min_value=1, max_value=max(1, budget_rimanente_corrente), value=valore_iniziale
-        )
-        submit_acquisto = col_f2.form_submit_button("✅ Conferma Assegnazione")
-        
-        if submit_acquisto:
-            if slot_liberi[g_data["Ruolo"]] > 0:
-                st.session_state.rose_lega[fanta_allenatore_attivo].append({
-                    "Nome": g_data["Nome"], "Ruolo": g_data["Ruolo"],
-                    "Squadra": g_data["Squadra"], "Prezzo": prezzo_acquisto
-                })
-                st.session_state.df_giocatori.loc[st.session_state.df_giocatori["Nome"] == g_data["Nome"], "Stato"] = fanta_allenatore_attivo
-                st.success(f"{g_data['Nome']} acquistato con successo!")
-                st.rerun()
-            else:
-                st.error(f"Posti esauriti nel reparto {g_data['Ruolo']}!")
-else:
-    st.info("Mercato terminato. Tutti i calciatori sono accasati.")
-
-
 
