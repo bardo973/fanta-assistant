@@ -173,12 +173,20 @@ if uploaded_file is not None:
         st.session_state.extra_budget = loaded_state.get("extra_budget", {p: 0 for p in PARTECIPANTI_LEGA})
         
         stati_caricati = loaded_state.get("stati_giocatori", {})
-        for nome, stato in stati_caricati.items():
-            idx = df[df["Nome"] == nome].index
-            if not idx.empty:
-                df.at[idx[0], "Stato"] = stato
+        for idx, row in df.iterrows():
+            nome_giocatore = row["Nome"]
+            if nome_giocatore in stati_caricati:
+                df.at[idx, "Stato"] = stati_caricati[nome_giocatore]
+            else:
+                # Se non è nel dizionario salvato, controlliamo a quale rosa appartiene in rose_lega
+                trovato = "LIBERO"
+                for p, rosa in st.session_state.rose_lega.items():
+                    if any(g["Nome"] == nome_giocatore for g in rosa):
+                        trovato = p
+                        break
+                df.at[idx, "Stato"] = trovato
+                
         st.sidebar.success("✅ Stato caricato con successo!")
-        st.rerun()
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento del file: {e}")
 
@@ -270,7 +278,6 @@ if giocatori_liberi:
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
             st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = vincitore_asta
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
-            st.rerun()
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
 
@@ -346,7 +353,6 @@ else:
                     st.session_state.extra_budget[squadra_B] += conguaglio_crediti
                     
                 st.success(f"✅ Operazione di mercato completata con successo tra **{squadra_A}** e **{squadra_B}**!")
-                st.rerun()
 
 # ---------------------------------------------------------
 # 6. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
@@ -379,6 +385,5 @@ if rosa_allenatore_attuale:
                     st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
                 
                 st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
-                st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
