@@ -88,6 +88,10 @@ if "df_giocatori" not in st.session_state:
 
 df = st.session_state.df_giocatori
 
+# Assicuriamoci che la colonna Stato esista sempre nel DataFrame in session_state
+if "Stato" not in df.columns:
+    df["Stato"] = "LIBERO"
+
 lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
     lista_proprietari_csv = ["BARDO", "ROBY", "MIO_TEAM"]
