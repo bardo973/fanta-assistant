@@ -5,7 +5,7 @@ import json
 import os
 
 # ---------------------------------------------------------
-# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT (LEGA COMPLETA)
+# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
 # ---------------------------------------------------------
 st.set_page_config(page_title="FantaLega AI Predictor & Contract Manager", layout="wide")
 
@@ -13,35 +13,44 @@ if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. CARICAMENTO DATI POTENZIATO CON PARAMETRI ALGORITMICI & CONTRATTI
+# 2. CARICAMENTO DATI DA FILE EXCEL (rose.xlsx)
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
-    nome_file = "ROSE FANTAroby-quotazioni02022026.csv"
+    nome_file = "rose.xlsx"
     if not os.path.exists(nome_file):
-        # Fallback di sicurezza se il file non è nella stessa cartella esatta
-        file_alternativi = [f for f in os.listdir(".") if f.endswith(".csv")]
-        if file_alternativi:
-            nome_file = file_alternativi[0]
-        else:
-            st.error(f"⚠️ File CSV non trovato! Assicurati che '{nome_file}' sia presente nella directory principale del progetto.")
-            return pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione", "Stato"])
+        st.error(f"⚠️ File Excel '{nome_file}' non trovato! Assicurati che sia presente nella directory principale del progetto.")
+        return pd.DataFrame(columns=["Nome", "Squadra", "Ruolo", "Quotazione", "Stato", "Scadenza_Contratto"])
 
-    df_raw = pd.read_csv(nome_file, encoding="latin1")
+    # Caricamento del file Excel
+    xls = pd.ExcelFile(nome_file)
+    sheet_names = xls.sheet_names
     
+    # Legge il primo foglio o un foglio specifico (es. il primo disponibile)
+    df_raw = pd.read_excel(nome_file, sheet_name=0)
+    
+    # Adattamento flessibile delle colonne in base allo standard del file rose.xlsx
     df = pd.DataFrame()
-    df["Nome"] = df_raw["Calciatore"].astype(str).str.strip()
-    df["Squadra"] = df_raw["Squadra"].astype(str).str.strip()
-    df["Ruolo"] = df_raw["Ruolo"].astype(str).str.strip()
-    df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
-    possibili_colonne_prop = ["Proprietario_Iniziale", "Proprietario", "Unnamed: 5", "Squadra_Fantacalcio"]
+    # Cerchiamo le colonne chiave in modo robusto
+    col_calciatore = next((c for c in df_raw.columns if "calciatore" in str(c).lower() or "nome" in str(c).lower()), df_raw.columns[0])
+    col_squadra = next((c for c in df_raw.columns if "squadra" in str(c).lower() and "fanta" not in str(c).lower()), df_raw.columns[1] if len(df_raw.columns) > 1 else df_raw.columns[0])
+    col_ruolo = next((c for c in df_raw.columns if "ruolo" in str(c).lower()), df_raw.columns[2] if len(df_raw.columns) > 2 else df_raw.columns[0])
+    col_quotazione = next((c for c in df_raw.columns if "quot" in str(c).lower() or "prezzo" in str(c).lower() or "valore" in str(c).lower()), df_raw.columns[3] if len(df_raw.columns) > 3 else df_raw.columns[0])
+
+    df["Nome"] = df_raw[col_calciatore].astype(str).str.strip()
+    df["Squadra"] = df_raw[col_squadra].astype(str).str.strip()
+    df["Ruolo"] = df_raw[col_ruolo].astype(str).str.strip().str.upper()
+    df["Quotazione"] = pd.to_numeric(df_raw[col_quotazione], errors="coerce").fillna(1)
+    
+    # Gestione proprietario / stato iniziale se presente nel file excel
+    possibili_colonne_prop = ["Proprietario_Iniziale", "Proprietario", "Squadra_Fantacalcio", "Stato"]
     colonna_trovata = next((c for c in possibili_colonne_prop if c in df_raw.columns), None)
     
     if colonna_trovata:
         prop_iniziale = df_raw[colonna_trovata].astype(str).str.strip().str.upper()
         df["Proprietario_Iniziale"] = prop_iniziale.apply(
-            lambda x: "LIBERO" if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"] else x
+            lambda x: "LIBERO" if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "NAT"] else x
         )
     else:
         df["Proprietario_Iniziale"] = "LIBERO"
@@ -146,7 +155,7 @@ df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
 df["Nome"] = df["Nome"].astype(str).str.strip()
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & MONITOR OFFERTE
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA, key="select_allenatore_attivo")
@@ -255,10 +264,9 @@ else:
     st.sidebar.info("Questa rosa è attualmente vuota.")
 
 # ---------------------------------------------------------
-# 4. DASHBOARD PRINCIPALE: VALUTAZIONE PRECOGNITIVA ASTA LIVE
+# 4. DASHBOARD PRINCIPALE: VALUTAZIONE ASTA LIVE
 # ---------------------------------------------------------
 st.title("⚡ Live Auction Intelligent Assistant")
-
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
 mask_liberi = (df["Stato"] == "LIBERO") & (df["Nome"].notna()) & (df["Nome"].str.strip() != "")
@@ -319,7 +327,7 @@ else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
 
 # ---------------------------------------------------------
-# 4.1 SEZIONE SCOUTING: TROVA GIOCATORI CON GRANDE RENDIMENTO
+# 5. SEZIONE SCOUTING & VENDITA
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🎯 Scout di Rendimento: Trova i Top Player")
@@ -352,129 +360,8 @@ if solo_rigoristi:
 if min_vfm > 0:
     df_scout = df_scout[df_scout["Indice_VfM"] >= min_vfm]
 
-criterio_ordinamento = st.radio(
-    "Ordina i risultati per:", 
-    ["Indice di Appetibilità Globale", "Valore Atteso di Rendimento", "Indice Value-for-Money (VfM)", "Bonus Previsti per Match"],
-    horizontal=True,
-    key="scout_ordinamento"
-)
-
-if criterio_ordinamento.startswith("Indice di Appetibilità"):
-    col_sort = "Indice_Appetibilita"
-elif criterio_ordinamento.startswith("Valore Atteso"):
-    col_sort = "Valore_Atteso"
-elif criterio_ordinamento.startswith("Indice Value"):
-    col_sort = "Indice_VfM"
-else:
-    col_sort = "Bonus_Per_Match"
-
-df_scout = df_scout.sort_values(by=col_sort, ascending=False)
-
 st.dataframe(
     df_scout[["Nome", "Squadra", "Ruolo", "Quotazione", "Valore_Atteso", "Indice_Appetibilita", "Indice_VfM", "Bonus_Per_Match", "Indice_Resilienza"]],
     use_container_width=True,
     hide_index=True
 )
-
-# ---------------------------------------------------------
-# 5. SEZIONE SCAMBI, PRESTITI & TRATTATIVE TRA ROSE
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🤝 Mercato di Riparazione: Scambi & Prestiti")
-
-col_s1, col_s2 = st.columns(2)
-with col_s1:
-    squadra_A = st.selectbox("Squadra 1 (Offre):", PARTECIPANTI_LEGA, key="scambio_s1")
-with col_s2:
-    squadra_B = st.selectbox("Squadra 2 (Riceve/Scambia):", PARTECIPANTI_LEGA, key="scambio_s2", index=1 if len(PARTECIPANTI_LEGA) > 1 else 0)
-
-if squadra_A == squadra_B:
-    st.warning("⚠️ Seleziona due squadre differenti per effettuare uno scambio.")
-else:
-    rosa_A = st.session_state.rose_lega[squadra_A]
-    rosa_B = st.session_state.rose_lega[squadra_B]
-    
-    giocatori_A = [g["Nome"] for g in rosa_A]
-    giocatori_B = [g["Nome"] for g in rosa_B]
-    
-    with st.form("form_scambio"):
-        st.write("#### Dettagli Trattativa")
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            giocatore_da_A = st.selectbox(f"Giocatore in uscita da {squadra_A}:", ["Nessuno"] + giocatori_A, key="scambio_g_A")
-        with col_g2:
-            giocatore_da_B = st.selectbox(f"Giocatore in uscita da {squadra_B}:", ["Nessuno"] + giocatori_B, key="scambio_g_B")
-            
-        tipo_operazione = st.radio("Tipo di operazione:", ["Scambio Definitivo / Con conguaglio", "Prestito Secco / Annuale"], key="scambio_tipo")
-        
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            conguaglio_crediti = st.number_input(f"Conguaglio in crediti (da {squadra_A} a {squadra_B}):", value=0, step=1, key="scambio_conguaglio")
-        with col_c2:
-            durata_prestito = st.selectbox("Scadenza Prestito:", [2027, 2028, 2029], index=0, key="scambio_durata")
-            
-        submit_scambio = st.form_submit_button("Conferma Scambio / Prestito")
-        
-        if submit_scambio:
-            if giocatore_da_A == "Nessuno" and giocatore_da_B == "Nessuno":
-                st.error("❌ Seleziona almeno un giocatore da scambiare!")
-            else:
-                if giocatore_da_A != "Nessuno":
-                    item_A = next(g for g in rosa_A if g["Nome"] == giocatore_da_A)
-                    st.session_state.rose_lega[squadra_A] = [g for g in rosa_A if g["Nome"] != giocatore_da_A]
-                    if tipo_operazione.startswith("Scambio"):
-                        st.session_state.rose_lega[squadra_B].append(item_A)
-                        df.loc[df["Nome"] == giocatore_da_A, "Stato"] = str(squadra_B).upper()
-                    else:
-                        item_A_prestito = item_A.copy()
-                        item_A_prestito["Scadenza"] = durata_prestito
-                        st.session_state.rose_lega[squadra_B].append(item_A_prestito)
-                
-                if giocatore_da_B != "Nessuno":
-                    item_B = next(g for g in rosa_B if g["Nome"] == giocatore_da_B)
-                    st.session_state.rose_lega[squadra_B] = [g for g in rosa_B if g["Nome"] != giocatore_da_B]
-                    if tipo_operazione.startswith("Scambio"):
-                        st.session_state.rose_lega[squadra_A].append(item_B)
-                        df.loc[df["Nome"] == giocatore_da_B, "Stato"] = str(squadra_A).upper()
-                    else:
-                        item_B_prestito = item_B.copy()
-                        item_B_prestito["Scadenza"] = durata_prestito
-                        st.session_state.rose_lega[squadra_A].append(item_B_prestito)
-                
-                if conguaglio_crediti != 0:
-                    st.session_state.extra_budget[squadra_A] -= conguaglio_crediti
-                    st.session_state.extra_budget[squadra_B] += conguaglio_crediti
-                    
-                st.success(f"✅ Operazione di mercato completata con successo tra **{squadra_A}** e **{squadra_B}**!")
-
-# ---------------------------------------------------------
-# 6. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🔄 Gestione Rosa & Svincoli (Vendi Giocatore)")
-
-allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:", PARTECIPANTI_LEGA, key="select_svincolo_allenatore")
-rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
-
-if rosa_allenatore_attuale:
-    nomi_giocatori_in_rosa = sorted([str(g["Nome"]) for g in rosa_allenatore_attuale])
-    
-    with st.form("form_svincolo"):
-        giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa, key="select_svincolo_giocatore")
-        rimborso_crediti = st.checkbox("Rimborso crediti spesi (ritorno a budget)", value=True, key="svincolo_rimborso")
-        
-        submit_svincolo = st.form_submit_button("Conferma Svincolo / Vendita")
-        
-        if submit_svincolo:
-            giocatore_info = next((g for g in rosa_allenatore_attuale if g["Nome"] == giocatore_da_svincolare), None)
-            
-            if giocatore_info:
-                st.session_state.rose_lega[allenatore_svincolo] = [
-                    g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
-                ]
-                
-                df.loc[df["Nome"] == giocatore_da_svincolare, "Stato"] = "LIBERO"
-                
-                st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
-else:
-    st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
