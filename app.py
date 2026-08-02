@@ -23,11 +23,14 @@ def load_data():
     df["Ruolo"] = df_raw["Ruolo"]
     df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
-    # Pulizia radicale della colonna dei proprietari per evitare disallineamenti
-    if "Unnamed: 5" in df_raw.columns:
-        df["Proprietario_Iniziale"] = df_raw["Unnamed: 5"].astype(str).str.strip().str.upper()
-        df["Proprietario_Iniziale"] = df_raw["Proprietario_Iniziale"].apply(
-            lambda x: "LIBERO" if x in ["NAN", "", "SVINCOLATO", "LIBERO"] else x
+    # Controllo sicuro e flessibile della colonna proprietario nel CSV
+    possibili_colonne_prop = ["Proprietario_Iniziale", "Proprietario", "Unnamed: 5", "Squadra_Fantacalcio"]
+    colonna_trovata = next((c for c in possibili_colonne_prop if c in df_raw.columns), None)
+    
+    if colonna_trovata:
+        df["Proprietario_Iniziale"] = df_raw[colonna_trovata].astype(str).str.strip().str.upper()
+        df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
+            lambda x: "LIBERO" if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "NAN"] else x
         )
     else:
         df["Proprietario_Iniziale"] = "LIBERO"
@@ -37,13 +40,13 @@ def load_data():
     # Generazione dinamica della Scadenza di Contratto basata sul Tier
     def assign_tier_and_contract(quot):
         if quot >= 25: 
-            return pd.Series(["Top", 2027])      # I top rinnovano spesso a breve termine
+            return pd.Series(["Top", 2027])      
         elif quot >= 15: 
             return pd.Series(["Semitop", 2028])
         elif quot >= 8: 
             return pd.Series(["Titolare", 2029])
         else: 
-            return pd.Series(["Scommessa", 2030]) # I giovani o le scommesse hanno contratti più lunghi
+            return pd.Series(["Scommessa", 2030]) 
         
     df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(assign_tier_and_contract)
     
@@ -85,8 +88,8 @@ if "df_giocatori" not in st.session_state:
 
 df = st.session_state.df_giocatori
 
-# Estrae i nomi dei partecipanti REALI direttamente dal file CSV
-lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p != "LIBERO"]
+# Estrae i nomi dei partecipanti REALI direttamente dal file CSV o usa fallback
+lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
     lista_proprietari_csv = ["BARDO", "ROBY", "MIO_TEAM"]
 
@@ -114,8 +117,10 @@ if "inizializzato" not in st.session_state:
             st.session_state.df_giocatori.at[idx, "Stato"] = "Libero"
     st.session_state.inizializzato = True
 
-# 🛡️ CORRETTORE DI COMPATIBILITÀ: Normalizza le chiavi di eventuali dizionari esistenti in sessione
+# Correttore di compatibilità per sessioni salvate
 for p in PARTECIPANTI_LEGA:
+    if p not in st.session_state.rose_lega:
+        st.session_state.rose_lega[p] = []
     for item in st.session_state.rose_lega[p]:
         if "Prezzo_Acquisto" not in item and "Prezzo" in item:
             item["Prezzo_Acquisto"] = item.pop("Prezzo")
@@ -147,7 +152,7 @@ totale_slot_liberi = sum(slot_liberi.values())
 
 st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} cr")
 
-# Esplora Rose & Scadenze Contrattuali Dinamiche
+# Esplora Rose & Valori
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
 squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a lato:", PARTECIPANTI_LEGA, key="esplora_sidebar")
