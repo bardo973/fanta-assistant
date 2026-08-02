@@ -126,6 +126,9 @@ for p in PARTECIPANTI_LEGA:
     if p not in st.session_state.extra_budget:
         st.session_state.extra_budget[p] = 0
 
+# Assicuriamo la pulizia della colonna stato a ogni esecuzione
+df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
+
 # ---------------------------------------------------------
 # 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
 # ---------------------------------------------------------
