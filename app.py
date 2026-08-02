@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as np
 import json
 import os
-import pypdf
-import re
+import pdfplumber
 
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
@@ -15,7 +14,7 @@ if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. ESTRAZIONE DATI DA FILE PDF (rose.pdf)
+# 2. ESTRAZIONE TABULARE AVANZATA DA PDF (rose.pdf)
 # ---------------------------------------------------------
 @st.cache_data
 def load_data_from_pdf():
@@ -24,45 +23,40 @@ def load_data_from_pdf():
         st.error(f"⚠️ File PDF '{nome_file}' non trovato! Assicurati che sia presente nella directory principale del progetto.")
         return pd.DataFrame(columns=["Nome", "Squadra", "Ruolo", "Quotazione", "Stato", "Scadenza_Contratto"])
 
-    # Estrazione testo da tutte le pagine del PDF
-    reader = pypdf.PdfReader(nome_file)
-    testo_completo = ""
-    for page in reader.pages:
-        extracted = page.extract_text()
-        if extracted:
-            testo_completo += extracted + "\n"
-
-    # Parsing del testo estratto per ricreare il dataframe dei giocatori
-    # Supponiamo una struttura comune di listato fanta (Nome, Squadra, Ruolo, Quotazione, ecc.)
-    righe = testo_completo.split("\n")
     data_list = []
     
-    # Pattern di fallback per popolare il dataframe se il formato del PDF è tabulare o testuale
-    # Generiamo un dataset strutturato leggibile dal motore di stima
-    for riga in righe:
-        riga_pulita = riga.strip()
-        if len(riga_pulita) < 3:
-            continue
-        # Esempio di logica di estrazione flessibile basata su righe di testo
-        parts = re.split(r'\s{2,}|\t', riga_pulita)
-        if len(parts) >= 2:
-            nome = parts[0]
-            squadra = parts[1] if len(parts) > 1 else "Svincolato"
-            ruolo = "C" # Default di sicurezza
-            if any(k in riga_pulita.upper() for k in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI"]):
-                continue
-            data_list.append({
-                "Nome": nome,
-                "Squadra": squadra,
-                "Ruolo": ruolo,
-                "Quotazione": 10,
-                "Stato": "LIBERO",
-                "Scadenza_Contratto": 2028
-            })
+    # Estrazione con pdfplumber per catturare correttamente le tabelle
+    with pdfplumber.open(nome_file) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            for table in tables:
+                for row in table:
+                    # Pulizia delle celle della riga
+                    cleaned_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip() != ""]
+                    if len(cleaned_row) >= 3:
+                        # Tentativo di estrazione intelligente dei campi
+                        # Supponiamo formato standard: Nome, Squadra, Ruolo, Quotazione, ecc.
+                        nome = cleaned_row[0]
+                        squadra = cleaned_row[1] if len(cleaned_row) > 1 else "Svincolato"
+                        ruolo = cleaned_row[2].upper() if len(cleaned_row) > 2 and cleaned_row[2].upper() in ["P", "D", "C", "A"] else "C"
+                        
+                        quotazione = 10
+                        for cell in cleaned_row:
+                            if cell.isdigit() and int(cell) > 0 and int(cell) < 500:
+                                quotazione = int(cell)
+                                break
+                                
+                        data_list.append({
+                            "Nome": nome,
+                            "Squadra": squadra,
+                            "Ruolo": ruolo,
+                            "Quotazione": quotazione,
+                            "Stato": "LIBERO",
+                            "Scadenza_Contratto": 2028
+                        })
 
-    # Se il parsing testuale del PDF produce poche righe o fallisce, carichiamo una struttura standard robusta estratta
+    # Se il PDF non ha tabelle strutturate rilevate, usiamo il fallback di sicurezza
     if len(data_list) < 5:
-        # Fallback predefinito di sicurezza basato sulle quotazioni standard di Serie A
         giocatori_base = [
             ("Meret", "Napoli", "P", 15, "PAOLO"),
             ("Sommer", "Inter", "P", 16, "GALVA"),
@@ -76,20 +70,14 @@ def load_data_from_pdf():
             ("Bellanova", "Atalanta", "D", 14, "PAOLO"),
             ("Cambiaso", "Juventus", "D", 18, "PECU"),
             ("Gosens", "Fiorentina", "D", 13, "PAOLO"),
-            ("Carlos Augusto", "Inter", "D", 11, "PAOLO"),
-            ("Rrahmani", "Napoli", "D", 10, "GIOPPY"),
-            ("De Vrij", "Inter", "D", 7, "GIOPPY"),
-            ("Bremer", "Juventus", "D", 22, "GIOPPY"),
             ("Pulisic", "Milan", "C", 28, "LIBERO"),
             ("Barella", "Inter", "C", 24, "LIBERO"),
             ("Koopmeiners", "Juventus", "C", 29, "LIBERO"),
             ("Calhanoglu", "Inter", "C", 30, "LIBERO"),
-            ("McTominay", "Napoli", "C", 25, "LIBERO"),
             ("Retegui", "Atalanta", "A", 35, "LIBERO"),
             ("Thuram", "Inter", "A", 32, "LIBERO"),
             ("Vlahovic", "Juventus", "A", 31, "LIBERO"),
             ("Lautaro Martinez", "Inter", "A", 42, "LIBERO"),
-            ("Lookman", "Atalanta", "A", 34, "LIBERO"),
         ]
         data_list = [{"Nome": g[0], "Squadra": g[1], "Ruolo": g[2], "Quotazione": g[3], "Stato": g[4], "Scadenza_Contratto": 2028} for g in giocatori_base]
 
@@ -259,7 +247,7 @@ else:
 # ---------------------------------------------------------
 # 4. DASHBOARD PRINCIPALE: VALUTAZIONE ASTA LIVE
 # ---------------------------------------------------------
-st.title("⚡ Live Auction Intelligent Assistant (da rose.pdf)")
+st.title("⚡ Live Auction Intelligent Assistant (Pdfplumber Engine)")
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
 mask_liberi = (df["Stato"] == "LIBERO") & (df["Nome"].notna()) & (df["Nome"].str.strip() != "")
