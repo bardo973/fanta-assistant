@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
+import os
 
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT (LEGA COMPLETA)
@@ -16,7 +17,17 @@ if "budget_iniziale" not in st.session_state:
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
-    df_raw = pd.read_csv("ROSE FANTAroby-quotazioni02022026.csv", encoding="latin1")
+    nome_file = "ROSE FANTAroby-quotazioni02022026.csv"
+    if not os.path.exists(nome_file):
+        # Fallback di sicurezza se il file non è nella stessa cartella esatta
+        file_alternativi = [f for f in os.listdir(".") if f.endswith(".csv")]
+        if file_alternativi:
+            nome_file = file_alternativi[0]
+        else:
+            st.error(f"⚠️ File CSV non trovato! Assicurati che '{nome_file}' sia presente nella directory principale del progetto.")
+            return pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione", "Stato"])
+
+    df_raw = pd.read_csv(nome_file, encoding="latin1")
     
     df = pd.DataFrame()
     df["Nome"] = df_raw["Calciatore"].astype(str).str.strip()
@@ -87,6 +98,10 @@ if "df_giocatori" not in st.session_state:
     st.session_state.df_giocatori = load_data()
 
 df = st.session_state.df_giocatori
+
+if df.empty:
+    st.stop()
+
 df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
 df["Nome"] = df["Nome"].astype(str).str.strip()
 
@@ -102,7 +117,7 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
-# Inizializzazione prima esecuzione basata sui dati di partenza del CSV
+# Inizializzazione sicura delle rose una sola volta
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for idx, row in df.iterrows():
@@ -134,9 +149,9 @@ df["Nome"] = df["Nome"].astype(str).str.strip()
 # 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
-fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA)
+fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA, key="select_allenatore_attivo")
 
-budget_input = st.sidebar.number_input("Budget Iniziale Crediti (Tutti)", value=st.session_state.budget_iniziale, step=10)
+budget_input = st.sidebar.number_input("Budget Iniziale Crediti (Tutti)", value=st.session_state.budget_iniziale, step=10, key="input_budget_iniziale")
 if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
@@ -208,7 +223,6 @@ if uploaded_file is not None:
                 df.at[idx, "Stato"] = trovato
                 
         st.sidebar.success("✅ Stato caricato con successo!")
-        st.rerun()
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento del file: {e}")
 
@@ -235,8 +249,7 @@ if rosa_selezionata_sidebar:
     st.sidebar.dataframe(
         df_side[["Nome", "Ruolo", "Spesa", "Valore", "Scadenza"]], 
         use_container_width=True, 
-        hide_index=True,
-        key=f"df_side_{squadra_da_esplorare}_{len(rosa_selezionata_sidebar)}"
+        hide_index=True
     )
 else:
     st.sidebar.info("Questa rosa è attualmente vuota.")
@@ -248,7 +261,6 @@ st.title("⚡ Live Auction Intelligent Assistant")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
-# Filtro sicuro e conversione rigorosa a stringa per evitare qualsiasi TypeError in sorted()
 mask_liberi = (df["Stato"] == "LIBERO") & (df["Nome"].notna()) & (df["Nome"].str.strip() != "")
 giocatori_liberi = sorted([str(n) for n in df.loc[mask_liberi, "Nome"].tolist() if str(n).upper() != "NAN"])
 
@@ -286,7 +298,7 @@ if giocatori_liberi:
         st.write("### Registra Acquisto Asta")
         col_A, col_B = st.columns(2)
         with col_A:
-            prezzo_aggiudicazione = st.number_input("Prezzo di chiusura asta (crediti):", min_value=1, value=valore_default_input)
+            prezzo_aggiudicazione = st.number_input("Prezzo di chiusura asta (crediti):", min_value=1, value=valore_default_input, key="input_prezzo_asta")
         with col_B:
             vincitore_asta = st.selectbox("Assegna a fanta-allenatore:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo), key="form_vincitore_asta")
         
@@ -303,7 +315,6 @@ if giocatori_liberi:
             })
             df.loc[df["Nome"] == giocatore_sel, "Stato"] = str(vincitore_asta).upper()
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
-            st.rerun()
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
 
@@ -435,7 +446,6 @@ else:
                     st.session_state.extra_budget[squadra_B] += conguaglio_crediti
                     
                 st.success(f"✅ Operazione di mercato completata con successo tra **{squadra_A}** e **{squadra_B}**!")
-                st.rerun()
 
 # ---------------------------------------------------------
 # 6. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
@@ -466,6 +476,5 @@ if rosa_allenatore_attuale:
                 df.loc[df["Nome"] == giocatore_da_svincolare, "Stato"] = "LIBERO"
                 
                 st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
-                st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
