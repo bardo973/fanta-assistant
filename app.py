@@ -22,16 +22,9 @@ def load_data_from_csv():
         st.error(f"⚠️ File '{nome_file}' non trovato! Assicurati che sia presente nella directory principale.")
         return pd.DataFrame(columns=["Nome", "Squadra", "Ruolo", "Quotazione", "Stato", "Scadenza_Contratto"])
 
-    # Leggiamo il CSV saltando le prime righe di intestazione descrittiva
     df_raw = pd.read_csv(nome_file, skiprows=2, header=None)
-    
-    partecipanti_validi = ["PECU", "PAOLO", "GALVA", "GIOPPY", "ROBY", "ROBBA", "NILO", "BARDO", "BEPPE", "DODO", "BORTO"]
     data_list = []
     
-    # Identifichiamo i blocchi di colonne per ciascun utente nel CSV (ogni utente occupa tipicamente 3-4 colonne: Giocatore, Squadra, Prezzo, Scadenza)
-    colonne_totali = df_raw.shape[1]
-    
-    # Scansioniamo il dataframe grezzo per estrarre i giocatori riga per riga
     ruolo_corrente = "P"
     
     for idx, row in df_raw.iterrows():
@@ -51,10 +44,8 @@ def load_data_from_csv():
             ruolo_corrente = "A"
             continue
             
-        # Analizziamo le celle a gruppi per catturare nome, squadra e prezzo
         vals = [str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() != ""]
         
-        # Iteriamo sulle celle saltando i blocchi di etichette ruolo o scadenze pure
         i = 0
         while i < len(vals):
             val = vals[i]
@@ -62,15 +53,13 @@ def load_data_from_csv():
                 i += 1
                 continue
                 
-            # Se troviamo un nome seguito da una squadra e da un prezzo numerico
-            if i + 2 < len(vals) and vals[i+2].isdigit() and not vals[i].startswith("Pi") and not vals[i].startswith("Di") and not vals[i].startswith("Ci") and not vals[i].startswith("Ai") and not vals[i].startswith("Pj") and not vals[i].startswith("Dj") and not vals[i].startswith("Cj") and not vals[i].startswith("Aj"):
+            if i + 2 < len(vals) and vals[i+2].isdigit() and not vals[i].startswith(("Pi", "Di", "Ci", "Ai", "Pj", "Dj", "Cj", "Aj")):
                 nome = vals[i]
                 squadra = vals[i+1]
                 try:
                     prezzo = int(vals[i+2])
-                    # Determiniamo la scadenza se presente nella cella successiva
                     scadenza = 2028
-                    if i + 3 < len(vals) and ("26" in vals[i+3] or "27" in vals[i+3] or "28" in vals[i+3] or "29" in vals[i+3]):
+                    if i + 3 < len(vals) and any(y in vals[i+3].lower() for y in ["26", "27", "28", "29"]):
                         scad_str = vals[i+3].lower()
                         if "26" in scad_str: scadenza = 2026
                         elif "27" in scad_str: scadenza = 2027
@@ -80,9 +69,6 @@ def load_data_from_csv():
                     else:
                         i += 3
                         
-                    # Cerchiamo di associare a quale blocco di colonne appartiene (proprietario)
-                    # Per semplicità iniziale li marchiamo come LIBERO o assegniamo in base alla posizione o file integrativi, 
-                    # qui li rendiamo gestibili dal sistema dinamico di stato.
                     data_list.append({
                         "Nome": nome,
                         "Squadra": squadra,
@@ -96,19 +82,19 @@ def load_data_from_csv():
                     pass
             i += 1
 
-    # Fallback di sicurezza strutturato se il parsing tabulare trova pochi elementi
+    # Fallback di sicurezza strutturato con valori uniformi (Nome, Squadra, Ruolo, Quotazione, Stato)
     if len(data_list) < 10:
         giocatori_base = [
             ("Meret", "Napoli", "P", 8, "PAOLO"),
             ("Sommer", "Inter", "P", 14, "GALVA"),
-            ("Perin", "Juventus", "7", "GIOPPY"),
+            ("Perin", "Juventus", "P", 7, "GIOPPY"),
             ("Falcone", "Lecce", "P", 15, "ROBY"),
             ("Skorupski", "Bologna", "P", 14, "PECU"),
             ("Gabbia", "Milan", "D", 6, "PECU"),
             ("Hien", "Atalanta", "D", 7, "GALVA"),
             ("Akanji", "Inter", "D", 14, "GIOPPY"),
             ("Estupinan", "Milan", "D", 4, "ROBY"),
-            ("Bellanova", "Atalanta", "6", "PAOLO"),
+            ("Bellanova", "Atalanta", "D", 6, "PAOLO"),
             ("Cambiaso", "Juventus", "D", 10, "PECU"),
             ("Gosens", "Fiorentina", "D", 9, "PAOLO"),
             ("Pulisic", "Milan", "C", 28, "LIBERO"),
@@ -123,7 +109,6 @@ def load_data_from_csv():
         data_list = [{"Nome": g[0], "Squadra": g[1], "Ruolo": g[2], "Quotazione": int(g[3]), "Stato": g[4], "Scadenza_Contratto": 2028} for g in giocatori_base]
 
     df = pd.DataFrame(data_list)
-    # Rimuoviamo eventuali duplicati sui nomi
     df = df.drop_duplicates(subset=["Nome"]).reset_index(drop=True)
 
     def assign_tier_and_contract(quot):
