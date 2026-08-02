@@ -102,8 +102,11 @@ if "inizializzato" not in st.session_state:
         prop = row["Proprietario_Iniziale"]
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
-                "Nome": row["Nome"], "Ruolo": row["Ruolo"],
-                "Squadra": row["Squadra"], "Prezzo": int(row["Quotazione"]),
+                "Nome": row["Nome"], 
+                "Ruolo": row["Ruolo"],
+                "Squadra": row["Squadra"], 
+                "Prezzo_Acquisto": int(row["Quotazione"]),
+                "Valore_Attuale": int(row["Quotazione"]),
                 "Scadenza": int(row["Scadenza_Contratto"])
             })
             st.session_state.df_giocatori.at[idx, "Stato"] = prop
@@ -124,7 +127,7 @@ if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
 rosa_corrente = st.session_state.rose_lega[fanta_allenatore_attivo]
-spesa_corrente = sum(item['Prezzo'] for item in rosa_corrente)
+spesa_corrente = sum(item['Prezzo_Acquisto'] for item in rosa_corrente)
 budget_rimanente_corrente = st.session_state.budget_iniziale - spesa_corrente
 
 slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
@@ -136,15 +139,27 @@ st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rim
 
 # Esplora Rose & Scadenze Contrattuali Dinamiche
 st.sidebar.divider()
-st.sidebar.subheader("📋 Esplora Rose & Scadenze")
+st.sidebar.subheader("📋 Esplora Rose & Valori")
 squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a lato:", PARTECIPANTI_LEGA, key="esplora_sidebar")
 
 rosa_selezionata_sidebar = st.session_state.rose_lega[squadra_da_esplorare]
 if rosa_selezionata_sidebar:
-    df_side = pd.DataFrame(rosa_selezionata_sidebar)
-    df_side = df_side.sort_values(by="Ruolo")
+    # Aggiorna in tempo reale il valore attuale dal dataframe principale nel caso sia cambiato
+    df_side_list = []
+    for g in rosa_selezionata_sidebar:
+        q_row = df[df["Nome"] == g["Nome"]]
+        val_attuale = int(q_row["Quotazione"].values[0]) if not q_row.empty else g["Valore_Attuale"]
+        df_side_list.append({
+            "Nome": g["Nome"],
+            "Ruolo": g["Ruolo"],
+            "Spesa": g["Prezzo_Acquisto"],
+            "Valore": val_attuale,
+            "Scadenza": g["Scadenza"]
+        })
+    df_side = pd.DataFrame(df_side_list).sort_values(by="Ruolo")
+    
     st.sidebar.dataframe(
-        df_side[["Nome", "Ruolo", "Scadenza"]], 
+        df_side[["Nome", "Ruolo", "Spesa", "Valore", "Scadenza"]], 
         use_container_width=True, 
         hide_index=True
     )
@@ -160,7 +175,7 @@ massimi_rilanci = {}
 for p in PARTECIPANTI_LEGA:
     if p != fanta_allenatore_attivo:
         rosa_avv = st.session_state.rose_lega[p]
-        spesa_avv = sum(item['Prezzo'] for item in rosa_avv)
+        spesa_avv = sum(item['Prezzo_Acquisto'] for item in rosa_avv)
         budget_avv = st.session_state.budget_iniziale - spesa_avv
         slot_liberi_avv = sum(slot_target[r] - sum(1 for g in rosa_avv if g["Ruolo"] == r) for r in slot_target)
         
@@ -200,13 +215,15 @@ if giocatori_liberi:
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
     max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Partite Attese (Salute)", f"{int(g_data['Partite_Attese'])} / 38", f"Scadenza: {int(g_data['Scadenza_Contratto'])}")
+    # Pannello Metriche con Ruolo e Valore (Quotazione) ben visibili
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Ruolo", g_data["Ruolo"], f"Squadra: {g_data['Squadra']}")
+    col2.metric("Valore (Quotazione)", f"{int(g_data['Quotazione'])} cr", f"Tier: {g_data['Tier']}")
+    col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", f"Scad.: {int(g_data['Scadenza_Contratto'])}")
     
     testo_piazzati = "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else ("Punizioni 📐" if g_data["Status_Piazzati"] == 2 else "No")
-    col2.metric("Specialista Calci Fermi", testo_piazzati)
-    col3.metric("Scarsità Reparto", f"{top_rimanenti_ruolo} Liberi", f"Hype: x{moltiplicatore_scarsita}")
-    col4.metric("Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Tier: {g_data['Tier']}")
+    col4.metric("Calci Fermi", testo_piazzati)
+    col5.metric("Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
 
     st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']})")
 
@@ -239,7 +256,8 @@ if giocatori_liberi:
                 "Nome": g_data["Nome"],
                 "Ruolo": g_data["Ruolo"],
                 "Squadra": g_data["Squadra"],
-                "Prezzo": int(prezzo_aggiudicazione),
+                "Prezzo_Acquisto": int(prezzo_aggiudicazione),
+                "Valore_Attuale": int(g_data["Quotazione"]),
                 "Scadenza": int(g_data["Scadenza_Contratto"])
             })
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
@@ -253,7 +271,6 @@ else:
 st.divider()
 st.subheader("🔄 Gestione Rosa & Svincoli (Vendi Giocatore)")
 
-# Permette di scegliere quale allenatore vuole svincolare un giocatore
 allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:", PARTECIPANTI_LEGA, key="select_svincolo")
 rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
 
@@ -262,23 +279,18 @@ if rosa_allenatore_attuale:
     
     with st.form("form_svincolo"):
         giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa)
-        
-        # Opzione per decidere se rimborsare interamente o parzialmente il prezzo speso
         rimborso_crediti = st.checkbox("Rimborso crediti spesi (ritorno a budget)", value=True)
         
         submit_svincolo = st.form_submit_button("Conferma Svincolo / Vendita")
         
         if submit_svincolo:
-            # Trova i dati del giocatore da rimuovere
             giocatore_info = next((g for g in rosa_allenatore_attuale if g["Nome"] == giocatore_da_svincolare), None)
             
             if giocatore_info:
-                # 1. Rimuove il giocatore dalla rosa dell'allenatore
                 st.session_state.rose_lega[allenatore_svincolo] = [
                     g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
                 ]
                 
-                # 2. Riimposta lo stato del giocatore a "Libero" nel dataframe generale dei giocatori
                 idx_df = df[df["Nome"] == giocatore_da_svincolare].index
                 if not idx_df.empty:
                     st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
