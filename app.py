@@ -7,14 +7,14 @@ import streamlit as st
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="FantaLega AI Advanced Predictor", layout="wide"
+    page_title="FantaLega AI Advanced Predictor & Manager", layout="wide"
 )
 
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. CARICAMENTO DATI CON PARAMETRI AVANZATI E AGGIUNTIVI
+# 2. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
 # ---------------------------------------------------------
 
 
@@ -54,7 +54,6 @@ def load_data():
 
     df["Stato"] = df["Proprietario_Iniziale"]
 
-    # Tier e Scadenza Contratto base
     def assign_tier_and_contract(quot):
         if quot >= 25:
             return pd.Series(["Top", 2027])
@@ -69,33 +68,15 @@ def load_data():
         assign_tier_and_contract
     )
 
-    # Parametri avanzati: Indici di salute, infortuni, continuità e rigoristi
     def genera_parametri_avanzati(row):
         quot = row["Quotazione"]
-        ruolo = row["Ruolo"]
-
         if quot >= 25:
-            titolarita = 0.92
-            partite = 35
-            continuit = 8.5  # Voto medio costante alto
-            infortunio = "Basso (Affidabile)"
+            return pd.Series([0.92, 35, 8.5, "Basso (Affidabile)"])
         elif quot >= 15:
-            titolarita = 0.80
-            partite = 31
-            continuit = 7.5
-            infortunio = "Medio-Basso"
+            return pd.Series([0.80, 31, 7.5, "Medio-Basso"])
         elif quot >= 8:
-            titolarita = 0.65
-            partite = 27
-            continuit = 6.5
-            infortunio = "Medio"
-        else:
-            titolarita = 0.40
-            partite = 20
-            continuit = 5.5
-            infortunio = "Variabile / Rischio"
-
-        return pd.Series([titolarita, partite, continuit, infortunio])
+            return pd.Series([0.65, 27, 6.5, "Medio"])
+        return pd.Series([0.40, 20, 5.5, "Variabile / Rischio"])
 
     df[
         [
@@ -106,7 +87,6 @@ def load_data():
         ]
     ] = df.apply(genera_parametri_avanzati, axis=1)
 
-    # FantaMedia stimata e Voto Puro
     def stima_fantamedia(row):
         q = row["Quotazione"]
         r = row["Ruolo"]
@@ -118,12 +98,11 @@ def load_data():
         elif r == "D":
             base += 0.10 + (q * 0.02)
         else:
-            base = 5.50 + (q * 0.01)  # Portieri
+            base = 5.50 + (q * 0.01)
         return round(min(base, 9.5), 2)
 
     df["FantaMedia_Stimata"] = df.apply(stima_fantamedia, axis=1)
 
-    # Status Rigorista / Piazzati
     df["Status_Piazzati"] = df["Quotazione"].apply(
         lambda q: (
             "Rigorista 🎯"
@@ -132,7 +111,6 @@ def load_data():
         )
     )
 
-    # Metriche xG / xA basate su ruolo
     def assegna_metriche_ruolo(ruolo):
         if ruolo == "A":
             return pd.Series([0.35, 0.12])
@@ -211,7 +189,7 @@ for p in PARTECIPANTI_LEGA:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO & MONITOR OFFERTE
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO LISTONE
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox(
@@ -245,6 +223,61 @@ st.sidebar.metric(
     f"Budget Rimanente ({fanta_allenatore_attivo})",
     f"{budget_rimanente_corrente} cr",
 )
+
+# --- CARICAMENTO NUOVO LISTONE UFFICIALE ---
+st.sidebar.divider()
+st.sidebar.subheader("📄 Carica Nuovo Listone Ufficiale")
+nuovo_listone_file = st.sidebar.file_uploader(
+    "Carica CSV nuovo listone", type=["csv"]
+)
+
+if nuovo_listone_file is not None:
+    try:
+        df_nuovo = pd.read_csv(nuovo_listone_file, encoding="latin1")
+        df_new_processed = pd.DataFrame()
+        df_new_processed["Nome"] = df_nuovo["Calciatore"]
+        df_new_processed["Squadra"] = df_nuovo["Squadra"]
+        df_new_processed["Ruolo"] = df_nuovo["Ruolo"]
+        df_new_processed["Quotazione"] = pd.to_numeric(
+            df_nuovo["Quotazione"], errors="coerce"
+        ).fillna(1)
+        df_new_processed["Stato"] = "LIBERO"
+
+        rose_attuali = st.session_state.rose_lega
+        for idx, row in df_new_processed.iterrows():
+            nome_giocatore = row["Nome"]
+            for allenatore, rosa in rose_attuali.items():
+                if any(g["Nome"] == nome_giocatore for g in rosa):
+                    df_new_processed.at[idx, "Stato"] = allenatore
+                    break
+
+        # Rigenera parametri calcolati
+        df_new_processed[["Tier", "Scadenza_Contratto"]] = df_new_processed[
+            "Quotazione"
+        ].apply(lambda q: pd.Series(["Top", 2027] if q >= 25 else (["Semitop", 2028] if q >= 15 else (["Titolare", 2029] if q >= 8 else ["Scommessa", 2030]))))
+        df_new_processed["Percentuale_Titolarita"] = 0.8
+        df_new_processed["Partite_Attese"] = 30
+        df_new_processed["Indice_Continuita"] = 7.0
+        df_new_processed["Rischio_Infortunio"] = "Medio"
+        df_new_processed["FantaMedia_Stimata"] = 6.5
+        df_new_processed["Status_Piazzati"] = df_new_processed[
+            "Quotazione"
+        ].apply(
+            lambda q: (
+                "Rigorista 🎯"
+                if q >= 28
+                else ("Vice-Rigorista 👟" if q >= 18 else "No")
+            )
+        )
+        df_new_processed["Valore_Atteso"] = 10.0
+        df_new_processed["Indice_VfM"] = 1.0
+
+        st.session_state.df_giocatori = df_new_processed
+        st.sidebar.success(
+            "✅ Nuovo listone caricato e rose sincronizzate con successo!"
+        )
+    except Exception as e:
+        st.sidebar.error(f"Errore nel caricamento: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("💰 Massime Offerte (Tutti)")
@@ -414,7 +447,7 @@ else:
     st.success("🎉 Tutti i giocatori sono stati assegnati!")
 
 # ---------------------------------------------------------
-# 5. SEZIONE SCOUTING AVANZATO CON TUTTI I FILTRI
+# 5. SEZIONE SCOUTING AVANZATO & FILTRI
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🎯 Scout di Rendimento & Parametri Avanzati")
@@ -456,3 +489,38 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+
+# ---------------------------------------------------------
+# 6. SEZIONE SVINCOLI E GESTIONE ROSA
+# ---------------------------------------------------------
+st.divider()
+st.subheader("🔄 Gestione Rosa & Svincoli")
+
+allenatore_svincolo = st.selectbox(
+    "Seleziona allenatore che intende svincolare:",
+    PARTECIPANTI_LEGA,
+    key="select_svincolo",
+)
+rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
+
+if rosa_allenatore_attuale:
+    nomi_giocatori_in_rosa = [g["Nome"] for g in rosa_allenatore_attuale]
+    with st.form("form_svincolo"):
+        giocatore_da_svincolare = st.selectbox(
+            "Seleziona il giocatore da svincolare:", nomi_giocatori_in_rosa
+        )
+        submit_svincolo = st.form_submit_button("Conferma Svincolo")
+        if submit_svincolo:
+            st.session_state.rose_lega[allenatore_svincolo] = [
+                g
+                for g in rosa_allenatore_attuale
+                if g["Nome"] != giocatore_da_svincolare
+            ]
+            idx_df = df[df["Nome"] == giocatore_da_svincolare].index
+            if not idx_df.empty:
+                st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
+            st.success(
+                f"🗑️ **{giocatore_da_svincolare}** svincolato e tornato **LIBERO**!"
+            )
+else:
+    st.info(f"La rosa di {allenatore_svincolo} è vuota.")
