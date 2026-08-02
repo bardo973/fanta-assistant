@@ -152,7 +152,15 @@ lista_proprietari_csv = [
     if p not in ["LIBERO", "NAN", "NONE", ""]
 ]
 if not lista_proprietari_csv:
-    lista_proprietari_csv = ["BARDO", "ROBY", "MIO_TEAM"]
+    # 6 partecipanti di default (modificabili o estraibili dai file separati)
+    lista_proprietari_csv = [
+        "BARDO",
+        "ROBY",
+        "SQUADRA_3",
+        "SQUADRA_4",
+        "SQUADRA_5",
+        "SQUADRA_6",
+    ]
 
 PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
 
@@ -189,7 +197,7 @@ for p in PARTECIPANTI_LEGA:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO LISTONE
+# 3. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO DATI
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox(
@@ -228,7 +236,7 @@ st.sidebar.metric(
 st.sidebar.divider()
 st.sidebar.subheader("📄 Carica Nuovo Listone Ufficiale")
 nuovo_listone_file = st.sidebar.file_uploader(
-    "Carica CSV nuovo listone", type=["csv"]
+    "Carica CSV nuovo listone", type=["csv"], key="listone_generale"
 )
 
 if nuovo_listone_file is not None:
@@ -251,7 +259,6 @@ if nuovo_listone_file is not None:
                     df_new_processed.at[idx, "Stato"] = allenatore
                     break
 
-        # Rigenera parametri calcolati
         df_new_processed[["Tier", "Scadenza_Contratto"]] = df_new_processed[
             "Quotazione"
         ].apply(lambda q: pd.Series(["Top", 2027] if q >= 25 else (["Semitop", 2028] if q >= 15 else (["Titolare", 2029] if q >= 8 else ["Scommessa", 2030]))))
@@ -278,6 +285,83 @@ if nuovo_listone_file is not None:
         )
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento: {e}")
+
+# --- CARICAMENTO ROSE SEPARATE PER CIASCUN CONCORRENTE ---
+st.sidebar.divider()
+st.sidebar.subheader("📁 Carica Rose Iniziali Separate")
+st.sidebar.text("Carica i file delle rose per i 6 partecipanti")
+
+allenatore_per_caricamento = st.sidebar.selectbox(
+    "Seleziona partecipante:", PARTECIPANTI_LEGA, key="select_upload_rosa"
+)
+file_rosa_singola = st.sidebar.file_uploader(
+    f"Carica file rosa per {allenatore_per_caricamento} (CSV/Excel)",
+    type=["csv", "xlsx"],
+    key=f"uploader_{allenatore_per_caricamento}",
+)
+
+if file_rosa_singola is not None:
+    try:
+        if file_rosa_singola.name.endswith(".csv"):
+            df_rosa_caricata = pd.read_csv(file_rosa_singola, encoding="latin1")
+        else:
+            df_rosa_caricata = pd.read_excel(file_rosa_singola)
+
+        # Cerca la colonna del nome giocatore
+        possibili_col_nomi = ["Calciatore", "Nome", "Giocatore", "Player"]
+        col_nome_trovata = next(
+            (c for c in possibili_col_nomi if c in df_rosa_caricata.columns),
+            None,
+        )
+
+        if col_nome_trovata:
+            nuova_lista_giocatori = []
+            df_corrente = st.session_state.df_giocatori
+
+            for _, row_r in df_rosa_caricata.iterrows():
+                nome_giocatore = str(row_r[col_nome_trovata]).strip()
+
+                # Cerca il giocatore nel listone generale per estrarre ruolo, squadra e quotazione
+                match_generale = df_corrente[
+                    df_corrente["Nome"].str.strip().str.lower()
+                    == nome_giocatore.lower()
+                ]
+
+                if not match_generale.empty:
+                    g_info = match_generale.iloc[0]
+                    # Assegna lo stato nel dataframe generale
+                    idx_gen = match_generale.index[0]
+                    st.session_state.df_giocatori.at[idx_gen, "Stato"] = (
+                        allenatore_per_caricamento
+                    )
+
+                    prezzo_acq = (
+                        int(row_r["Prezzo"])
+                        if "Prezzo" in df_rosa_caricata.columns
+                        else int(g_info["Quotazione"])
+                    )
+
+                    nuova_lista_giocatori.append({
+                        "Nome": g_info["Nome"],
+                        "Ruolo": g_info["Ruolo"],
+                        "Squadra": g_info["Squadra"],
+                        "Prezzo_Acquisto": prezzo_acq,
+                        "Valore_Attuale": int(g_info["Quotazione"]),
+                        "Scadenza": int(g_info["Scadenza_Contratto"]),
+                    })
+
+            st.session_state.rose_lega[allenatore_per_caricamento] = (
+                nuova_lista_giocatori
+            )
+            st.sidebar.success(
+                f"✅ Rosa di {allenatore_per_caricamento} caricata con successo ({len(nuova_lista_giocatori)} giocatori)!"
+            )
+        else:
+            st.sidebar.error(
+                "❌ Impossibile trovare la colonna del nome (es. 'Calciatore' o 'Nome') nel file."
+            )
+    except Exception as e:
+        st.sidebar.error(f"Errore lettura file rosa: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("💰 Massime Offerte (Tutti)")
