@@ -254,7 +254,10 @@ if nuovo_listone_file is not None:
         for idx, row in df_new_processed.iterrows():
             nome_giocatore = row["Nome"]
             for allenatore, rosa in rose_attuali.items():
-                if any(g["Nome"] == nome_giocatore for g in rosa):
+                if any(
+                    g["Nome"].strip().lower() == nome_giocatore.strip().lower()
+                    for g in rosa
+                ):
                     df_new_processed.at[idx, "Stato"] = allenatore
                     break
 
@@ -323,9 +326,7 @@ if file_rose_tutti is not None:
 
             for _, row_t in df_tutti.iterrows():
                 nome_giocatore = str(row_t[col_nome_tutti]).strip()
-                proprietario = (
-                    str(row_t[col_prop_tutti]).strip().upper()
-                )
+                proprietario = str(row_t[col_prop_tutti]).strip().upper()
 
                 if proprietario in nuove_rose:
                     match_generale = df_corrente[
@@ -341,6 +342,7 @@ if file_rose_tutti is not None:
                         prezzo_acq = (
                             int(row_t["Prezzo"])
                             if "Prezzo" in df_tutti.columns
+                            and pd.notna(row_t["Prezzo"])
                             else int(g_info["Quotazione"])
                         )
 
@@ -358,7 +360,7 @@ if file_rose_tutti is not None:
             st.sidebar.success("✅ Rose di tutti caricate e sincronizzate!")
         else:
             st.sidebar.error(
-                "❌ Colonne mancanti nel file. Assicurati che ci siano colonne per il nome (es. 'Calciatore') e per il proprietario (es. 'Proprietario' o 'Squadra_Fantacalcio')."
+                "❌ Colonne mancanti nel file. Controlla i nomi delle colonne (es. 'Calciatore' e 'Proprietario')."
             )
     except Exception as e:
         st.sidebar.error(f"Errore caricamento rose: {e}")
@@ -595,16 +597,26 @@ if rosa_allenatore_attuale:
         )
         submit_svincolo = st.form_submit_button("Conferma Svincolo")
         if submit_svincolo:
+            # Rimuove il giocatore dalla rosa usando un controllo flessibile sui nomi
             st.session_state.rose_lega[allenatore_svincolo] = [
                 g
                 for g in rosa_allenatore_attuale
-                if g["Nome"] != giocatore_da_svincolare
+                if g["Nome"].strip().lower()
+                != giocatore_da_svincolare.strip().lower()
             ]
-            idx_df = df[df["Nome"] == giocatore_da_svincolare].index
-            if not idx_df.empty:
-                st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
+
+            # Riporta lo stato del giocatore a LIBERO nel dataframe principale
+            match_df = df[
+                df["Nome"].str.strip().str.lower()
+                == giocatore_da_svincolare.strip().lower()
+            ]
+            if not match_df.empty:
+                idx_df = match_df.index[0]
+                st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
+
             st.success(
                 f"🗑️ **{giocatore_da_svincolare}** svincolato e tornato **LIBERO**!"
             )
+            st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è vuota.")
