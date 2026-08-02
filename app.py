@@ -210,14 +210,25 @@ if giocatori_liberi:
 
     st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']})")
 
+    # Evitiamo che il valore di default sia inferiore a 1 per il number_input
+    valore_default_input = max(1, int(max_offerta_consigliata))
+
     # Sezione di assegnazione effettiva del giocatore durante l'asta
     with st.form("form_aggiudicazione"):
         st.write("### Registra Acquisto Asta")
         col_A, col_B = st.columns(2)
         with col_A:
-            prezzo_aggiudicazione = st.number_input("Prezzo di chiusura asta (crediti):", min_value=1, value=int(max_offerta_consigliata))
+            prezzo_aggiudicazione = st.number_input(
+                "Prezzo di chiusura asta (crediti):", 
+                min_value=1, 
+                value=valore_default_input
+            )
         with col_B:
-            vincitore_asta = st.selectbox("Assegna a fanta-allenatore:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0)
+            vincitore_asta = st.selectbox(
+                "Assegna a fanta-allenatore:", 
+                PARTECIPANTI_LEGA, 
+                index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0
+            )
         
         submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
         
