@@ -208,7 +208,7 @@ if uploaded_file is not None:
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento del file: {e}")
 
-# Esplora Rose & Valori (con chiave dinamica per aggiornamento istantaneo)
+# Esplora Rose & Valori
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
 squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a lato:", PARTECIPANTI_LEGA, key="esplora_sidebar")
@@ -263,7 +263,8 @@ if giocatori_liberi:
     if g_data["Ruolo"] == "D" and g_data["Media_Voto_Pura"] >= 6.10: base_offerta += 2
     
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
-    max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
+    # Calcolo corretto che non si azzera mai se gli slot sono esauriti
+    max_offerta_consigliata = max(1, max_offerta_consigliata)
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Ruolo & Squadra", f"{g_data['Ruolo']} - {g_data['Squadra']}", f"Tier: {g_data['Tier']}")
@@ -306,7 +307,6 @@ else:
 st.divider()
 st.subheader("🎯 Scout di Rendimento: Trova i Top Player")
 
-# Estrazione dinamica dei club presenti nel file
 lista_club = sorted(df["Squadra"].dropna().unique().tolist())
 opzioni_club = ["Tutti i club"] + lista_club
 
