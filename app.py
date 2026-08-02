@@ -203,11 +203,10 @@ if uploaded_file is not None:
                 df.at[idx, "Stato"] = trovato
                 
         st.sidebar.success("✅ Stato caricato con successo!")
-        st.rerun()
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento del file: {e}")
 
-# Esplora Rose & Valori
+# Esplora Rose & Valori (con chiave dinamica per aggiornamento istantaneo)
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
 squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a lato:", PARTECIPANTI_LEGA, key="esplora_sidebar")
@@ -230,7 +229,8 @@ if rosa_selezionata_sidebar:
     st.sidebar.dataframe(
         df_side[["Nome", "Ruolo", "Spesa", "Valore", "Scadenza"]], 
         use_container_width=True, 
-        hide_index=True
+        hide_index=True,
+        key=f"df_side_{squadra_da_esplorare}_{len(rosa_selezionata_sidebar)}"
     )
 else:
     st.sidebar.info("Questa rosa è attualmente vuota.")
@@ -295,7 +295,6 @@ if giocatori_liberi:
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
             st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = vincitore_asta
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
-            st.rerun()
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
 
@@ -371,7 +370,6 @@ else:
                     st.session_state.extra_budget[squadra_B] += conguaglio_crediti
                     
                 st.success(f"✅ Operazione di mercato completata con successo tra **{squadra_A}** e **{squadra_B}**!")
-                st.rerun()
 
 # ---------------------------------------------------------
 # 6. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
@@ -404,6 +402,5 @@ if rosa_allenatore_attuale:
                     st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
                 
                 st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
-                st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
