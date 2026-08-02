@@ -35,7 +35,7 @@ def load_data():
     else:
         df["Proprietario_Iniziale"] = "LIBERO"
         
-    df["Stato"] = df["Proprietario_Iniziale"]
+    df["Stato"] = df["Proprietario_Iniziale"].astype(str).str.strip().str.upper()
     
     def assign_tier_and_contract(quot):
         if quot >= 25: 
@@ -115,9 +115,9 @@ if "inizializzato" not in st.session_state:
                 "Valore_Attuale": int(row["Quotazione"]),
                 "Scadenza": int(row["Scadenza_Contratto"])
             })
-            df.loc[df["Nome"] == row["Nome"], "Stato"] = prop
+            df.loc[idx, "Stato"] = prop
         else:
-            df.loc[df["Nome"] == row["Nome"], "Stato"] = "LIBERO"
+            df.loc[idx, "Stato"] = "LIBERO"
     st.session_state.inizializzato = True
 
 for p in PARTECIPANTI_LEGA:
@@ -126,7 +126,6 @@ for p in PARTECIPANTI_LEGA:
     if p not in st.session_state.extra_budget:
         st.session_state.extra_budget[p] = 0
 
-# Assicuriamo la pulizia della colonna stato a ogni esecuzione
 df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
 
 # ---------------------------------------------------------
@@ -246,7 +245,7 @@ else:
 st.title("⚡ Live Auction Intelligent Assistant")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
-giocatori_liberi = sorted(df[df["Stato"] == "LIBERO"]["Nome"].tolist())
+giocatori_liberi = sorted(df.loc[df["Stato"] == "LIBERO", "Nome"].tolist())
 
 if giocatori_liberi:
     giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi, key="select_asta_giocatore")
@@ -324,7 +323,7 @@ with col_f4:
 with col_f5:
     min_vfm = st.slider("Minimo VfM:", 0.0, 3.0, 0.0, 0.1, key="scout_vfm")
 
-df_scout = df[df["Stato"] == "LIBERO"].copy()
+df_scout = df.loc[df["Stato"] == "LIBERO"].copy()
 
 if filtro_ruolo != "Tutti":
     df_scout = df_scout[df_scout["Ruolo"] == filtro_ruolo]
