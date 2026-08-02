@@ -152,7 +152,6 @@ lista_proprietari_csv = [
     if p not in ["LIBERO", "NAN", "NONE", ""]
 ]
 if not lista_proprietari_csv:
-    # 6 partecipanti di default (modificabili o estraibili dai file separati)
     lista_proprietari_csv = [
         "BARDO",
         "ROBY",
@@ -286,82 +285,83 @@ if nuovo_listone_file is not None:
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento: {e}")
 
-# --- CARICAMENTO ROSE SEPARATE PER CIASCUN CONCORRENTE ---
+# --- CARICAMENTO GLOBALE DELLE ROSE DI TUTTI ---
 st.sidebar.divider()
-st.sidebar.subheader("📁 Carica Rose Iniziali Separate")
-st.sidebar.text("Carica i file delle rose per i 6 partecipanti")
-
-allenatore_per_caricamento = st.sidebar.selectbox(
-    "Seleziona partecipante:", PARTECIPANTI_LEGA, key="select_upload_rosa"
-)
-file_rosa_singola = st.sidebar.file_uploader(
-    f"Carica file rosa per {allenatore_per_caricamento} (CSV/Excel)",
+st.sidebar.subheader("📁 Carica Rose di Tutti")
+file_rose_tutti = st.sidebar.file_uploader(
+    "Carica file unificato rose (CSV/Excel)",
     type=["csv", "xlsx"],
-    key=f"uploader_{allenatore_per_caricamento}",
+    key="uploader_tutti",
 )
 
-if file_rosa_singola is not None:
+if file_rose_tutti is not None:
     try:
-        if file_rosa_singola.name.endswith(".csv"):
-            df_rosa_caricata = pd.read_csv(file_rosa_singola, encoding="latin1")
+        if file_rose_tutti.name.endswith(".csv"):
+            df_tutti = pd.read_csv(file_rose_tutti, encoding="latin1")
         else:
-            df_rosa_caricata = pd.read_excel(file_rosa_singola)
+            df_tutti = pd.read_excel(file_rose_tutti)
 
-        # Cerca la colonna del nome giocatore
         possibili_col_nomi = ["Calciatore", "Nome", "Giocatore", "Player"]
-        col_nome_trovata = next(
-            (c for c in possibili_col_nomi if c in df_rosa_caricata.columns),
-            None,
+        possibili_col_prop = [
+            "Proprietario",
+            "Squadra_Fantacalcio",
+            "Allenatore",
+            "Proprietario_Iniziale",
+        ]
+
+        col_nome_tutti = next(
+            (c for c in possibili_col_nomi if c in df_tutti.columns), None
+        )
+        col_prop_tutti = next(
+            (c for c in possibili_col_prop if c in df_tutti.columns), None
         )
 
-        if col_nome_trovata:
-            nuova_lista_giocatori = []
+        if col_nome_tutti and col_prop_tutti:
+            nuove_rose = {p: [] for p in PARTECIPANTI_LEGA}
             df_corrente = st.session_state.df_giocatori
+            df_corrente["Stato"] = "LIBERO"
 
-            for _, row_r in df_rosa_caricata.iterrows():
-                nome_giocatore = str(row_r[col_nome_trovata]).strip()
+            for _, row_t in df_tutti.iterrows():
+                nome_giocatore = str(row_t[col_nome_tutti]).strip()
+                proprietario = (
+                    str(row_t[col_prop_tutti]).strip().upper()
+                )
 
-                # Cerca il giocatore nel listone generale per estrarre ruolo, squadra e quotazione
-                match_generale = df_corrente[
-                    df_corrente["Nome"].str.strip().str.lower()
-                    == nome_giocatore.lower()
-                ]
+                if proprietario in nuove_rose:
+                    match_generale = df_corrente[
+                        df_corrente["Nome"].str.strip().str.lower()
+                        == nome_giocatore.lower()
+                    ]
 
-                if not match_generale.empty:
-                    g_info = match_generale.iloc[0]
-                    # Assegna lo stato nel dataframe generale
-                    idx_gen = match_generale.index[0]
-                    st.session_state.df_giocatori.at[idx_gen, "Stato"] = (
-                        allenatore_per_caricamento
-                    )
+                    if not match_generale.empty:
+                        g_info = match_generale.iloc[0]
+                        idx_gen = match_generale.index[0]
+                        df_corrente.at[idx_gen, "Stato"] = proprietario
 
-                    prezzo_acq = (
-                        int(row_r["Prezzo"])
-                        if "Prezzo" in df_rosa_caricata.columns
-                        else int(g_info["Quotazione"])
-                    )
+                        prezzo_acq = (
+                            int(row_t["Prezzo"])
+                            if "Prezzo" in df_tutti.columns
+                            else int(g_info["Quotazione"])
+                        )
 
-                    nuova_lista_giocatori.append({
-                        "Nome": g_info["Nome"],
-                        "Ruolo": g_info["Ruolo"],
-                        "Squadra": g_info["Squadra"],
-                        "Prezzo_Acquisto": prezzo_acq,
-                        "Valore_Attuale": int(g_info["Quotazione"]),
-                        "Scadenza": int(g_info["Scadenza_Contratto"]),
-                    })
+                        nuove_rose[proprietario].append({
+                            "Nome": g_info["Nome"],
+                            "Ruolo": g_info["Ruolo"],
+                            "Squadra": g_info["Squadra"],
+                            "Prezzo_Acquisto": prezzo_acq,
+                            "Valore_Attuale": int(g_info["Quotazione"]),
+                            "Scadenza": int(g_info["Scadenza_Contratto"]),
+                        })
 
-            st.session_state.rose_lega[allenatore_per_caricamento] = (
-                nuova_lista_giocatori
-            )
-            st.sidebar.success(
-                f"✅ Rosa di {allenatore_per_caricamento} caricata con successo ({len(nuova_lista_giocatori)} giocatori)!"
-            )
+            st.session_state.rose_lega = nuove_rose
+            st.session_state.df_giocatori = df_corrente
+            st.sidebar.success("✅ Rose di tutti caricate e sincronizzate!")
         else:
             st.sidebar.error(
-                "❌ Impossibile trovare la colonna del nome (es. 'Calciatore' o 'Nome') nel file."
+                "❌ Colonne mancanti nel file. Assicurati che ci siano colonne per il nome (es. 'Calciatore') e per il proprietario (es. 'Proprietario' o 'Squadra_Fantacalcio')."
             )
     except Exception as e:
-        st.sidebar.error(f"Errore lettura file rosa: {e}")
+        st.sidebar.error(f"Errore caricamento rose: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("💰 Massime Offerte (Tutti)")
