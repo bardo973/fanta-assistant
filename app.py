@@ -4,6 +4,7 @@ import numpy as np
 import json
 import os
 import pdfplumber
+import re
 
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
@@ -24,38 +25,55 @@ def load_data_from_pdf():
         return pd.DataFrame(columns=["Nome", "Squadra", "Ruolo", "Quotazione", "Stato", "Scadenza_Contratto"])
 
     data_list = []
+    partecipanti_validi = ["PECU", "PAOLO", "GALVA", "GIOPPY", "ROBY", "NILO", "BARDO", "BEPPE", "DODO", "BORTO"]
     
-    # Estrazione con pdfplumber per catturare correttamente le tabelle
     with pdfplumber.open(nome_file) as pdf:
         for page in pdf.pages:
-            tables = page.extract_tables()
-            for table in tables:
-                for row in table:
-                    # Pulizia delle celle della riga
-                    cleaned_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip() != ""]
-                    if len(cleaned_row) >= 3:
-                        # Tentativo di estrazione intelligente dei campi
-                        # Supponiamo formato standard: Nome, Squadra, Ruolo, Quotazione, ecc.
-                        nome = cleaned_row[0]
-                        squadra = cleaned_row[1] if len(cleaned_row) > 1 else "Svincolato"
-                        ruolo = cleaned_row[2].upper() if len(cleaned_row) > 2 and cleaned_row[2].upper() in ["P", "D", "C", "A"] else "C"
-                        
-                        quotazione = 10
-                        for cell in cleaned_row:
-                            if cell.isdigit() and int(cell) > 0 and int(cell) < 500:
-                                quotazione = int(cell)
-                                break
-                                
+            text = page.extract_text()
+            lines = [line.strip() for line in text.split('\n') if line.strip()]
+            
+            ruolo_corrente = "P"
+            proprietario_corrente = "LIBERO"
+            
+            for line in lines:
+                upper_line = line.upper()
+                if "PORTIERI" in upper_line:
+                    ruolo_corrente = "P"
+                    continue
+                elif "DIFENSORI" in upper_line:
+                    ruolo_corrente = "D"
+                    continue
+                elif "CENTROCAMPISTI" in upper_line:
+                    ruolo_corrente = "C"
+                    continue
+                elif "ATTACCANTI" in upper_line:
+                    ruolo_corrente = "A"
+                    continue
+                
+                # Controllo proprietari sulla riga
+                words = line.split()
+                for w in words:
+                    if w.upper() in partecipanti_validi:
+                        proprietario_corrente = w.upper()
+                
+                # Estrazione Giocatore, Squadra e Prezzo
+                matches = re.findall(r'([A-Za-zÀ-ÿ\.\s\'\-]+)\s+([A-Za-zÀ-ÿ\.]+)\s+(\d+)', line)
+                for m in matches:
+                    nome_giocatore = m[0].strip()
+                    squadra = m[1].strip()
+                    prezzo = int(m[2])
+                    
+                    if squadra.upper() not in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI"] and len(nome_giocatore) > 2:
                         data_list.append({
-                            "Nome": nome,
+                            "Nome": nome_giocatore,
                             "Squadra": squadra,
-                            "Ruolo": ruolo,
-                            "Quotazione": quotazione,
-                            "Stato": "LIBERO",
+                            "Ruolo": ruolo_corrente,
+                            "Quotazione": prezzo,
+                            "Stato": proprietario_corrente,
                             "Scadenza_Contratto": 2028
                         })
 
-    # Se il PDF non ha tabelle strutturate rilevate, usiamo il fallback di sicurezza
+    # Se non vengono trovati dati a sufficienza, applichiamo un fallback di sicurezza
     if len(data_list) < 5:
         giocatori_base = [
             ("Meret", "Napoli", "P", 15, "PAOLO"),
@@ -131,7 +149,7 @@ df["Nome"] = df["Nome"].astype(str).str.strip()
 
 lista_proprietari_csv = [p for p in df["Stato"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
-    lista_proprietari_csv = ["BARDO", "ROBY", "PAOLO", "GALVA", "GIOPPY"]
+    lista_proprietari_csv = ["BARDO", "ROBY", "PAOLO", "GALVA", "GIOPPY", "PECU", "NILO", "BEPPE", "DODO", "BORTO"]
 
 PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
 
