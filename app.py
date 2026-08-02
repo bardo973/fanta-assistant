@@ -19,17 +19,17 @@ def load_data():
     df_raw = pd.read_csv("ROSE FANTAroby-quotazioni02022026.csv", encoding="latin1")
     
     df = pd.DataFrame()
-    df["Nome"] = df_raw["Calciatore"]
-    df["Squadra"] = df_raw["Squadra"]
-    df["Ruolo"] = df_raw["Ruolo"]
+    df["Nome"] = df_raw["Calciatore"].astype(str).str.strip()
+    df["Squadra"] = df_raw["Squadra"].astype(str).str.strip()
+    df["Ruolo"] = df_raw["Ruolo"].astype(str).str.strip()
     df["Quotazione"] = pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
     
     possibili_colonne_prop = ["Proprietario_Iniziale", "Proprietario", "Unnamed: 5", "Squadra_Fantacalcio"]
     colonna_trovata = next((c for c in possibili_colonne_prop if c in df_raw.columns), None)
     
     if colonna_trovata:
-        df["Proprietario_Iniziale"] = df_raw[colonna_trovata].astype(str).str.strip().str.upper()
-        df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
+        prop_iniziale = df_raw[colonna_trovata].astype(str).str.strip().str.upper()
+        df["Proprietario_Iniziale"] = prop_iniziale.apply(
             lambda x: "LIBERO" if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"] else x
         )
     else:
@@ -87,10 +87,7 @@ if "df_giocatori" not in st.session_state:
     st.session_state.df_giocatori = load_data()
 
 df = st.session_state.df_giocatori
-
-# Assicuriamoci che la colonna Stato esista sempre nel DataFrame in session_state
-if "Stato" not in df.columns:
-    df["Stato"] = "LIBERO"
+df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
 
 lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
@@ -108,7 +105,7 @@ if "extra_budget" not in st.session_state:
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for idx, row in df.iterrows():
-        prop = row["Proprietario_Iniziale"]
+        prop = str(row["Proprietario_Iniziale"]).strip().upper()
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
                 "Nome": row["Nome"], 
@@ -128,8 +125,6 @@ for p in PARTECIPANTI_LEGA:
         st.session_state.rose_lega[p] = []
     if p not in st.session_state.extra_budget:
         st.session_state.extra_budget[p] = 0
-
-df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
 # 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
@@ -199,7 +194,7 @@ if uploaded_file is not None:
         for idx, row in df.iterrows():
             nome_giocatore = row["Nome"]
             if nome_giocatore in stati_caricati:
-                df.at[idx, "Stato"] = stati_caricati[nome_giocatore]
+                df.at[idx, "Stato"] = str(stati_caricati[nome_giocatore]).upper()
             else:
                 trovato = "LIBERO"
                 for p, rosa in st.session_state.rose_lega.items():
@@ -209,6 +204,7 @@ if uploaded_file is not None:
                 df.at[idx, "Stato"] = trovato
                 
         st.sidebar.success("✅ Stato caricato con successo!")
+        st.rerun()
     except Exception as e:
         st.sidebar.error(f"Errore nel caricamento del file: {e}")
 
@@ -298,7 +294,7 @@ if giocatori_liberi:
                 "Valore_Attuale": int(g_data["Quotazione"]),
                 "Scadenza": int(g_data["Scadenza_Contratto"])
             })
-            df.loc[df["Nome"] == giocatore_sel, "Stato"] = vincitore_asta
+            df.loc[df["Nome"] == giocatore_sel, "Stato"] = str(vincitore_asta).upper()
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
             st.rerun()
 else:
@@ -410,7 +406,7 @@ else:
                     st.session_state.rose_lega[squadra_A] = [g for g in rosa_A if g["Nome"] != giocatore_da_A]
                     if tipo_operazione.startswith("Scambio"):
                         st.session_state.rose_lega[squadra_B].append(item_A)
-                        df.loc[df["Nome"] == giocatore_da_A, "Stato"] = squadra_B
+                        df.loc[df["Nome"] == giocatore_da_A, "Stato"] = str(squadra_B).upper()
                     else:
                         item_A_prestito = item_A.copy()
                         item_A_prestito["Scadenza"] = durata_prestito
@@ -421,7 +417,7 @@ else:
                     st.session_state.rose_lega[squadra_B] = [g for g in rosa_B if g["Nome"] != giocatore_da_B]
                     if tipo_operazione.startswith("Scambio"):
                         st.session_state.rose_lega[squadra_A].append(item_B)
-                        df.loc[df["Nome"] == giocatore_da_B, "Stato"] = squadra_A
+                        df.loc[df["Nome"] == giocatore_da_B, "Stato"] = str(squadra_A).upper()
                     else:
                         item_B_prestito = item_B.copy()
                         item_B_prestito["Scadenza"] = durata_prestito
