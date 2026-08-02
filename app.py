@@ -126,7 +126,7 @@ for p in PARTECIPANTI_LEGA:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR ROSE
+# 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox("Chi sta acquistando ora:", PARTECIPANTI_LEGA)
@@ -145,6 +145,23 @@ slot_liberi = {r: slot_target[r] - slot_presi[r] for r in slot_target}
 totale_slot_liberi = sum(slot_liberi.values())
 
 st.sidebar.metric(f"Budget Rimanente ({fanta_allenatore_attivo})", f"{budget_rimanente_corrente} cr")
+
+# --- PANNELLO MASSIME OFFERTE PER TUTTI IN SIDEBAR ---
+st.sidebar.divider()
+st.sidebar.subheader("💰 Massime Offerte (Tutti)")
+
+slot_totale_lega = sum(slot_target.values())
+for p in PARTECIPANTI_LEGA:
+    r_p = st.session_state.rose_lega[p]
+    spesa_p = sum(item.get('Prezzo_Acquisto', 1) for item in r_p)
+    bud_rim_p = st.session_state.budget_iniziale + st.session_state.extra_budget[p] - spesa_p
+    
+    slot_presi_p = sum(1 for g in r_p if g["Ruolo"] in slot_target)
+    slot_liberi_p = max(0, slot_totale_lega - slot_presi_p)
+    riserva_minima_p = max(0, slot_liberi_p - 1)
+    max_offerta_p = max(0, bud_rim_p - riserva_minima_p)
+    
+    st.sidebar.text(f"{p}: Max {max_offerta_p} cr (Rim. {bud_rim_p} cr)")
 
 # --- SALVATAGGIO E CARICAMENTO STATO LEGA ---
 st.sidebar.divider()
@@ -178,7 +195,6 @@ if uploaded_file is not None:
             if nome_giocatore in stati_caricati:
                 df.at[idx, "Stato"] = stati_caricati[nome_giocatore]
             else:
-                # Se non è nel dizionario salvato, controlliamo a quale rosa appartiene in rose_lega
                 trovato = "LIBERO"
                 for p, rosa in st.session_state.rose_lega.items():
                     if any(g["Nome"] == nome_giocatore for g in rosa):
@@ -252,7 +268,7 @@ if giocatori_liberi:
     col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else "No")
     col4.metric("🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
 
-    st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']})")
+    st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']}) | **Offerta Consigliata per {fanta_allenatore_attivo}:** {max_offerta_consigliata} crediti")
 
     valore_default_input = max(1, int(max_offerta_consigliata))
 
