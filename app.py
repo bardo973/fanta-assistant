@@ -114,9 +114,9 @@ if "inizializzato" not in st.session_state:
                 "Valore_Attuale": int(row["Quotazione"]),
                 "Scadenza": int(row["Scadenza_Contratto"])
             })
-            st.session_state.df_giocatori.at[idx, "Stato"] = prop
+            df.loc[df["Nome"] == row["Nome"], "Stato"] = prop
         else:
-            st.session_state.df_giocatori.at[idx, "Stato"] = "LIBERO"
+            df.loc[df["Nome"] == row["Nome"], "Stato"] = "LIBERO"
     st.session_state.inizializzato = True
 
 for p in PARTECIPANTI_LEGA:
@@ -243,10 +243,10 @@ else:
 st.title("⚡ Live Auction Intelligent Assistant")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
-giocatori_liberi = df[df["Stato"] == "LIBERO"]["Nome"].tolist()
+giocatori_liberi = sorted(df[df["Stato"] == "LIBERO"]["Nome"].tolist())
 
 if giocatori_liberi:
-    giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi)
+    giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi, key="select_asta_giocatore")
     g_data = df[df["Nome"] == giocatore_sel].iloc[0]
     
     riserva_minima = max(0, totale_slot_liberi - 1)
@@ -263,7 +263,6 @@ if giocatori_liberi:
     if g_data["Ruolo"] == "D" and g_data["Media_Voto_Pura"] >= 6.10: base_offerta += 2
     
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
-    # Calcolo corretto che non si azzera mai se gli slot sono esauriti
     max_offerta_consigliata = max(1, max_offerta_consigliata)
 
     col1, col2, col3, col4 = st.columns(4)
@@ -282,7 +281,7 @@ if giocatori_liberi:
         with col_A:
             prezzo_aggiudicazione = st.number_input("Prezzo di chiusura asta (crediti):", min_value=1, value=valore_default_input)
         with col_B:
-            vincitore_asta = st.selectbox("Assegna a fanta-allenatore:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo))
+            vincitore_asta = st.selectbox("Assegna a fanta-allenatore:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo), key="form_vincitore_asta")
         
         submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
         
@@ -295,9 +294,9 @@ if giocatori_liberi:
                 "Valore_Attuale": int(g_data["Quotazione"]),
                 "Scadenza": int(g_data["Scadenza_Contratto"])
             })
-            idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
-            st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = vincitore_asta
+            df.loc[df["Nome"] == giocatore_sel, "Stato"] = vincitore_asta
             st.success(f"✅ {giocatore_sel} è stato assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!")
+            st.rerun()
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
 
@@ -312,15 +311,15 @@ opzioni_club = ["Tutti i club"] + lista_club
 
 col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
 with col_f1:
-    filtro_ruolo = st.selectbox("Filtra per Ruolo:", ["Tutti", "P", "D", "C", "A"])
+    filtro_ruolo = st.selectbox("Filtra per Ruolo:", ["Tutti", "P", "D", "C", "A"], key="scout_ruolo")
 with col_f2:
-    filtro_club = st.selectbox("Filtra per Club:", opzioni_club)
+    filtro_club = st.selectbox("Filtra per Club:", opzioni_club, key="scout_club")
 with col_f3:
-    filtro_tier = st.selectbox("Filtra per Tier:", ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"])
+    filtro_tier = st.selectbox("Filtra per Tier:", ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"], key="scout_tier")
 with col_f4:
-    solo_rigoristi = st.checkbox("Solo Rigoristi")
+    solo_rigoristi = st.checkbox("Solo Rigoristi", key="scout_rigoristi")
 with col_f5:
-    min_vfm = st.slider("Minimo VfM:", 0.0, 3.0, 0.0, 0.1)
+    min_vfm = st.slider("Minimo VfM:", 0.0, 3.0, 0.0, 0.1, key="scout_vfm")
 
 df_scout = df[df["Stato"] == "LIBERO"].copy()
 
@@ -338,7 +337,8 @@ if min_vfm > 0:
 criterio_ordinamento = st.radio(
     "Ordina i risultati per:", 
     ["Indice di Appetibilità Globale", "Valore Atteso di Rendimento", "Indice Value-for-Money (VfM)", "Bonus Previsti per Match"],
-    horizontal=True
+    horizontal=True,
+    key="scout_ordinamento"
 )
 
 if criterio_ordinamento.startswith("Indice di Appetibilità"):
@@ -383,17 +383,17 @@ else:
         st.write("#### Dettagli Trattativa")
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            giocatore_da_A = st.selectbox(f"Giocatore in uscita da {squadra_A}:", ["Nessuno"] + giocatori_A)
+            giocatore_da_A = st.selectbox(f"Giocatore in uscita da {squadra_A}:", ["Nessuno"] + giocatori_A, key="scambio_g_A")
         with col_g2:
-            giocatore_da_B = st.selectbox(f"Giocatore in uscita da {squadra_B}:", ["Nessuno"] + giocatori_B)
+            giocatore_da_B = st.selectbox(f"Giocatore in uscita da {squadra_B}:", ["Nessuno"] + giocatori_B, key="scambio_g_B")
             
-        tipo_operazione = st.radio("Tipo di operazione:", ["Scambio Definitivo / Con conguaglio", "Prestito Secco / Annuale"])
+        tipo_operazione = st.radio("Tipo di operazione:", ["Scambio Definitivo / Con conguaglio", "Prestito Secco / Annuale"], key="scambio_tipo")
         
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            conguaglio_crediti = st.number_input(f"Conguaglio in crediti (da {squadra_A} a {squadra_B}):", value=0, step=1)
+            conguaglio_crediti = st.number_input(f"Conguaglio in crediti (da {squadra_A} a {squadra_B}):", value=0, step=1, key="scambio_conguaglio")
         with col_c2:
-            durata_prestito = st.selectbox("Scadenza Prestito:", [2027, 2028, 2029], index=0)
+            durata_prestito = st.selectbox("Scadenza Prestito:", [2027, 2028, 2029], index=0, key="scambio_durata")
             
         submit_scambio = st.form_submit_button("Conferma Scambio / Prestito")
         
@@ -406,8 +406,7 @@ else:
                     st.session_state.rose_lega[squadra_A] = [g for g in rosa_A if g["Nome"] != giocatore_da_A]
                     if tipo_operazione.startswith("Scambio"):
                         st.session_state.rose_lega[squadra_B].append(item_A)
-                        idx_df = df[df["Nome"] == giocatore_da_A].index
-                        if not idx_df.empty: st.session_state.df_giocatori.at[idx_df[0], "Stato"] = squadra_B
+                        df.loc[df["Nome"] == giocatore_da_A, "Stato"] = squadra_B
                     else:
                         item_A_prestito = item_A.copy()
                         item_A_prestito["Scadenza"] = durata_prestito
@@ -418,8 +417,7 @@ else:
                     st.session_state.rose_lega[squadra_B] = [g for g in rosa_B if g["Nome"] != giocatore_da_B]
                     if tipo_operazione.startswith("Scambio"):
                         st.session_state.rose_lega[squadra_A].append(item_B)
-                        idx_df = df[df["Nome"] == giocatore_da_B].index
-                        if not idx_df.empty: st.session_state.df_giocatori.at[idx_df[0], "Stato"] = squadra_A
+                        df.loc[df["Nome"] == giocatore_da_B, "Stato"] = squadra_A
                     else:
                         item_B_prestito = item_B.copy()
                         item_B_prestito["Scadenza"] = durata_prestito
@@ -430,6 +428,7 @@ else:
                     st.session_state.extra_budget[squadra_B] += conguaglio_crediti
                     
                 st.success(f"✅ Operazione di mercato completata con successo tra **{squadra_A}** e **{squadra_B}**!")
+                st.rerun()
 
 # ---------------------------------------------------------
 # 6. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
@@ -437,15 +436,15 @@ else:
 st.divider()
 st.subheader("🔄 Gestione Rosa & Svincoli (Vendi Giocatore)")
 
-allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:", PARTECIPANTI_LEGA, key="select_svincolo")
+allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:", PARTECIPANTI_LEGA, key="select_svincolo_allenatore")
 rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
 
 if rosa_allenatore_attuale:
-    nomi_giocatori_in_rosa = [g["Nome"] for g in rosa_allenatore_attuale]
+    nomi_giocatori_in_rosa = sorted([g["Nome"] for g in rosa_allenatore_attuale])
     
     with st.form("form_svincolo"):
-        giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa)
-        rimborso_crediti = st.checkbox("Rimborso crediti spesi (ritorno a budget)", value=True)
+        giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa, key="select_svincolo_giocatore")
+        rimborso_crediti = st.checkbox("Rimborso crediti spesi (ritorno a budget)", value=True, key="svincolo_rimborso")
         
         submit_svincolo = st.form_submit_button("Conferma Svincolo / Vendita")
         
@@ -457,10 +456,9 @@ if rosa_allenatore_attuale:
                     g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
                 ]
                 
-                idx_df = df[df["Nome"] == giocatore_da_svincolare].index
-                if not idx_df.empty:
-                    st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
+                df.loc[df["Nome"] == giocatore_da_svincolare, "Stato"] = "LIBERO"
                 
                 st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
+                st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
