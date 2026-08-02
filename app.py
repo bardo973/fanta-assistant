@@ -26,7 +26,7 @@ def load_data():
     # Pulizia radicale della colonna dei proprietari per evitare disallineamenti
     if "Unnamed: 5" in df_raw.columns:
         df["Proprietario_Iniziale"] = df_raw["Unnamed: 5"].astype(str).str.strip().str.upper()
-        df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
+        df["Proprietario_Iniziale"] = df_raw["Proprietario_Iniziale"].apply(
             lambda x: "LIBERO" if x in ["NAN", "", "SVINCOLATO", "LIBERO"] else x
         )
     else:
@@ -114,6 +114,16 @@ if "inizializzato" not in st.session_state:
             st.session_state.df_giocatori.at[idx, "Stato"] = "Libero"
     st.session_state.inizializzato = True
 
+# 🛡️ CORRETTORE DI COMPATIBILITÀ: Normalizza le chiavi di eventuali dizionari esistenti in sessione
+for p in PARTECIPANTI_LEGA:
+    for item in st.session_state.rose_lega[p]:
+        if "Prezzo_Acquisto" not in item and "Prezzo" in item:
+            item["Prezzo_Acquisto"] = item.pop("Prezzo")
+        if "Prezzo_Acquisto" not in item:
+            item["Prezzo_Acquisto"] = 1
+        if "Valore_Attuale" not in item:
+            item["Valore_Attuale"] = item["Prezzo_Acquisto"]
+
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
@@ -144,15 +154,14 @@ squadra_da_esplorare = st.sidebar.selectbox("Seleziona rosa da visualizzare a la
 
 rosa_selezionata_sidebar = st.session_state.rose_lega[squadra_da_esplorare]
 if rosa_selezionata_sidebar:
-    # Aggiorna in tempo reale il valore attuale dal dataframe principale nel caso sia cambiato
     df_side_list = []
     for g in rosa_selezionata_sidebar:
         q_row = df[df["Nome"] == g["Nome"]]
-        val_attuale = int(q_row["Quotazione"].values[0]) if not q_row.empty else g["Valore_Attuale"]
+        val_attuale = int(q_row["Quotazione"].values[0]) if not q_row.empty else g.get("Valore_Attuale", 1)
         df_side_list.append({
             "Nome": g["Nome"],
             "Ruolo": g["Ruolo"],
-            "Spesa": g["Prezzo_Acquisto"],
+            "Spesa": g.get("Prezzo_Acquisto", 1),
             "Valore": val_attuale,
             "Scadenza": g["Scadenza"]
         })
@@ -215,7 +224,6 @@ if giocatori_liberi:
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
     max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
-    # Pannello Metriche con Ruolo e Valore (Quotazione) ben visibili
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Ruolo", g_data["Ruolo"], f"Squadra: {g_data['Squadra']}")
     col2.metric("Valore (Quotazione)", f"{int(g_data['Quotazione'])} cr", f"Tier: {g_data['Tier']}")
@@ -229,7 +237,6 @@ if giocatori_liberi:
 
     valore_default_input = max(1, int(max_offerta_consigliata))
 
-    # Sezione di assegnazione effettiva del giocatore durante l'asta
     with st.form("form_aggiudicazione"):
         st.write("### Registra Acquisto Asta")
         col_A, col_B = st.columns(2)
