@@ -238,14 +238,11 @@ if giocatori_liberi:
     max_offerta_consigliata = int(base_offerta * moltiplicatore_scarsita * moltiplicatore_personale)
     max_offerta_consigliata = max(1, max_offerta_consigliata) if slot_liberi[g_data["Ruolo"]] > 0 else 0
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Ruolo", g_data["Ruolo"], f"Squadra: {g_data['Squadra']}")
-    col2.metric("Valore (Quotazione)", f"{int(g_data['Quotazione'])} cr", f"Tier: {g_data['Tier']}")
-    col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", f"Scad.: {int(g_data['Scadenza_Contratto'])}")
-    
-    testo_piazzati = "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else ("Punizioni 📐" if g_data["Status_Piazzati"] == 2 else "No")
-    col4.metric("Calci Fermi", testo_piazzati)
-    col5.metric("Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Ruolo & Squadra", f"{g_data['Ruolo']} - {g_data['Squadra']}", f"Tier: {g_data['Tier']}")
+    col2.metric("Quotazione", f"{int(g_data['Quotazione'])} cr", f"Scad.: {int(g_data['Scadenza_Contratto'])}")
+    col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else "No")
+    col4.metric("🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
 
     st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']})")
 
