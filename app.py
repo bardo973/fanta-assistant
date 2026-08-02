@@ -88,6 +88,7 @@ if "df_giocatori" not in st.session_state:
 
 df = st.session_state.df_giocatori
 df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
+df["Nome"] = df["Nome"].astype(str).str.strip()
 
 lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
@@ -127,6 +128,7 @@ for p in PARTECIPANTI_LEGA:
         st.session_state.extra_budget[p] = 0
 
 df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
+df["Nome"] = df["Nome"].astype(str).str.strip()
 
 # ---------------------------------------------------------
 # 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR OFFERTE
@@ -245,7 +247,10 @@ else:
 st.title("⚡ Live Auction Intelligent Assistant")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
-giocatori_liberi = sorted(df.loc[df["Stato"] == "LIBERO", "Nome"].tolist())
+
+# Filtro sicuro e conversione rigorosa a stringa per evitare qualsiasi TypeError in sorted()
+mask_liberi = (df["Stato"] == "LIBERO") & (df["Nome"].notna()) & (df["Nome"].str.strip() != "")
+giocatori_liberi = sorted([str(n) for n in df.loc[mask_liberi, "Nome"].tolist() if str(n).upper() != "NAN"])
 
 if giocatori_liberi:
     giocatore_sel = st.selectbox("Seleziona il giocatore chiamato in asta:", giocatori_liberi, key="select_asta_giocatore")
@@ -308,7 +313,7 @@ else:
 st.divider()
 st.subheader("🎯 Scout di Rendimento: Trova i Top Player")
 
-lista_club = sorted(df["Squadra"].dropna().unique().tolist())
+lista_club = sorted([str(c) for c in df["Squadra"].dropna().unique().tolist() if str(c).upper() != "NAN"])
 opzioni_club = ["Tutti i club"] + lista_club
 
 col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
@@ -442,7 +447,7 @@ allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:
 rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
 
 if rosa_allenatore_attuale:
-    nomi_giocatori_in_rosa = sorted([g["Nome"] for g in rosa_allenatore_attuale])
+    nomi_giocatori_in_rosa = sorted([str(g["Nome"]) for g in rosa_allenatore_attuale])
     
     with st.form("form_svincolo"):
         giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa, key="select_svincolo_giocatore")
