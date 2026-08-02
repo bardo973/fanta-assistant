@@ -35,7 +35,7 @@ def load_data():
     else:
         df["Proprietario_Iniziale"] = "LIBERO"
         
-    df["Stato"] = "LIBERO" 
+    df["Stato"] = df["Proprietario_Iniziale"]
     
     def assign_tier_and_contract(quot):
         if quot >= 25: 
@@ -98,7 +98,7 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
-# Inizializzazione prima esecuzione
+# Inizializzazione prima esecuzione basata sui dati di partenza del CSV
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for idx, row in df.iterrows():
@@ -122,11 +122,6 @@ for p in PARTECIPANTI_LEGA:
         st.session_state.rose_lega[p] = []
     if p not in st.session_state.extra_budget:
         st.session_state.extra_budget[p] = 0
-    for item in st.session_state.rose_lega[p]:
-        if "Prezzo_Acquisto" not in item:
-            item["Prezzo_Acquisto"] = 1
-        if "Valore_Attuale" not in item:
-            item["Valore_Attuale"] = item["Prezzo_Acquisto"]
 
 df = st.session_state.df_giocatori
 
@@ -141,7 +136,7 @@ if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
 rosa_corrente = st.session_state.rose_lega[fanta_allenatore_attivo]
-spesa_corrente = sum(item['Prezzo_Acquisto'] for item in rosa_corrente)
+spesa_corrente = sum(item.get('Prezzo_Acquisto', 1) for item in rosa_corrente)
 budget_rimanente_corrente = st.session_state.budget_iniziale + st.session_state.extra_budget[fanta_allenatore_attivo] - spesa_corrente
 
 slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
@@ -378,15 +373,13 @@ if rosa_allenatore_attuale:
             giocatore_info = next((g for g in rosa_allenatore_attuale if g["Nome"] == giocatore_da_svincolare), None)
             
             if giocatore_info:
-                # 1. Rimuovi il giocatore dalla rosa dell'allenatore
                 st.session_state.rose_lega[allenatore_svincolo] = [
                     g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
                 ]
                 
-                # 2. Aggiorna lo stato nel DataFrame globale a LIBERO
                 idx_df = df[df["Nome"] == giocatore_da_svincolare].index
                 if not idx_df.empty:
-                    st.session_state.df_giocatori.loc[idx_df, "Stato"] = "LIBERO"
+                    st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
                 
                 st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
                 st.rerun()
