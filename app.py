@@ -268,7 +268,7 @@ if giocatori_liberi:
     col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else "No")
     col4.metric("🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
 
-    st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']}) | **Offerta Consigliata per {fanta_allenatore_attivo}:** {max_offerta_consigliata} crediti")
+    st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']}) | **Max Offerta Consigliata:** **{max_offerta_consigliata} crediti**")
 
     valore_default_input = max(1, int(max_offerta_consigliata))
 
