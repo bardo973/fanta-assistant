@@ -210,7 +210,6 @@ if giocatori_liberi:
 
     st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']})")
 
-    # Evitiamo che il valore di default sia inferiore a 1 per il number_input
     valore_default_input = max(1, int(max_offerta_consigliata))
 
     # Sezione di assegnazione effettiva del giocatore durante l'asta
@@ -233,11 +232,9 @@ if giocatori_liberi:
         submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
         
         if submit_asta:
-            # Aggiorna stato nel dataframe
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
             st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = vincitore_asta
             
-            # Aggiunge alla rosa del vincitore
             st.session_state.rose_lega[vincitore_asta].append({
                 "Nome": g_data["Nome"],
                 "Ruolo": g_data["Ruolo"],
@@ -249,3 +246,44 @@ if giocatori_liberi:
             st.rerun()
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati! L'asta è conclusa.")
+
+# ---------------------------------------------------------
+# 5. SEZIONE VENDITA / SVINCOLO GIOCATORI DALLA ROSA
+# ---------------------------------------------------------
+st.divider()
+st.subheader("🔄 Gestione Rosa & Svincoli (Vendi Giocatore)")
+
+# Permette di scegliere quale allenatore vuole svincolare un giocatore
+allenatore_svincolo = st.selectbox("Seleziona allenatore che intende svincolare:", PARTECIPANTI_LEGA, key="select_svincolo")
+rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
+
+if rosa_allenatore_attuale:
+    nomi_giocatori_in_rosa = [g["Nome"] for g in rosa_allenatore_attuale]
+    
+    with st.form("form_svincolo"):
+        giocatore_da_svincolare = st.selectbox("Seleziona il giocatore da svincolare/vendere:", nomi_giocatori_in_rosa)
+        
+        # Opzione per decidere se rimborsare interamente o parzialmente il prezzo speso
+        rimborso_crediti = st.checkbox("Rimborso crediti spesi (ritorno a budget)", value=True)
+        
+        submit_svincolo = st.form_submit_button("Conferma Svincolo / Vendita")
+        
+        if submit_svincolo:
+            # Trova i dati del giocatore da rimuovere
+            giocatore_info = next((g for g in rosa_allenatore_attuale if g["Nome"] == giocatore_da_svincolare), None)
+            
+            if giocatore_info:
+                # 1. Rimuove il giocatore dalla rosa dell'allenatore
+                st.session_state.rose_lega[allenatore_svincolo] = [
+                    g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
+                ]
+                
+                # 2. Riimposta lo stato del giocatore a "Libero" nel dataframe generale dei giocatori
+                idx_df = df[df["Nome"] == giocatore_da_svincolare].index
+                if not idx_df.empty:
+                    st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
+                
+                st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo dalla rosa di **{allenatore_svincolo}** ed è tornato **Libero**!")
+                st.rerun()
+else:
+    st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
