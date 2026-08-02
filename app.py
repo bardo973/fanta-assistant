@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import json
 import os
-import pdfplumber
-import re
 
 # ---------------------------------------------------------
 # 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
@@ -15,92 +13,119 @@ if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. ESTRAZIONE TABULARE AVANZATA DA PDF (rose.pdf)
+# 2. ESTRAZIONE E PARSING MULTI-COLONNA DA CSV (Quotazioni)
 # ---------------------------------------------------------
 @st.cache_data
-def load_data_from_pdf():
-    nome_file = "rose.pdf"
+def load_data_from_csv():
+    nome_file = "ROSE FANTAroby-quotazioni02022026 .csv"
     if not os.path.exists(nome_file):
-        st.error(f"⚠️ File PDF '{nome_file}' non trovato! Assicurati che sia presente nella directory principale del progetto.")
+        st.error(f"⚠️ File '{nome_file}' non trovato! Assicurati che sia presente nella directory principale.")
         return pd.DataFrame(columns=["Nome", "Squadra", "Ruolo", "Quotazione", "Stato", "Scadenza_Contratto"])
 
-    data_list = []
-    partecipanti_validi = ["PECU", "PAOLO", "GALVA", "GIOPPY", "ROBY", "NILO", "BARDO", "BEPPE", "DODO", "BORTO"]
+    # Leggiamo il CSV saltando le prime righe di intestazione descrittiva
+    df_raw = pd.read_csv(nome_file, skiprows=2, header=None)
     
-    with pdfplumber.open(nome_file) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            lines = [line.strip() for line in text.split('\n') if line.strip()]
-            
+    partecipanti_validi = ["PECU", "PAOLO", "GALVA", "GIOPPY", "ROBY", "ROBBA", "NILO", "BARDO", "BEPPE", "DODO", "BORTO"]
+    data_list = []
+    
+    # Identifichiamo i blocchi di colonne per ciascun utente nel CSV (ogni utente occupa tipicamente 3-4 colonne: Giocatore, Squadra, Prezzo, Scadenza)
+    colonne_totali = df_raw.shape[1]
+    
+    # Scansioniamo il dataframe grezzo per estrarre i giocatori riga per riga
+    ruolo_corrente = "P"
+    
+    for idx, row in df_raw.iterrows():
+        row_str = " ".join([str(val) for val in row.values if pd.notna(val)])
+        upper_str = row_str.upper()
+        
+        if "PORTIERI" in upper_str:
             ruolo_corrente = "P"
-            proprietario_corrente = "LIBERO"
+            continue
+        elif "DIFENSORI" in upper_str:
+            ruolo_corrente = "D"
+            continue
+        elif "CENTROCAMPISTI" in upper_str:
+            ruolo_corrente = "C"
+            continue
+        elif "ATTACCANTI" in upper_str:
+            ruolo_corrente = "A"
+            continue
             
-            for line in lines:
-                upper_line = line.upper()
-                if "PORTIERI" in upper_line:
-                    ruolo_corrente = "P"
-                    continue
-                elif "DIFENSORI" in upper_line:
-                    ruolo_corrente = "D"
-                    continue
-                elif "CENTROCAMPISTI" in upper_line:
-                    ruolo_corrente = "C"
-                    continue
-                elif "ATTACCANTI" in upper_line:
-                    ruolo_corrente = "A"
-                    continue
+        # Analizziamo le celle a gruppi per catturare nome, squadra e prezzo
+        vals = [str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() != ""]
+        
+        # Iteriamo sulle celle saltando i blocchi di etichette ruolo o scadenze pure
+        i = 0
+        while i < len(vals):
+            val = vals[i]
+            if val.upper() in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD"]:
+                i += 1
+                continue
                 
-                # Controllo proprietari sulla riga
-                words = line.split()
-                for w in words:
-                    if w.upper() in partecipanti_validi:
-                        proprietario_corrente = w.upper()
-                
-                # Estrazione Giocatore, Squadra e Prezzo
-                matches = re.findall(r'([A-Za-zÀ-ÿ\.\s\'\-]+)\s+([A-Za-zÀ-ÿ\.]+)\s+(\d+)', line)
-                for m in matches:
-                    nome_giocatore = m[0].strip()
-                    squadra = m[1].strip()
-                    prezzo = int(m[2])
-                    
-                    if squadra.upper() not in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI"] and len(nome_giocatore) > 2:
-                        data_list.append({
-                            "Nome": nome_giocatore,
-                            "Squadra": squadra,
-                            "Ruolo": ruolo_corrente,
-                            "Quotazione": prezzo,
-                            "Stato": proprietario_corrente,
-                            "Scadenza_Contratto": 2028
-                        })
+            # Se troviamo un nome seguito da una squadra e da un prezzo numerico
+            if i + 2 < len(vals) and vals[i+2].isdigit() and not vals[i].startswith("Pi") and not vals[i].startswith("Di") and not vals[i].startswith("Ci") and not vals[i].startswith("Ai") and not vals[i].startswith("Pj") and not vals[i].startswith("Dj") and not vals[i].startswith("Cj") and not vals[i].startswith("Aj"):
+                nome = vals[i]
+                squadra = vals[i+1]
+                try:
+                    prezzo = int(vals[i+2])
+                    # Determiniamo la scadenza se presente nella cella successiva
+                    scadenza = 2028
+                    if i + 3 < len(vals) and ("26" in vals[i+3] or "27" in vals[i+3] or "28" in vals[i+3] or "29" in vals[i+3]):
+                        scad_str = vals[i+3].lower()
+                        if "26" in scad_str: scadenza = 2026
+                        elif "27" in scad_str: scadenza = 2027
+                        elif "28" in scad_str: scadenza = 2028
+                        elif "29" in scad_str: scadenza = 2029
+                        i += 4
+                    else:
+                        i += 3
+                        
+                    # Cerchiamo di associare a quale blocco di colonne appartiene (proprietario)
+                    # Per semplicità iniziale li marchiamo come LIBERO o assegniamo in base alla posizione o file integrativi, 
+                    # qui li rendiamo gestibili dal sistema dinamico di stato.
+                    data_list.append({
+                        "Nome": nome,
+                        "Squadra": squadra,
+                        "Ruolo": ruolo_corrente,
+                        "Quotazione": prezzo,
+                        "Stato": "LIBERO",
+                        "Scadenza_Contratto": scadenza
+                    })
+                    continue
+                except ValueError:
+                    pass
+            i += 1
 
-    # Se non vengono trovati dati a sufficienza, applichiamo un fallback di sicurezza
-    if len(data_list) < 5:
+    # Fallback di sicurezza strutturato se il parsing tabulare trova pochi elementi
+    if len(data_list) < 10:
         giocatori_base = [
-            ("Meret", "Napoli", "P", 15, "PAOLO"),
-            ("Sommer", "Inter", "P", 16, "GALVA"),
-            ("Di Gregorio", "Juventus", "P", 14, "GIOPPY"),
-            ("Falcone", "Lecce", "P", 10, "ROBY"),
-            ("Skorupski", "Bologna", "P", 11, "PECU"),
-            ("Gabbia", "Milan", "D", 8, "PECU"),
-            ("Hien", "Atalanta", "D", 9, "GALVA"),
-            ("Akanji", "Inter", "D", 12, "GIOPPY"),
-            ("Estupinan", "Milan", "D", 10, "ROBY"),
-            ("Bellanova", "Atalanta", "D", 14, "PAOLO"),
-            ("Cambiaso", "Juventus", "D", 18, "PECU"),
-            ("Gosens", "Fiorentina", "D", 13, "PAOLO"),
+            ("Meret", "Napoli", "P", 8, "PAOLO"),
+            ("Sommer", "Inter", "P", 14, "GALVA"),
+            ("Perin", "Juventus", "7", "GIOPPY"),
+            ("Falcone", "Lecce", "P", 15, "ROBY"),
+            ("Skorupski", "Bologna", "P", 14, "PECU"),
+            ("Gabbia", "Milan", "D", 6, "PECU"),
+            ("Hien", "Atalanta", "D", 7, "GALVA"),
+            ("Akanji", "Inter", "D", 14, "GIOPPY"),
+            ("Estupinan", "Milan", "D", 4, "ROBY"),
+            ("Bellanova", "Atalanta", "6", "PAOLO"),
+            ("Cambiaso", "Juventus", "D", 10, "PECU"),
+            ("Gosens", "Fiorentina", "D", 9, "PAOLO"),
             ("Pulisic", "Milan", "C", 28, "LIBERO"),
-            ("Barella", "Inter", "C", 24, "LIBERO"),
+            ("Barella", "Inter", "C", 15, "PAOLO"),
             ("Koopmeiners", "Juventus", "C", 29, "LIBERO"),
-            ("Calhanoglu", "Inter", "C", 30, "LIBERO"),
+            ("Calhanoglu", "Inter", "C", 25, "LIBERO"),
             ("Retegui", "Atalanta", "A", 35, "LIBERO"),
-            ("Thuram", "Inter", "A", 32, "LIBERO"),
-            ("Vlahovic", "Juventus", "A", 31, "LIBERO"),
-            ("Lautaro Martinez", "Inter", "A", 42, "LIBERO"),
+            ("Thuram", "Inter", "A", 27, "LIBERO"),
+            ("Vlahovic", "Juventus", "A", 12, "LIBERO"),
+            ("Lautaro Martinez", "Inter", "A", 32, "LIBERO"),
         ]
-        data_list = [{"Nome": g[0], "Squadra": g[1], "Ruolo": g[2], "Quotazione": g[3], "Stato": g[4], "Scadenza_Contratto": 2028} for g in giocatori_base]
+        data_list = [{"Nome": g[0], "Squadra": g[1], "Ruolo": g[2], "Quotazione": int(g[3]), "Stato": g[4], "Scadenza_Contratto": 2028} for g in giocatori_base]
 
     df = pd.DataFrame(data_list)
-    
+    # Rimuoviamo eventuali duplicati sui nomi
+    df = df.drop_duplicates(subset=["Nome"]).reset_index(drop=True)
+
     def assign_tier_and_contract(quot):
         if quot >= 28: return pd.Series(["Top", 2027])      
         elif quot >= 18: return pd.Series(["Semitop", 2028])
@@ -137,7 +162,7 @@ def load_data_from_pdf():
     return df
 
 if "df_giocatori" not in st.session_state:
-    st.session_state.df_giocatori = load_data_from_pdf()
+    st.session_state.df_giocatori = load_data_from_csv()
 
 df = st.session_state.df_giocatori
 
@@ -147,11 +172,8 @@ if df.empty:
 df["Stato"] = df["Stato"].astype(str).str.strip().str.upper()
 df["Nome"] = df["Nome"].astype(str).str.strip()
 
-lista_proprietari_csv = [p for p in df["Stato"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
-if not lista_proprietari_csv:
-    lista_proprietari_csv = ["BARDO", "ROBY", "PAOLO", "GALVA", "GIOPPY", "PECU", "NILO", "BEPPE", "DODO", "BORTO"]
-
-PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
+PARTECIPANTI_LEGA = ["BARDO", "ROBY", "PAOLO", "GALVA", "GIOPPY", "PECU", "NILO", "BEPPE", "DODO", "BORTO"]
+PARTECIPANTI_LEGA = sorted(PARTECIPANTI_LEGA)
 
 if "rose_lega" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
@@ -173,8 +195,6 @@ if "inizializzato" not in st.session_state:
                 "Valore_Attuale": int(row["Quotazione"]),
                 "Scadenza": int(row["Scadenza_Contratto"])
             })
-        else:
-            df.loc[idx, "Stato"] = "LIBERO"
     st.session_state.inizializzato = True
 
 for p in PARTECIPANTI_LEGA:
@@ -265,7 +285,7 @@ else:
 # ---------------------------------------------------------
 # 4. DASHBOARD PRINCIPALE: VALUTAZIONE ASTA LIVE
 # ---------------------------------------------------------
-st.title("⚡ Live Auction Intelligent Assistant (Pdfplumber Engine)")
+st.title("⚡ Live Auction Intelligent Assistant (CSV Engine)")
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
 mask_liberi = (df["Stato"] == "LIBERO") & (df["Nome"].notna()) & (df["Nome"].str.strip() != "")
