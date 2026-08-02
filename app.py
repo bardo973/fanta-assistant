@@ -117,18 +117,6 @@ if "inizializzato" not in st.session_state:
             st.session_state.df_giocatori.at[idx, "Stato"] = "LIBERO"
     st.session_state.inizializzato = True
 
-# Sincronizzazione automatica dello stato nel DataFrame in base alle rose attuali
-for idx, row in df.iterrows():
-    nome_giocatore = row["Nome"]
-    proprietario_attuale = "LIBERO"
-    for p, rosa in st.session_state.rose_lega.items():
-        if any(g["Nome"] == nome_giocatore for g in rosa):
-            proprietario_attuale = p
-            break
-    st.session_state.df_giocatori.at[idx, "Stato"] = proprietario_attuale
-
-df = st.session_state.df_giocatori
-
 for p in PARTECIPANTI_LEGA:
     if p not in st.session_state.rose_lega:
         st.session_state.rose_lega[p] = []
@@ -139,6 +127,8 @@ for p in PARTECIPANTI_LEGA:
             item["Prezzo_Acquisto"] = 1
         if "Valore_Attuale" not in item:
             item["Valore_Attuale"] = item["Prezzo_Acquisto"]
+
+df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
 # 3. SIDEBAR: PANNELLO DI CONTROLLO, SALVATAGGIO & MONITOR ROSE
@@ -388,17 +378,17 @@ if rosa_allenatore_attuale:
             giocatore_info = next((g for g in rosa_allenatore_attuale if g["Nome"] == giocatore_da_svincolare), None)
             
             if giocatore_info:
-                # Rimuovi il giocatore dalla rosa
+                # 1. Rimuovi il giocatore dalla rosa dell'allenatore
                 st.session_state.rose_lega[allenatore_svincolo] = [
                     g for g in rosa_allenatore_attuale if g["Nome"] != giocatore_da_svincolare
                 ]
                 
-                # Imposta lo stato a LIBERO nel dataframe dei giocatori in modo che torni nel listone
+                # 2. Aggiorna lo stato nel DataFrame globale a LIBERO
                 idx_df = df[df["Nome"] == giocatore_da_svincolare].index
                 if not idx_df.empty:
-                    st.session_state.df_giocatori.at[idx_df[0], "Stato"] = "LIBERO"
+                    st.session_state.df_giocatori.loc[idx_df, "Stato"] = "LIBERO"
                 
-                st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo dalla rosa di **{allenatore_svincolo}** ed è tornato **LIBERO** nel listone!")
+                st.success(f"🗑️ **{giocatore_da_svincolare}** è stato svincolato con successo ed è tornato **LIBERO** nel listone!")
                 st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è attualmente vuota, non ci sono giocatori da svincolare.")
