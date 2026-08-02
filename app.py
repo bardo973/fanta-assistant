@@ -50,12 +50,12 @@ def load_data():
     df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(assign_tier_and_contract)
     
     def genera_indici_salute(row):
-        if row["Tier"] == "Top": return pd.Series([0.90, 34])
-        elif row["Tier"] == "Semitop": return pd.Series([0.75, 30])
-        elif row["Tier"] == "Titolare": return pd.Series([0.65, 28])
-        return pd.Series([0.45, 22])
+        if row["Tier"] == "Top": return pd.Series([0.90, 34, 92])
+        elif row["Tier"] == "Semitop": return pd.Series([0.75, 30, 85])
+        elif row["Tier"] == "Titolare": return pd.Series([0.65, 28, 78])
+        return pd.Series([0.45, 22, 65])
         
-    df[["Percentuale_Titolarita", "Partite_Attese"]] = df.apply(genera_indici_salute, axis=1)
+    df[["Percentuale_Titolarita", "Partite_Attese", "Indice_Resilienza"]] = df.apply(genera_indici_salute, axis=1)
     
     def stima_voto_puro(ruolo):
         if ruolo == "D": return 6.10
@@ -78,6 +78,8 @@ def load_data():
     
     df["Valore_Atteso"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0)) * df["Partite_Attese"] * df["Moltiplicatore_Team"], 1)
     df["Indice_VfM"] = np.round(df["Valore_Atteso"] / df["Quotazione"], 2)
+    df["Bonus_Per_Match"] = np.round(((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0) + (df["Status_Piazzati"] * 0.4)) * df["Moltiplicatore_Team"], 2)
+    df["Indice_Appetibilita"] = np.round((df["Valore_Atteso"] * 0.6) + (df["Indice_Resilienza"] * 0.2) + (df["Status_Piazzati"] * 5.0), 1)
     
     return df
 
@@ -266,10 +268,10 @@ if giocatori_liberi:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Ruolo & Squadra", f"{g_data['Ruolo']} - {g_data['Squadra']}", f"Tier: {g_data['Tier']}")
     col2.metric("Quotazione", f"{int(g_data['Quotazione'])} cr", f"Scad.: {int(g_data['Scadenza_Contratto'])}")
-    col3.metric("Partite Attese", f"{int(g_data['Partite_Attese'])} / 38", "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else "No")
-    col4.metric("🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Hype: x{moltiplicatore_scarsita}")
+    col3.metric("Resilienza / Presenze", f"{int(g_data['Indice_Resilienza'])}% ({int(g_data['Partite_Attese'])} g.)", "Rigorista 🎯" if g_data["Status_Piazzati"] == 3 else "No")
+    col4.metric("🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr", f"Bonus/M: {g_data['Bonus_Per_Match']}")
 
-    st.info(f"💡 **Consiglio AI:** Valore atteso stimato di rendimento: **{g_data['Valore_Atteso']}** (Indice Value-for-Money: {g_data['Indice_VfM']}) | **Max Offerta Consigliata:** **{max_offerta_consigliata} crediti**")
+    st.info(f"💡 **Consiglio AI:** Valore atteso: **{g_data['Valore_Atteso']}** | Indice Appetibilità: **{g_data['Indice_Appetibilita']}** | Value-for-Money: **{g_data['Indice_VfM']}**")
 
     valore_default_input = max(1, int(max_offerta_consigliata))
 
@@ -304,34 +306,54 @@ else:
 st.divider()
 st.subheader("🎯 Scout di Rendimento: Trova i Top Player")
 
-col_f1, col_f2, col_f3 = st.columns(3)
+# Estrazione dinamica dei club presenti nel file
+lista_club = sorted(df["Squadra"].dropna().unique().tolist())
+opzioni_club = ["Tutti i club"] + lista_club
+
+col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
 with col_f1:
     filtro_ruolo = st.selectbox("Filtra per Ruolo:", ["Tutti", "P", "D", "C", "A"])
 with col_f2:
-    filtro_tier = st.selectbox("Filtra per Tier:", ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"])
+    filtro_club = st.selectbox("Filtra per Club:", opzioni_club)
 with col_f3:
-    solo_rigoristi = st.checkbox("Solo Rigoristi / Piazzati (Score 3)")
+    filtro_tier = st.selectbox("Filtra per Tier:", ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"])
+with col_f4:
+    solo_rigoristi = st.checkbox("Solo Rigoristi")
+with col_f5:
+    min_vfm = st.slider("Minimo VfM:", 0.0, 3.0, 0.0, 0.1)
 
 df_scout = df[df["Stato"] == "LIBERO"].copy()
 
 if filtro_ruolo != "Tutti":
     df_scout = df_scout[df_scout["Ruolo"] == filtro_ruolo]
+if filtro_club != "Tutti i club":
+    df_scout = df_scout[df_scout["Squadra"] == filtro_club]
 if filtro_tier != "Tutti":
     df_scout = df_scout[df_scout["Tier"] == filtro_tier]
 if solo_rigoristi:
     df_scout = df_scout[df_scout["Status_Piazzati"] == 3]
+if min_vfm > 0:
+    df_scout = df_scout[df_scout["Indice_VfM"] >= min_vfm]
 
 criterio_ordinamento = st.radio(
     "Ordina i risultati per:", 
-    ["Valore Atteso di Rendimento (xG + xA)", "Indice Value-for-Money (VfM)", "Quotazione Base"],
+    ["Indice di Appetibilità Globale", "Valore Atteso di Rendimento", "Indice Value-for-Money (VfM)", "Bonus Previsti per Match"],
     horizontal=True
 )
 
-col_sort = "Valore_Atteso" if criterio_ordinamento.startswith("Valore") else ("Indice_VfM" if criterio_ordinamento.startswith("Indice") else "Quotazione")
+if criterio_ordinamento.startswith("Indice di Appetibilità"):
+    col_sort = "Indice_Appetibilita"
+elif criterio_ordinamento.startswith("Valore Atteso"):
+    col_sort = "Valore_Atteso"
+elif criterio_ordinamento.startswith("Indice Value"):
+    col_sort = "Indice_VfM"
+else:
+    col_sort = "Bonus_Per_Match"
+
 df_scout = df_scout.sort_values(by=col_sort, ascending=False)
 
 st.dataframe(
-    df_scout[["Nome", "Squadra", "Ruolo", "Quotazione", "Valore_Atteso", "Indice_VfM", "Partite_Attese"]],
+    df_scout[["Nome", "Squadra", "Ruolo", "Quotazione", "Valore_Atteso", "Indice_Appetibilita", "Indice_VfM", "Bonus_Per_Match", "Indice_Resilienza"]],
     use_container_width=True,
     hide_index=True
 )
