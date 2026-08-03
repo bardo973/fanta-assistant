@@ -193,6 +193,7 @@ for p in PARTECIPANTI_LEGA:
     if p not in st.session_state.extra_budget:
         st.session_state.extra_budget[p] = 0
 
+# Aggiorniamo sempre il riferimento locale dal session_state
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
@@ -282,6 +283,7 @@ if nuovo_listone_file is not None:
         df_new_processed["Indice_VfM"] = 1.0
 
         st.session_state.df_giocatori = df_new_processed
+        df = st.session_state.df_giocatori
         st.sidebar.success(
             "✅ Nuovo listone caricato e rose sincronizzate con successo!"
         )
@@ -357,6 +359,7 @@ if file_rose_tutti is not None:
 
             st.session_state.rose_lega = nuove_rose
             st.session_state.df_giocatori = df_corrente
+            df = st.session_state.df_giocatori
             st.sidebar.success("✅ Rose di tutti caricate e sincronizzate!")
         else:
             st.sidebar.error("❌ Colonne mancanti nel file.")
@@ -415,6 +418,7 @@ if uploaded_file is not None:
             nome_giocatore = row["Nome"]
             if nome_giocatore in stati_caricati:
                 df.at[idx, "Stato"] = stati_caricati[nome_giocatore]
+        st.session_state.df_giocatori = df
         st.sidebar.success("✅ Stato caricato con successo!")
     except Exception as e:
         st.sidebar.error(f"Errore: {e}")
@@ -597,7 +601,7 @@ if rosa_allenatore_attuale:
     )
 
     if st.button("🗑️ Conferma Svincolo / Rendi Libero"):
-        # Rimuove il giocatore dalla rosa dell'allenatore
+        # 1. Rimuove il giocatore dalla rosa dell'allenatore nello state
         st.session_state.rose_lega[allenatore_svincolo] = [
             g
             for g in rosa_allenatore_attuale
@@ -605,17 +609,18 @@ if rosa_allenatore_attuale:
             != giocatore_da_svincolare.strip().lower()
         ]
 
-        # Rende nuovamente LIBERO il giocatore nel dataframe principale
-        match_df = df[
-            df["Nome"].str.strip().str.lower()
+        # 2. Imposta lo stato a "LIBERO" direttamente su st.session_state.df_giocatori
+        match_idx = st.session_state.df_giocatori[
+            st.session_state.df_giocatori["Nome"].str.strip().str.lower()
             == giocatore_da_svincolare.strip().lower()
-        ]
-        if not match_df.empty:
-            for idx_df in match_df.index:
+        ].index
+
+        if not match_idx.empty:
+            for idx_df in match_idx:
                 st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
 
         st.success(
-            f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo} ed è ora **LIBERO**!"
+            f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo} ed è ora nuovamente **LIBERO**!"
         )
         st.rerun()
 else:
@@ -630,7 +635,7 @@ st.subheader("🤝 Gestione Prestiti tra Squadre")
 col_p1, col_p2 = st.columns(2)
 with col_p1:
     squadra_cedente = st.selectbox(
-        "Squadra checede in prestito:", PARTECIPANTI_LEGA, key="prestito_da"
+        "Squadra che cede in prestito:", PARTECIPANTI_LEGA, key="prestito_da"
     )
 
 rosa_cedente = st.session_state.rose_lega[squadra_cedente]
@@ -651,7 +656,6 @@ if rosa_cedente:
     )
 
     if st.button("🔄 Conferma Trasferimento in Prestito"):
-        # Estrae l'oggetto giocatore dalla rosa cedente
         giocatore_obj = next(
             (
                 g
@@ -663,25 +667,25 @@ if rosa_cedente:
         )
 
         if giocatore_obj:
-            # Rimuove dalla rosa cedente
+            # Rimuove dalla cedente e aggiunge alla ricevente nello state
             st.session_state.rose_lega[squadra_cedente] = [
                 g
                 for g in rosa_cedente
                 if g["Nome"].strip().lower()
                 != giocatore_prestito.strip().lower()
             ]
-            # Aggiunge alla rosa ricevente
             st.session_state.rose_lega[squadra_ricevente].append(
                 giocatore_obj
             )
 
-            # Aggiorna lo stato nel dataframe principale
-            match_df = df[
-                df["Nome"].str.strip().str.lower()
+            # Aggiorna lo stato nel DataFrame globale persistente
+            match_idx = st.session_state.df_giocatori[
+                st.session_state.df_giocatori["Nome"].str.strip().str.lower()
                 == giocatore_prestito.strip().lower()
-            ]
-            if not match_df.empty:
-                for idx_df in match_df.index:
+            ].index
+
+            if not match_idx.empty:
+                for idx_df in match_idx:
                     st.session_state.df_giocatori.at[
                         idx_df, "Stato"
                     ] = squadra_ricevente
