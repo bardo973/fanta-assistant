@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
+# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT SICURO
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="FantaLega AI Advanced Predictor & Manager", layout="wide"
@@ -205,17 +205,24 @@ fanta_allenatore_attivo = st.sidebar.selectbox(
 
 budget_input = st.sidebar.number_input(
     "Budget Iniziale Crediti (Tutti)",
-    value=st.session_state.budget_iniziale,
+    value=st.session_state.get("budget_iniziale", 500),
     step=10,
 )
 if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
-rosa_corrente = st.session_state.rose_lega.get(fanta_allenatore_attivo, [])
+rose_lega_dict = st.session_state.get(
+    "rose_lega", {p: [] for p in PARTECIPANTI_LEGA}
+)
+extra_budget_dict = st.session_state.get(
+    "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
+)
+
+rosa_corrente = rose_lega_dict.get(fanta_allenatore_attivo, [])
 spesa_corrente = sum(item.get("Prezzo_Acquisto", 1) for item in rosa_corrente)
 budget_rimanente_corrente = (
-    st.session_state.budget_iniziale
-    + st.session_state.extra_budget.get(fanta_allenatore_attivo, 0)
+    st.session_state.get("budget_iniziale", 500)
+    + extra_budget_dict.get(fanta_allenatore_attivo, 0)
     - spesa_corrente
 )
 
@@ -235,9 +242,9 @@ st.sidebar.metric(
 st.sidebar.divider()
 st.sidebar.subheader("💾 Salvataggio & Caricamento")
 stato_salva = {
-    "budget_iniziale": st.session_state.budget_iniziale,
-    "rose_lega": st.session_state.rose_lega,
-    "extra_budget": st.session_state.extra_budget,
+    "budget_iniziale": st.session_state.get("budget_iniziale", 500),
+    "rose_lega": rose_lega_dict,
+    "extra_budget": extra_budget_dict,
     "stati_giocatori": df[["Nome", "Stato"]]
     .set_index("Nome")["Stato"]
     .to_dict(),
@@ -285,9 +292,12 @@ st.sidebar.subheader("📋 Esplora Rose & Valori")
 squadra_da_esplorare = st.sidebar.selectbox(
     "Seleziona rosa da visualizzare:", PARTECIPANTI_LEGA, key="esplora_sidebar"
 )
-rosa_selezionata_sidebar = st.session_state.rose_lega.get(
+
+# Lettura dinamica e immediata dal dizionario in session_state
+rosa_selezionata_sidebar = st.session_state.get("rose_lega", {}).get(
     squadra_da_esplorare, []
 )
+
 if rosa_selezionata_sidebar:
     df_side_list = [
         {
@@ -374,9 +384,10 @@ if giocatori_liberi:
         submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
 
         if submit_asta:
-            if vincitore_asta not in st.session_state.rose_lega:
-                st.session_state.rose_lega[vincitore_asta] = []
-            st.session_state.rose_lega[vincitore_asta].append({
+            current_rose = st.session_state.get("rose_lega", {})
+            if vincitore_asta not in current_rose:
+                current_rose[vincitore_asta] = []
+            current_rose[vincitore_asta].append({
                 "Nome": str(g_data["Nome"]),
                 "Ruolo": str(g_data["Ruolo"]),
                 "Squadra": str(g_data["Squadra"]),
@@ -384,6 +395,7 @@ if giocatori_liberi:
                 "Valore_Attuale": int(g_data["Quotazione"]),
                 "Scadenza": int(g_data["Scadenza_Contratto"]),
             })
+            st.session_state.rose_lega = current_rose
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
             st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = (
                 vincitore_asta
@@ -454,7 +466,7 @@ allenatore_svincolo = st.selectbox(
     PARTECIPANTI_LEGA,
     key="select_svincolo_allenatore",
 )
-rosa_allenatore_attuale = st.session_state.rose_lega.get(
+rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(
     allenatore_svincolo, []
 )
 
@@ -468,12 +480,14 @@ if rosa_allenatore_attuale:
     )
 
     if st.button("🗑️ Conferma Svincolo / Rendi Libero", key="btn_svincola"):
-        st.session_state.rose_lega[allenatore_svincolo] = [
+        current_rose = st.session_state.get("rose_lega", {})
+        current_rose[allenatore_svincolo] = [
             g
             for g in rosa_allenatore_attuale
             if str(g["Nome"]).strip().lower()
             != str(giocatore_da_svincolare).strip().lower()
         ]
+        st.session_state.rose_lega = current_rose
 
         match_idx = st.session_state.df_giocatori[
             st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
@@ -505,7 +519,7 @@ with col_p1:
         key="prestito_da_squadra",
     )
 
-rosa_cedente = st.session_state.rose_lega.get(squadra_cedente, [])
+rosa_cedente = st.session_state.get("rose_lega", {}).get(squadra_cedente, [])
 
 if rosa_cedente:
     nomi_cedente = [str(g["Nome"]) for g in rosa_cedente]
@@ -534,17 +548,17 @@ if rosa_cedente:
         )
 
         if giocatore_obj:
-            st.session_state.rose_lega[squadra_cedente] = [
+            current_rose = st.session_state.get("rose_lega", {})
+            current_rose[squadra_cedente] = [
                 g
                 for g in rosa_cedente
                 if str(g["Nome"]).strip().lower()
                 != str(giocatore_prestito).strip().lower()
             ]
-            if squadra_ricevente not in st.session_state.rose_lega:
-                st.session_state.rose_lega[squadra_ricevente] = []
-            st.session_state.rose_lega[squadra_ricevente].append(
-                giocatore_obj
-            )
+            if squadra_ricevente not in current_rose:
+                current_rose[squadra_ricevente] = []
+            current_rose[squadra_ricevente].append(giocatore_obj)
+            st.session_state.rose_lega = current_rose
 
             match_idx = st.session_state.df_giocatori[
                 st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
