@@ -298,7 +298,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE SICURA ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Excel / WPS Office")
 uploaded_excel = st.sidebar.file_uploader(
@@ -310,11 +310,19 @@ if uploaded_excel is not None:
     if st.session_state.get("last_uploaded_excel") != excel_identifier:
         try:
             if uploaded_excel.name.endswith('.csv'):
-                df_excel = pd.read_csv(uploaded_excel)
+                # Tentativi di decodifica multipli per evitare errori di codec
+                try:
+                    df_excel = pd.read_csv(uploaded_excel, encoding="utf-8")
+                except UnicodeDecodeError:
+                    uploaded_excel.seek(0)
+                    try:
+                        df_excel = pd.read_csv(uploaded_excel, encoding="latin1")
+                    except Exception:
+                        uploaded_excel.seek(0)
+                        df_excel = pd.read_csv(uploaded_excel, encoding="cp1252")
             else:
                 df_excel = pd.read_excel(uploaded_excel)
             
-            # Funzione di supporto per pulire e convertire le scadenze testuali in anno numerico (es. "feb-26" -> 2026)
             def parse_scadenza_wps(val_scad):
                 if pd.isna(val_scad):
                     return 2030
@@ -322,7 +330,6 @@ if uploaded_excel is not None:
                 for y_str, y_val in [("26", 2026), ("27", 2027), ("28", 2028), ("29", 2029), ("30", 2030), ("31", 2031), ("32", 2032), ("33", 2033), ("34", 2034), ("35", 2035)]:
                     if y_str in s:
                         return y_val
-                # Se è già un numero a 4 cifre
                 try:
                     num = int(s)
                     if 2020 <= num <= 2040:
@@ -331,10 +338,6 @@ if uploaded_excel is not None:
                     pass
                 return 2030
 
-            # Rilevamento flessibile struttura WPS o Excel classico
-            col_prop = next((c for c in df_excel.columns if any(k in str(c).upper() for k in ["PROPIETARIO", "SQUADRA_FANTACALCIO", "ALLENATORE", "TEAM", "PECU"])), None)
-            
-            # Se il file ha la struttura WPS Office tipica (es. intestazioni nelle celle o colonne multiple)
             if df_excel.shape[1] >= 2:
                 new_rose = {}
                 df_temp = st.session_state.df_giocatori.copy()
@@ -348,7 +351,6 @@ if uploaded_excel is not None:
                     if not row_vals:
                         continue
                         
-                    # Controlla se la riga definisce un proprietario (es. "PECU", "BARDO", ecc.)
                     potential_prop = row_vals[0].upper()
                     if potential_prop in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD"]:
                         continue
@@ -361,12 +363,10 @@ if uploaded_excel is not None:
                             PARTECIPANTI_LEGA.append(corrente_proprietario)
                         continue
 
-                    # Scansione per trovare nomi di giocatori all'interno delle celle
                     for val in row_vals:
                         val_lower = val.lower()
                         if val_lower in master_dict and corrente_proprietario:
                             g_info = master_dict[val_lower]
-                            # Cerca eventuali prezzi o scadenze vicine nella stessa riga
                             prezzo_trovato = int(g_info["Quotazione"])
                             scadenza_trovata = 2030
                             
@@ -529,14 +529,13 @@ if giocatori_liberi:
             if vincitore_asta not in current_rose:
                 current_rose[vincitore_asta] = []
             
-            # Assegnazione automatica del contratto a 4 anni (2026 + 4 = 2030)
             current_rose[vincitore_asta].append({
                 "Nome": str(g_data["Nome"]),
                 "Ruolo": str(g_data["Ruolo"]),
                 "Squadra": str(g_data["Squadra"]),
                 "Prezzo_Acquisto": int(prezzo_aggiudicazione),
                 "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": 2030,  # Contratto di 4 anni per i nuovi acquisti
+                "Scadenza": 2030,
             })
             st.session_state.rose_lega = current_rose
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
