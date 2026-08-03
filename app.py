@@ -298,7 +298,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE SICURA ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE SICURA (AGGIORNATA) ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Excel / WPS Office")
 uploaded_excel = st.sidebar.file_uploader(
@@ -310,7 +310,6 @@ if uploaded_excel is not None:
     if st.session_state.get("last_uploaded_excel") != excel_identifier:
         try:
             if uploaded_excel.name.endswith('.csv'):
-                # Tentativi di decodifica multipli per evitare errori di codec
                 try:
                     df_excel = pd.read_csv(uploaded_excel, encoding="utf-8")
                 except UnicodeDecodeError:
@@ -321,7 +320,8 @@ if uploaded_excel is not None:
                         uploaded_excel.seek(0)
                         df_excel = pd.read_csv(uploaded_excel, encoding="cp1252")
             else:
-                df_excel = pd.read_excel(uploaded_excel)
+                # Legge il file Excel (supporta anche più fogli o file strutturati da WPS)
+                df_excel = pd.read_excel(uploaded_excel, header=None)
             
             def parse_scadenza_wps(val_scad):
                 if pd.isna(val_scad):
@@ -331,14 +331,14 @@ if uploaded_excel is not None:
                     if y_str in s:
                         return y_val
                 try:
-                    num = int(s)
+                    num = int(float(s))
                     if 2020 <= num <= 2040:
                         return num
                 except:
                     pass
                 return 2030
 
-            if df_excel.shape[1] >= 2:
+            if not df_excel.empty:
                 new_rose = {}
                 df_temp = st.session_state.df_giocatori.copy()
                 df_temp["Stato"] = "LIBERO"
@@ -346,23 +346,31 @@ if uploaded_excel is not None:
                 
                 corrente_proprietario = None
                 
+                # Scansione intelligente riga per riga per individuare proprietari e giocatori
                 for idx, row in df_excel.iterrows():
-                    row_vals = [str(val).strip() for val in row.values if pd.notna(val) and str(val).strip() != "nan"]
+                    row_vals = [str(val).strip() for val in row.values if pd.notna(val) and str(val).strip().lower() not in ["nan", "none", ""]]
                     if not row_vals:
                         continue
                         
-                    potential_prop = row_vals[0].upper()
-                    if potential_prop in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD"]:
+                    # Controlla se la riga definisce un nuovo proprietario (es. nome isolato o intestazione di squadra)
+                    primo_val = row_vals[0]
+                    primo_val_upper = primo_val.upper()
+                    
+                    # Filtra parole chiave non valide come nomi squadra
+                    parole_da_ignorare = ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD", "RUOLO", "CALCIATORE", "SQUADRA", "PREZZO", "TOTALE", "CREDITI"]
+                    if primo_val_upper in parole_da_ignorare:
                         continue
                         
-                    if len(row_vals) == 1 and len(potential_prop) < 20 and potential_prop not in ["LIBERO"]:
-                        corrente_proprietario = potential_prop
+                    # Se la riga ha pochi elementi ed è corta, potrebbe essere il nome del fanta-allenatore
+                    if len(row_vals) <= 2 and len(primo_val) < 25 and not any(c.isdigit() for c in primo_val):
+                        corrente_proprietario = primo_val_upper
                         if corrente_proprietario not in new_rose:
                             new_rose[corrente_proprietario] = []
                         if corrente_proprietario not in PARTECIPANTI_LEGA:
                             PARTECIPANTI_LEGA.append(corrente_proprietario)
                         continue
 
+                    # Altrimenti cerca i giocatori all'interno della riga
                     for val in row_vals:
                         val_lower = val.lower()
                         if val_lower in master_dict and corrente_proprietario:
@@ -370,37 +378,45 @@ if uploaded_excel is not None:
                             prezzo_trovato = int(g_info["Quotazione"])
                             scadenza_trovata = 2030
                             
+                            # Cerca prezzi o scadenze vicine nella stessa riga
                             for other_val in row_vals:
                                 ov_lower = other_val.lower()
-                                if any(m in ov_lower for m in ["feb-", "set-", "mar-", "apr-", "mag-", "giu-", "lug-", "ago-", "ott-", "nov-", "dic-"]):
+                                if any(m in ov_lower for m in ["feb", "set", "mar", "apr", "mag", "giu", "lug", "ago", "ott", "nov", "dic", "202", "203"]):
                                     scadenza_trovata = parse_scadenza_wps(other_val)
-                                elif other_val.isdigit() and int(other_val) < 100:
-                                    prezzo_trovato = int(other_val)
+                                else:
+                                    try:
+                                        num_cand = int(float(other_val))
+                                        if 1 <= num_cand <= 500 and other_val != val:
+                                            prezzo_trovato = num_cand
+                                    except:
+                                        pass
 
                             if corrente_proprietario not in new_rose:
                                 new_rose[corrente_proprietario] = []
 
-                            new_rose[corrente_proprietario].append({
-                                "Nome": g_info["Nome"],
-                                "Ruolo": g_info["Ruolo"],
-                                "Squadra": g_info["Squadra"],
-                                "Prezzo_Acquisto": prezzo_trovato,
-                                "Valore_Attuale": int(g_info["Quotazione"]),
-                                "Scadenza": scadenza_trovata,
-                            })
-                            
-                            idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == val_lower].index
-                            if not idx_match.empty:
-                                df_temp.at[idx_match[0], "Stato"] = corrente_proprietario
+                            # Evita duplicati dello stesso giocatore nella stessa rosa
+                            if not any(str(g["Nome"]).strip().lower() == val_lower for g in new_rose[corrente_proprietario]):
+                                new_rose[corrente_proprietario].append({
+                                    "Nome": g_info["Nome"],
+                                    "Ruolo": g_info["Ruolo"],
+                                    "Squadra": g_info["Squadra"],
+                                    "Prezzo_Acquisto": prezzo_trovato,
+                                    "Valore_Attuale": int(g_info["Quotazione"]),
+                                    "Scadenza": scadenza_trovata,
+                                })
+                                
+                                idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == val_lower].index
+                                if not idx_match.empty:
+                                    df_temp.at[idx_match[0], "Stato"] = corrente_proprietario
 
-                if new_rose:
+                if new_rose and any(len(v) > 0 for v in new_rose.values()):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
                     st.sidebar.success("✅ File WPS Office / Excel importato con successo!")
                     st.rerun()
             
-            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato.")
+            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato. Assicurati che i nomi dei giocatori corrispondano a quelli del listone.")
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura del file WPS Office/Excel: {e}")
 
