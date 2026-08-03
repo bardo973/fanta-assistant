@@ -15,27 +15,43 @@ if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
+# 2. FUNZIONE DI SUPPORTO PER CORRETTO ENCODING (ACCENTI)
 # ---------------------------------------------------------
+def ripara_testo(testo):
+    if not isinstance(testo, str):
+        return str(testo)
+    # Corregge i caratteri speciali sballati (es. Ã¨ -> è)
+    for enc_from, enc_to in [('latin1', 'utf-8'), ('cp1252', 'utf-8')]:
+        try:
+            return testo.encode(enc_from).decode(enc_to)
+        except Exception:
+            continue
+    return testo
 
-
+# ---------------------------------------------------------
+# 3. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
+# ---------------------------------------------------------
 @st.cache_data
 def load_data():
-    try:
-        df_raw = pd.read_csv("ROSE FANTAroby-quotazioni02022026.csv", encoding="latin1")
-    except Exception:
-        df_raw = pd.DataFrame(
-            columns=["Calciatore", "Squadra", "Ruolo", "Quotazione"]
-        )
+    df_raw = None
+    for enc in ['utf-8', 'latin1', 'cp1252']:
+        try:
+            df_raw = pd.read_csv("ROSE FANTAroby-quotazioni02022026.csv", encoding=enc)
+            break
+        except Exception:
+            continue
+            
+    if df_raw is None:
+        df_raw = pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione"])
 
     df = pd.DataFrame()
     df["Nome"] = (
-        df_raw["Calciatore"].astype(str).str.strip()
+        df_raw["Calciatore"].astype(str).str.strip().apply(ripara_testo)
         if "Calciatore" in df_raw.columns
         else "Sconosciuto"
     )
     df["Squadra"] = (
-        df_raw["Squadra"].astype(str).str.strip()
+        df_raw["Squadra"].astype(str).str.strip().apply(ripara_testo)
         if "Squadra" in df_raw.columns
         else "N/D"
     )
@@ -63,7 +79,7 @@ def load_data():
 
     if colonna_trovata:
         df["Proprietario_Iniziale"] = (
-            df_raw[colonna_trovata].astype(str).str.strip().str.upper()
+            df_raw[colonna_trovata].astype(str).str.strip().str.upper().apply(ripara_testo)
         )
         df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
             lambda x: (
@@ -228,7 +244,7 @@ for p in PARTECIPANTI_LEGA:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 3. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO DATI
+# 4. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO DATI
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox(
@@ -282,7 +298,7 @@ stato_salva = {
     .set_index("Nome")["Stato"]
     .to_dict(),
 }
-json_data = json.dumps(stato_salva, indent=4)
+json_data = json.dumps(stato_salva, indent=4, ensure_ascii=False)
 st.sidebar.download_button(
     label="📥 Salva Stato Lega (JSON)",
     data=json_data,
@@ -330,7 +346,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / CSV / TXT CON SUPPORTO FILE DI TESTO ---
+# --- IMPORTAZIONE EXCEL / CSV / TXT CON CORRETTA GESTIONE ACCENTI ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV/TXT)")
 uploaded_excel = st.sidebar.file_uploader(
@@ -345,10 +361,18 @@ if uploaded_excel is not None:
             
             if file_extension == 'txt':
                 content_bytes = uploaded_excel.read()
-                try:
-                    text_content = content_bytes.decode('utf-8')
-                except UnicodeDecodeError:
-                    text_content = content_bytes.decode('latin1')
+                text_content = None
+                for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+                    try:
+                        text_content = content_bytes.decode(enc)
+                        break
+                    except:
+                        continue
+                if text_content is None:
+                    text_content = content_bytes.decode('latin1', errors='ignore')
+                
+                # Applica riparazione caratteri speciali
+                text_content = ripara_testo(text_content)
                 
                 lines = [line.strip() for line in text_content.splitlines() if line.strip()]
                 if any(',' in line or '\t' in line or ';' in line for line in lines[:3]):
@@ -403,7 +427,7 @@ if uploaded_excel is not None:
                 master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
                 
                 for _, row in df_excel.iterrows():
-                    nome_g = str(row[map_colonne["calciatore"]]).strip()
+                    nome_g = ripara_testo(str(row[map_colonne["calciatore"]]).strip())
                     if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
                         continue
                         
@@ -411,7 +435,7 @@ if uploaded_excel is not None:
                     
                     prop_val = "LIBERO"
                     if "proprietario" in map_colonne:
-                        p_raw = str(row[map_colonne["proprietario"]]).strip().upper()
+                        p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
                         if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!"] and not p_raw.startswith("="):
                             prop_val = p_raw
                             if prop_val not in PARTECIPANTI_LEGA:
@@ -427,11 +451,11 @@ if uploaded_excel is not None:
                     if nome_g_lower in master_dict:
                         g_info = master_dict[nome_g_lower]
                         ruolo_g = str(g_info["Ruolo"])
-                        squadra_g = str(g_info["Squadra"])
+                        squadra_g = ripara_testo(str(g_info["Squadra"]))
                         quot_g = int(g_info["Quotazione"])
                     else:
-                        ruolo_g = str(row[map_colonne["ruolo"]]) if "ruolo" in map_colonne and map_colonne["ruolo"] in row else "C"
-                        squadra_g = str(row[map_colonne["squadra"]]) if "squadra" in map_colonne and map_colonne["squadra"] in row else "N/D"
+                        ruolo_g = ripara_testo(str(row[map_colonne["ruolo"]])) if "ruolo" in map_colonne and map_colonne["ruolo"] in row else "C"
+                        squadra_g = ripara_testo(str(row[map_colonne["squadra"]])) if "squadra" in map_colonne and map_colonne["squadra"] in row else "N/D"
                         quot_g = prezzo_val
 
                     if prop_val != "LIBERO":
