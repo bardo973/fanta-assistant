@@ -316,7 +316,7 @@ if uploaded_excel is not None:
                 
                 # Se è un file excel vero
                 if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
-                    df_raw_local = pd.read_excel(file_obj, header=None)
+                    df_raw_local = pd.read_excel(file_obj, header=None, dtype=str)
                 else:
                     # È un CSV o file di testo: prova diversi separatori e codifiche in sicurezza
                     df_raw_local = None
@@ -324,7 +324,7 @@ if uploaded_excel is not None:
                         for enc in ['utf-8', 'latin1', 'cp1252']:
                             try:
                                 file_obj.seek(0)
-                                df_test = pd.read_csv(file_obj, encoding=enc, sep=sep, header=None, on_bad_lines='skip')
+                                df_test = pd.read_csv(file_obj, encoding=enc, sep=sep, header=None, dtype=str, on_bad_lines='skip')
                                 if df_test.shape[1] > 1:  # Se ha più di una colonna, il separatore è corretto
                                     df_raw_local = df_test
                                     break
@@ -335,33 +335,33 @@ if uploaded_excel is not None:
                     
                     if df_raw_local is None:
                         file_obj.seek(0)
-                        df_raw_local = pd.read_csv(file_obj, encoding='latin1', header=None, on_bad_lines='skip')
+                        df_raw_local = pd.read_csv(file_obj, encoding='latin1', header=None, dtype=str, on_bad_lines='skip')
 
-                # Trova la riga d'intestazione corretta scansionando le prime righe
+                # Trova la riga d'intestazione corretta scansionando le prime righe in sicurezza
                 header_row_idx = 0
                 for i in range(min(15, len(df_raw_local))):
-                    row_str = " ".join(df_raw_local.iloc[i].astype(str).values).lower()
+                    row_str = " ".join([str(val) for val in df_raw_local.iloc[i].values]).lower()
                     if any(k in row_str for k in ["calciatore", "giocatore", "nome"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione"]):
                         header_row_idx = i
                         break
                 
                 file_obj.seek(0)
                 if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
-                    df_res = pd.read_excel(file_obj, header=header_row_idx)
+                    df_res = pd.read_excel(file_obj, header=header_row_idx, dtype=str)
                 else:
                     # Rileggi applicando la riga d'intestazione identificata
                     sep_used = ','
                     for s in [',', ';', '\t', '|']:
                         try:
                             file_obj.seek(0)
-                            df_t = pd.read_csv(file_obj, encoding='latin1', sep=s, header=header_row_idx, nrows=5)
+                            df_t = pd.read_csv(file_obj, encoding='latin1', sep=s, header=header_row_idx, nrows=5, dtype=str)
                             if len(df_t.columns) > 1:
                                 sep_used = s
                                 break
                         except:
                             continue
                     file_obj.seek(0)
-                    df_res = pd.read_csv(file_obj, encoding='latin1', sep=sep_used, header=header_row_idx, on_bad_lines='skip')
+                    df_res = pd.read_csv(file_obj, encoding='latin1', sep=sep_used, header=header_row_idx, dtype=str, on_bad_lines='skip')
                 
                 return df_res
 
@@ -390,7 +390,7 @@ if uploaded_excel is not None:
                 
                 for _, row in df_excel.iterrows():
                     nome_g = str(row[map_colonne["calciatore"]]).strip()
-                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat"]:
+                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
                         continue
                         
                     nome_g_lower = nome_g.lower()
@@ -406,7 +406,7 @@ if uploaded_excel is not None:
                     prezzo_val = 1
                     if "quotazione" in map_colonne:
                         try:
-                            prezzo_val = int(float(row[map_colonne["quotazione"]]))
+                            prezzo_val = int(float(str(row[map_colonne["quotazione"]]).replace(',', '.')))
                         except:
                             pass
 
