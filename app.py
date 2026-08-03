@@ -169,22 +169,22 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
+# Inizializzazione rapida vettorizzata al primo avvio
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
-    for idx, row in df.iterrows():
-        prop = row["Proprietario_Iniziale"]
-        if prop in st.session_state.rose_lega:
-            st.session_state.rose_lega[prop].append({
-                "Nome": str(row["Nome"]),
-                "Ruolo": str(row["Ruolo"]),
-                "Squadra": str(row["Squadra"]),
-                "Prezzo_Acquisto": int(row["Quotazione"]),
-                "Valore_Attuale": int(row["Quotazione"]),
-                "Scadenza": int(row["Scadenza_Contratto"]),
-            })
-            st.session_state.df_giocatori.at[idx, "Stato"] = prop
-        else:
-            st.session_state.df_giocatori.at[idx, "Stato"] = "LIBERO"
+    for p in PARTECIPANTI_LEGA:
+        sub_df = df[df["Proprietario_Iniziale"] == p]
+        st.session_state.rose_lega[p] = [
+            {
+                "Nome": str(r["Nome"]),
+                "Ruolo": str(r["Ruolo"]),
+                "Squadra": str(r["Squadra"]),
+                "Prezzo_Acquisto": int(r["Quotazione"]),
+                "Valore_Attuale": int(r["Quotazione"]),
+                "Scadenza": int(r["Scadenza_Contratto"]),
+            }
+            for _, r in sub_df.iterrows()
+        ]
     st.session_state.inizializzato = True
 
 for p in PARTECIPANTI_LEGA:
@@ -238,9 +238,10 @@ st.sidebar.metric(
     f"{budget_rimanente_corrente} cr",
 )
 
-# --- CARICAMENTO STATO SALVATO (JSON) SICURO ---
+# --- SALVATAGGIO & CARICAMENTO JSON (OTTIMIZZATO E ANTI-BLOCCO) ---
 st.sidebar.divider()
 st.sidebar.subheader("💾 Salvataggio & Caricamento")
+
 stato_salva = {
     "budget_iniziale": st.session_state.get("budget_iniziale", 500),
     "rose_lega": rose_lega_dict,
@@ -258,39 +259,49 @@ st.sidebar.download_button(
 )
 
 uploaded_file = st.sidebar.file_uploader(
-    "📂 Carica Stato Salvato", type=["json"]
+    "📂 Carica Stato Salvato", type=["json"], key="json_backup_uploader"
 )
+
 if uploaded_file is not None:
-    try:
-        loaded_state = json.load(uploaded_file)
+    file_identifier = f"{uploaded_file.name}_{uploaded_file.size}"
 
-        # Aggiornamento sicuro delle chiavi nello state
-        st.session_state.budget_iniziale = loaded_state.get(
-            "budget_iniziale", 500
-        )
-        st.session_state.rose_lega = loaded_state.get("rose_lega", {})
-        st.session_state.extra_budget = loaded_state.get(
-            "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
-        )
+    # Esegui il ripristino SOLO SE è un file nuovo rispetto all'ultimo caricato
+    if st.session_state.get("last_uploaded_file") != file_identifier:
+        try:
+            loaded_state = json.load(uploaded_file)
 
-        stati_caricati = loaded_state.get("stati_giocatori", {})
+            # 1. Ripristina variabili di stato
+            st.session_state.budget_iniziale = loaded_state.get(
+                "budget_iniziale", 500
+            )
+            st.session_state.rose_lega = loaded_state.get("rose_lega", {})
+            st.session_state.extra_budget = loaded_state.get(
+                "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
+            )
 
-        # Ricostruzione pulita degli stati del dataframe senza mutazioni dirette bloccanti
-        df_temp = st.session_state.df_giocatori.copy()
-        for idx, row in df_temp.iterrows():
-            nome_giq = str(row["Nome"]).strip()
-            found_status = "LIBERO"
-            for k, v in stati_caricati.items():
-                if str(k).strip().lower() == nome_giq.lower():
-                    found_status = v
-                    break
-            df_temp.at[idx, "Stato"] = found_status
+            # 2. Aggiornamento vettorizzato iper-veloce del DataFrame
+            stati_caricati = loaded_state.get("stati_giocatori", {})
+            stati_map_lower = {
+                str(k).strip().lower(): str(v)
+                for k, v in stati_caricati.items()
+            }
 
-        st.session_state.df_giocatori = df_temp
-        st.sidebar.success("✅ Stato caricato con successo!")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Errore nel caricamento dello stato: {e}")
+            df_temp = st.session_state.df_giocatori.copy()
+            df_temp["_nome_key"] = (
+                df_temp["Nome"].astype(str).str.strip().str.lower()
+            )
+            df_temp["Stato"] = (
+                df_temp["_nome_key"].map(stati_map_lower).fillna("LIBERO")
+            )
+            df_temp.drop(columns=["_nome_key"], inplace=True)
+
+            st.session_state.df_giocatori = df_temp
+            st.session_state.last_uploaded_file = file_identifier
+
+            st.sidebar.success("✅ Backup caricato con successo!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
