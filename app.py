@@ -238,7 +238,7 @@ st.sidebar.metric(
     f"{budget_rimanente_corrente} cr",
 )
 
-# --- SALVATAGGIO & CARICAMENTO JSON (OTTIMIZZATO E ANTI-BLOCCO) ---
+# --- SALVATAGGIO & CARICAMENTO JSON (OTTIMIZZATO) ---
 st.sidebar.divider()
 st.sidebar.subheader("💾 Salvataggio & Caricamento")
 
@@ -259,18 +259,14 @@ st.sidebar.download_button(
 )
 
 uploaded_file = st.sidebar.file_uploader(
-    "📂 Carica Stato Salvato", type=["json"], key="json_backup_uploader"
+    "📂 Carica Stato Salvato (JSON)", type=["json"], key="json_backup_uploader"
 )
 
 if uploaded_file is not None:
     file_identifier = f"{uploaded_file.name}_{uploaded_file.size}"
-
-    # Esegui il ripristino SOLO SE è un file nuovo rispetto all'ultimo caricato
     if st.session_state.get("last_uploaded_file") != file_identifier:
         try:
             loaded_state = json.load(uploaded_file)
-
-            # 1. Ripristina variabili di stato
             st.session_state.budget_iniziale = loaded_state.get(
                 "budget_iniziale", 500
             )
@@ -279,7 +275,6 @@ if uploaded_file is not None:
                 "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
             )
 
-            # 2. Aggiornamento vettorizzato iper-veloce del DataFrame
             stati_caricati = loaded_state.get("stati_giocatori", {})
             stati_map_lower = {
                 str(k).strip().lower(): str(v)
@@ -302,6 +297,86 @@ if uploaded_file is not None:
             st.rerun()
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
+
+# --- NUOVA SEZIONE: CARICAMENTO EXCEL "ROSE FANTA" ---
+st.sidebar.divider()
+st.sidebar.subheader("📊 Importa Rose da Excel")
+uploaded_excel = st.sidebar.file_uploader(
+    "Carica file Excel (es. rose fanta)", type=["xlsx", "xls"], key="excel_rose_uploader"
+)
+
+if uploaded_excel is not None:
+    excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
+    if st.session_state.get("last_uploaded_excel") != excel_identifier:
+        try:
+            df_excel = pd.read_excel(uploaded_excel)
+            
+            # Assumiamo colonne tipo: Calciatore/Nome, Squadra, Ruolo, Proprietario/Squadra_Fantacalcio, Prezzo (opzionale)
+            col_nome = next((c for c in ["Calciatore", "Nome", "Giocatore"] if c in df_excel.columns), df_excel.columns[0])
+            col_prop = next((c for c in ["Proprietario", "Squadra_Fantacalcio", "Allenatore", "Team"] if c in df_excel.columns), None)
+            col_prezzo = next((c for c in ["Prezzo", "Costo", "Quotazione", "Pagato"] if c in df_excel.columns), None)
+
+            if col_prop:
+                # Resettiamo le rose e lo stato dei giocatori
+                new_rose = {p: [] for p in PARTECIPANTI_LEGA}
+                df_temp = st.session_state.df_giocatori.copy()
+                df_temp["Stato"] = "LIBERO"
+                
+                # Mappa rapida del master giocatori per recuperare ruoli/squadre ufficiali se mancano nell'excel
+                master_dict = {
+                    str(row["Nome"]).strip().lower(): row 
+                    for _, row in df_temp.iterrows()
+                }
+
+                for _, row in df_excel.iterrows():
+                    nome_giocatore = str(row[col_nome]).strip()
+                    proprietario = str(row[col_prop]).strip().upper()
+                    
+                    if proprietario in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"]:
+                        continue
+                        
+                    # Aggiungi proprietario se non è nella lista standard
+                    if proprietario not in PARTECIPANTI_LEGA:
+                        PARTECIPANTI_LEGA.append(proprietario)
+                        if proprietario not in new_rose:
+                            new_rose[proprietario] = []
+
+                    nome_key = nome_giocatore.lower()
+                    prezzo_val = int(row[col_prezzo]) if col_prop and col_prezzo and pd.notna(row[col_prezzo]) else 1
+
+                    if nome_key in master_dict:
+                        g_info = master_dict[nome_key]
+                        ruolo_g = g_info["Ruolo"]
+                        squadra_g = g_info["Squadra"]
+                        scad_g = int(g_info["Scadenza_Contratto"])
+                        quot_g = int(g_info["Quotazione"])
+                        
+                        if not col_prezzo:
+                            prezzo_val = quot_g
+
+                        new_rose[proprietario].append({
+                            "Nome": g_info["Nome"],
+                            "Ruolo": ruolo_g,
+                            "Squadra": squadra_g,
+                            "Prezzo_Acquisto": prezzo_val,
+                            "Valore_Attuale": quot_g,
+                            "Scadenza": scad_g,
+                        })
+                        
+                        # Aggiorna stato nel dataframe
+                        idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_key].index
+                        if not idx_match.empty:
+                            df_temp.at[idx_match[0], "Stato"] = proprietario
+
+                st.session_state.rose_lega = new_rose
+                st.session_state.df_giocatori = df_temp
+                st.session_state.last_uploaded_excel = excel_identifier
+                st.sidebar.success("✅ Rose importate con successo dall'Excel!")
+                st.rerun()
+            else:
+                st.sidebar.error("Impossibile trovare la colonna del Proprietario/Squadra nel file Excel.")
+        except Exception as e:
+            st.sidebar.error(f"Errore nella lettura del file Excel: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
@@ -393,7 +468,7 @@ if giocatori_liberi:
             vincitore_asta = st.selectbox(
                 "Assegna a fanta-allenatore:",
                 PARTECIPANTI_LEGA,
-                index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo),
+                index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0,
                 key="vincitore_asta_form",
             )
         submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
@@ -471,7 +546,7 @@ st.dataframe(
 )
 
 # ---------------------------------------------------------
-# 6. SEZIONE SVINCOLI E GESTIONE ROSA (RENDI LIBERO / SVINCOLA)
+# 6. SEZIONE SVINCOLI E GESTIONE ROSA
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🔄 Gestione Rosa & Svincoli (Rendi Libero)")
