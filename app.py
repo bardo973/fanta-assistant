@@ -47,7 +47,10 @@ def load_data():
         )
         df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
             lambda x: (
-                "LIBERO" if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"] else x
+                "LIBERO"
+                if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "#N/D", "#RIF!", "0", "NONE"]
+                or x.startswith("=")
+                else x
             )
         )
     else:
@@ -299,7 +302,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / CSV ULTRA-ROBUSTA ---
+# --- IMPORTAZIONE EXCEL / CSV CON GESTIONE FORMULE PROPRIETARIO ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV)")
 uploaded_excel = st.sidebar.file_uploader(
@@ -314,18 +317,16 @@ if uploaded_excel is not None:
                 file_obj.seek(0)
                 file_name_lower = file_obj.name.lower()
                 
-                # Se è un file excel vero
                 if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
                     df_raw_local = pd.read_excel(file_obj, header=None, dtype=str)
                 else:
-                    # È un CSV o file di testo: prova diversi separatori e codifiche in sicurezza
                     df_raw_local = None
                     for sep in [',', ';', '\t', '|']:
                         for enc in ['utf-8', 'latin1', 'cp1252']:
                             try:
                                 file_obj.seek(0)
                                 df_test = pd.read_csv(file_obj, encoding=enc, sep=sep, header=None, dtype=str, on_bad_lines='skip')
-                                if df_test.shape[1] > 1:  # Se ha più di una colonna, il separatore è corretto
+                                if df_test.shape[1] > 1:
                                     df_raw_local = df_test
                                     break
                             except Exception:
@@ -337,11 +338,10 @@ if uploaded_excel is not None:
                         file_obj.seek(0)
                         df_raw_local = pd.read_csv(file_obj, encoding='latin1', header=None, dtype=str, on_bad_lines='skip')
 
-                # Trova la riga d'intestazione corretta scansionando le prime righe in sicurezza
                 header_row_idx = 0
                 for i in range(min(15, len(df_raw_local))):
                     row_str = " ".join([str(val) for val in df_raw_local.iloc[i].values]).lower()
-                    if any(k in row_str for k in ["calciatore", "giocatore", "nome"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione"]):
+                    if any(k in row_str for k in ["calciatore", "giocatore", "nome"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione", "prezzo"]):
                         header_row_idx = i
                         break
                 
@@ -349,7 +349,6 @@ if uploaded_excel is not None:
                 if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
                     df_res = pd.read_excel(file_obj, header=header_row_idx, dtype=str)
                 else:
-                    # Rileggi applicando la riga d'intestazione identificata
                     sep_used = ','
                     for s in [',', ';', '\t', '|']:
                         try:
@@ -398,7 +397,8 @@ if uploaded_excel is not None:
                     prop_val = "LIBERO"
                     if "proprietario" in map_colonne:
                         p_raw = str(row[map_colonne["proprietario"]]).strip().upper()
-                        if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "nan"]:
+                        # Gestione sicura formule o valori vuoti derivati
+                        if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "NAN", "0", "#N/D", "#RIF!"] and not p_raw.startswith("="):
                             prop_val = p_raw
                             if prop_val not in PARTECIPANTI_LEGA:
                                 PARTECIPANTI_LEGA.append(prop_val)
@@ -444,7 +444,7 @@ if uploaded_excel is not None:
                 st.sidebar.success("✅ Rose estratte e importate correttamente!")
                 st.rerun()
             else:
-                st.sidebar.error("Impossibile individuare la colonna del nome/calciatore nel file. Verifica che la tabella contenga l'intestazione 'Calciatore' o 'Giocatore'.")
+                st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file. Verifica che la tabella contenga l'intestazione 'Giocatore', 'Calciatore' o 'Nome'.")
         except Exception as e:
             st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
 
