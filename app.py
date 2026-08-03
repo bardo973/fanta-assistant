@@ -169,7 +169,7 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
-# Inizializzazione rapida vettorizzata al primo avvio (Contratto iniziale di default o 4 anni)
+# Inizializzazione rapida vettorizzata al primo avvio
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for p in PARTECIPANTI_LEGA:
@@ -298,83 +298,111 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL "ROSE FANTA" (Contratto a 4 anni = 2030) ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE ---
 st.sidebar.divider()
-st.sidebar.subheader("📊 Importa Rose da Excel")
+st.sidebar.subheader("📊 Importa Rose da Excel / WPS Office")
 uploaded_excel = st.sidebar.file_uploader(
-    "Carica file Excel (es. rose fanta)", type=["xlsx", "xls"], key="excel_rose_uploader"
+    "Carica file Excel/WPS (es. rose fanta)", type=["xlsx", "xls", "csv"], key="excel_rose_uploader"
 )
 
 if uploaded_excel is not None:
     excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
     if st.session_state.get("last_uploaded_excel") != excel_identifier:
         try:
-            df_excel = pd.read_excel(uploaded_excel)
+            if uploaded_excel.name.endswith('.csv'):
+                df_excel = pd.read_csv(uploaded_excel)
+            else:
+                df_excel = pd.read_excel(uploaded_excel)
             
-            col_nome = next((c for c in ["Calciatore", "Nome", "Giocatore"] if c in df_excel.columns), df_excel.columns[0])
-            col_prop = next((c for c in ["Proprietario", "Squadra_Fantacalcio", "Allenatore", "Team"] if c in df_excel.columns), None)
-            col_prezzo = next((c for c in ["Prezzo", "Costo", "Quotazione", "Pagato"] if c in df_excel.columns), None)
-            col_scadenza = next((c for c in ["Scadenza", "Contratto", "Anno"] if c in df_excel.columns), None)
+            # Funzione di supporto per pulire e convertire le scadenze testuali in anno numerico (es. "feb-26" -> 2026)
+            def parse_scadenza_wps(val_scad):
+                if pd.isna(val_scad):
+                    return 2030
+                s = str(val_scad).strip().lower()
+                for y_str, y_val in [("26", 2026), ("27", 2027), ("28", 2028), ("29", 2029), ("30", 2030), ("31", 2031), ("32", 2032), ("33", 2033), ("34", 2034), ("35", 2035)]:
+                    if y_str in s:
+                        return y_val
+                # Se è già un numero a 4 cifre
+                try:
+                    num = int(s)
+                    if 2020 <= num <= 2040:
+                        return num
+                except:
+                    pass
+                return 2030
 
-            if col_prop:
-                new_rose = {p: [] for p in PARTECIPANTI_LEGA}
+            # Rilevamento flessibile struttura WPS o Excel classico
+            col_prop = next((c for c in df_excel.columns if any(k in str(c).upper() for k in ["PROPIETARIO", "SQUADRA_FANTACALCIO", "ALLENATORE", "TEAM", "PECU"])), None)
+            
+            # Se il file ha la struttura WPS Office tipica (es. intestazioni nelle celle o colonne multiple)
+            if df_excel.shape[1] >= 2:
+                new_rose = {}
                 df_temp = st.session_state.df_giocatori.copy()
                 df_temp["Stato"] = "LIBERO"
+                master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
                 
-                master_dict = {
-                    str(row["Nome"]).strip().lower(): row 
-                    for _, row in df_temp.iterrows()
-                }
-
-                for _, row in df_excel.iterrows():
-                    nome_giocatore = str(row[col_nome]).strip()
-                    proprietario = str(row[col_prop]).strip().upper()
-                    
-                    if proprietario in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"]:
+                corrente_proprietario = None
+                
+                for idx, row in df_excel.iterrows():
+                    row_vals = [str(val).strip() for val in row.values if pd.notna(val) and str(val).strip() != "nan"]
+                    if not row_vals:
                         continue
                         
-                    if proprietario not in PARTECIPANTI_LEGA:
-                        PARTECIPANTI_LEGA.append(proprietario)
-                        if proprietario not in new_rose:
-                            new_rose[proprietario] = []
-
-                    nome_key = nome_giocatore.lower()
-                    prezzo_val = int(row[col_prezzo]) if col_prop and col_prezzo and pd.notna(row[col_prezzo]) else 1
-                    
-                    # Se non è specificata la scadenza nell'excel, imposta 4 anni di default (2030)
-                    scadenza_val = int(row[col_scadenza]) if col_scadenza and pd.notna(row[col_scadenza]) else 2030
-
-                    if nome_key in master_dict:
-                        g_info = master_dict[nome_key]
-                        ruolo_g = g_info["Ruolo"]
-                        squadra_g = g_info["Squadra"]
-                        quot_g = int(g_info["Quotazione"])
+                    # Controlla se la riga definisce un proprietario (es. "PECU", "BARDO", ecc.)
+                    potential_prop = row_vals[0].upper()
+                    if potential_prop in ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD"]:
+                        continue
                         
-                        if not col_prezzo:
-                            prezzo_val = quot_g
+                    if len(row_vals) == 1 and len(potential_prop) < 20 and potential_prop not in ["LIBERO"]:
+                        corrente_proprietario = potential_prop
+                        if corrente_proprietario not in new_rose:
+                            new_rose[corrente_proprietario] = []
+                        if corrente_proprietario not in PARTECIPANTI_LEGA:
+                            PARTECIPANTI_LEGA.append(corrente_proprietario)
+                        continue
 
-                        new_rose[proprietario].append({
-                            "Nome": g_info["Nome"],
-                            "Ruolo": ruolo_g,
-                            "Squadra": squadra_g,
-                            "Prezzo_Acquisto": prezzo_val,
-                            "Valore_Attuale": quot_g,
-                            "Scadenza": scadenza_val,
-                        })
-                        
-                        idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_key].index
-                        if not idx_match.empty:
-                            df_temp.at[idx_match[0], "Stato"] = proprietario
+                    # Scansione per trovare nomi di giocatori all'interno delle celle
+                    for val in row_vals:
+                        val_lower = val.lower()
+                        if val_lower in master_dict and corrente_proprietario:
+                            g_info = master_dict[val_lower]
+                            # Cerca eventuali prezzi o scadenze vicine nella stessa riga
+                            prezzo_trovato = int(g_info["Quotazione"])
+                            scadenza_trovata = 2030
+                            
+                            for other_val in row_vals:
+                                ov_lower = other_val.lower()
+                                if any(m in ov_lower for m in ["feb-", "set-", "mar-", "apr-", "mag-", "giu-", "lug-", "ago-", "ott-", "nov-", "dic-"]):
+                                    scadenza_trovata = parse_scadenza_wps(other_val)
+                                elif other_val.isdigit() and int(other_val) < 100:
+                                    prezzo_trovato = int(other_val)
 
-                st.session_state.rose_lega = new_rose
-                st.session_state.df_giocatori = df_temp
-                st.session_state.last_uploaded_excel = excel_identifier
-                st.sidebar.success("✅ Rose importate con successo dall'Excel!")
-                st.rerun()
-            else:
-                st.sidebar.error("Impossibile trovare la colonna del Proprietario/Squadra nel file Excel.")
+                            if corrente_proprietario not in new_rose:
+                                new_rose[corrente_proprietario] = []
+
+                            new_rose[corrente_proprietario].append({
+                                "Nome": g_info["Nome"],
+                                "Ruolo": g_info["Ruolo"],
+                                "Squadra": g_info["Squadra"],
+                                "Prezzo_Acquisto": prezzo_trovato,
+                                "Valore_Attuale": int(g_info["Quotazione"]),
+                                "Scadenza": scadenza_trovata,
+                            })
+                            
+                            idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == val_lower].index
+                            if not idx_match.empty:
+                                df_temp.at[idx_match[0], "Stato"] = corrente_proprietario
+
+                if new_rose:
+                    st.session_state.rose_lega = new_rose
+                    st.session_state.df_giocatori = df_temp
+                    st.session_state.last_uploaded_excel = excel_identifier
+                    st.sidebar.success("✅ File WPS Office / Excel importato con successo!")
+                    st.rerun()
+            
+            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato.")
         except Exception as e:
-            st.sidebar.error(f"Errore nella lettura del file Excel: {e}")
+            st.sidebar.error(f"Errore nella lettura del file WPS Office/Excel: {e}")
 
 # --- NUOVA SEZIONE SIDEBAR: MODIFICA SCADENZE CONTRATTI ---
 st.sidebar.divider()
@@ -386,7 +414,6 @@ if rosa_mod_scadenza:
     nomi_mod_scadenza = [str(g["Nome"]) for g in rosa_mod_scadenza]
     giocatore_da_aggiornare = st.sidebar.selectbox("Seleziona giocatore:", nomi_mod_scadenza, key="mod_scad_gioc")
     
-    # Trova la scadenza attuale del giocatore selezionato
     gioc_obj_corrente = next((g for g in rosa_mod_scadenza if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower()), None)
     scadenza_attuale_val = gioc_obj_corrente.get("Scadenza", 2030) if gioc_obj_corrente else 2030
     
