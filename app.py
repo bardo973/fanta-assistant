@@ -56,9 +56,9 @@ def load_data():
 
     def assign_tier_and_contract(quot):
         if quot >= 25:
-            return pd.Series(["Top", 2027])
+            return pd.Series(["Top", 2029])
         elif quot >= 15:
-            return pd.Series(["Semitop", 2028])
+            return pd.Series(["Semitop", 2029])
         elif quot >= 8:
             return pd.Series(["Titolare", 2029])
         else:
@@ -169,7 +169,7 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
-# Inizializzazione rapida vettorizzata al primo avvio
+# Inizializzazione rapida vettorizzata al primo avvio (Contratto iniziale di default o 4 anni)
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for p in PARTECIPANTI_LEGA:
@@ -238,7 +238,7 @@ st.sidebar.metric(
     f"{budget_rimanente_corrente} cr",
 )
 
-# --- SALVATAGGIO & CARICAMENTO JSON (OTTIMIZZATO) ---
+# --- SALVATAGGIO & CARICAMENTO JSON ---
 st.sidebar.divider()
 st.sidebar.subheader("💾 Salvataggio & Caricamento")
 
@@ -298,7 +298,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- NUOVA SEZIONE: CARICAMENTO EXCEL "ROSE FANTA" ---
+# --- IMPORTAZIONE EXCEL "ROSE FANTA" (Contratto a 4 anni = 2030) ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Excel")
 uploaded_excel = st.sidebar.file_uploader(
@@ -311,18 +311,16 @@ if uploaded_excel is not None:
         try:
             df_excel = pd.read_excel(uploaded_excel)
             
-            # Assumiamo colonne tipo: Calciatore/Nome, Squadra, Ruolo, Proprietario/Squadra_Fantacalcio, Prezzo (opzionale)
             col_nome = next((c for c in ["Calciatore", "Nome", "Giocatore"] if c in df_excel.columns), df_excel.columns[0])
             col_prop = next((c for c in ["Proprietario", "Squadra_Fantacalcio", "Allenatore", "Team"] if c in df_excel.columns), None)
             col_prezzo = next((c for c in ["Prezzo", "Costo", "Quotazione", "Pagato"] if c in df_excel.columns), None)
+            col_scadenza = next((c for c in ["Scadenza", "Contratto", "Anno"] if c in df_excel.columns), None)
 
             if col_prop:
-                # Resettiamo le rose e lo stato dei giocatori
                 new_rose = {p: [] for p in PARTECIPANTI_LEGA}
                 df_temp = st.session_state.df_giocatori.copy()
                 df_temp["Stato"] = "LIBERO"
                 
-                # Mappa rapida del master giocatori per recuperare ruoli/squadre ufficiali se mancano nell'excel
                 master_dict = {
                     str(row["Nome"]).strip().lower(): row 
                     for _, row in df_temp.iterrows()
@@ -335,7 +333,6 @@ if uploaded_excel is not None:
                     if proprietario in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO"]:
                         continue
                         
-                    # Aggiungi proprietario se non è nella lista standard
                     if proprietario not in PARTECIPANTI_LEGA:
                         PARTECIPANTI_LEGA.append(proprietario)
                         if proprietario not in new_rose:
@@ -343,12 +340,14 @@ if uploaded_excel is not None:
 
                     nome_key = nome_giocatore.lower()
                     prezzo_val = int(row[col_prezzo]) if col_prop and col_prezzo and pd.notna(row[col_prezzo]) else 1
+                    
+                    # Se non è specificata la scadenza nell'excel, imposta 4 anni di default (2030)
+                    scadenza_val = int(row[col_scadenza]) if col_scadenza and pd.notna(row[col_scadenza]) else 2030
 
                     if nome_key in master_dict:
                         g_info = master_dict[nome_key]
                         ruolo_g = g_info["Ruolo"]
                         squadra_g = g_info["Squadra"]
-                        scad_g = int(g_info["Scadenza_Contratto"])
                         quot_g = int(g_info["Quotazione"])
                         
                         if not col_prezzo:
@@ -360,10 +359,9 @@ if uploaded_excel is not None:
                             "Squadra": squadra_g,
                             "Prezzo_Acquisto": prezzo_val,
                             "Valore_Attuale": quot_g,
-                            "Scadenza": scad_g,
+                            "Scadenza": scadenza_val,
                         })
                         
-                        # Aggiorna stato nel dataframe
                         idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_key].index
                         if not idx_match.empty:
                             df_temp.at[idx_match[0], "Stato"] = proprietario
@@ -377,6 +375,32 @@ if uploaded_excel is not None:
                 st.sidebar.error("Impossibile trovare la colonna del Proprietario/Squadra nel file Excel.")
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura del file Excel: {e}")
+
+# --- NUOVA SEZIONE SIDEBAR: MODIFICA SCADENZE CONTRATTI ---
+st.sidebar.divider()
+st.sidebar.subheader("📅 Modifica Scadenze Contratti")
+squadra_mod_scadenza = st.sidebar.selectbox("Seleziona squadra per contratti:", PARTECIPANTI_LEGA, key="mod_scad_sq")
+rosa_mod_scadenza = st.session_state.get("rose_lega", {}).get(squadra_mod_scadenza, [])
+
+if rosa_mod_scadenza:
+    nomi_mod_scadenza = [str(g["Nome"]) for g in rosa_mod_scadenza]
+    giocatore_da_aggiornare = st.sidebar.selectbox("Seleziona giocatore:", nomi_mod_scadenza, key="mod_scad_gioc")
+    
+    # Trova la scadenza attuale del giocatore selezionato
+    gioc_obj_corrente = next((g for g in rosa_mod_scadenza if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower()), None)
+    scadenza_attuale_val = gioc_obj_corrente.get("Scadenza", 2030) if gioc_obj_corrente else 2030
+    
+    nuova_scadenza = st.sidebar.number_input("Nuovo Anno Scadenza:", min_value=2026, max_value=2035, value=int(scadenza_attuale_val), step=1, key="input_nuova_scad")
+    
+    if st.sidebar.button("💾 Aggiorna Scadenza", key="btn_aggiorna_scad"):
+        for g in st.session_state.rose_lega[squadra_mod_scadenza]:
+            if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower():
+                g["Scadenza"] = int(nuova_scadenza)
+                break
+        st.sidebar.success(f"✅ Contratto di **{giocatore_da_aggiornare}** aggiornato al **{nuova_scadenza}**!")
+        st.rerun()
+else:
+    st.sidebar.info("Rosa vuota.")
 
 st.sidebar.divider()
 st.sidebar.subheader("📋 Esplora Rose & Valori")
@@ -477,13 +501,15 @@ if giocatori_liberi:
             current_rose = st.session_state.get("rose_lega", {})
             if vincitore_asta not in current_rose:
                 current_rose[vincitore_asta] = []
+            
+            # Assegnazione automatica del contratto a 4 anni (2026 + 4 = 2030)
             current_rose[vincitore_asta].append({
                 "Nome": str(g_data["Nome"]),
                 "Ruolo": str(g_data["Ruolo"]),
                 "Squadra": str(g_data["Squadra"]),
                 "Prezzo_Acquisto": int(prezzo_aggiudicazione),
                 "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": int(g_data["Scadenza_Contratto"]),
+                "Scadenza": 2030,  # Contratto di 4 anni per i nuovi acquisti
             })
             st.session_state.rose_lega = current_rose
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
@@ -491,7 +517,7 @@ if giocatori_liberi:
                 vincitore_asta
             )
             st.success(
-                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
+                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti con contratto quadriennale (Scad. 2030)!"
             )
             st.rerun()
 else:
