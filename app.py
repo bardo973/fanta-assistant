@@ -299,7 +299,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE (STRUTTURA LISTONE: Ruolo, Calciatore, Squadra, Quotazione, proprietario) ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE (ROBUST PARSER) ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV)")
 uploaded_excel = st.sidebar.file_uploader(
@@ -310,20 +310,49 @@ if uploaded_excel is not None:
     excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
     if st.session_state.get("last_uploaded_excel") != excel_identifier:
         try:
-            if uploaded_excel.name.endswith('.csv'):
-                try:
-                    df_excel = pd.read_csv(uploaded_excel, encoding="utf-8")
-                except UnicodeDecodeError:
-                    uploaded_excel.seek(0)
-                    try:
-                        df_excel = pd.read_csv(uploaded_excel, encoding="latin1")
-                    except Exception:
-                        uploaded_excel.seek(0)
-                        df_excel = pd.read_csv(uploaded_excel, encoding="cp1252")
-            else:
-                df_excel = pd.read_excel(uploaded_excel)
+            # Funzione di supporto per trovare dinamicamente la riga di intestazione corretta nel file
+            def parse_uploaded_file(file_obj):
+                file_obj.seek(0)
+                is_csv = file_obj.name.endswith('.csv')
+                
+                # Prima prova a leggere normalmente
+                if is_csv:
+                    for enc in ["utf-8", "latin1", "cp1252"]:
+                        try:
+                            file_obj.seek(0)
+                            df_raw = pd.read_csv(file_obj, encoding=enc, header=None)
+                            break
+                        except Exception:
+                            continue
+                else:
+                    df_raw = pd.read_excel(file_obj, header=None)
+
+                # Scansiona le prime righe per trovare quella che contiene le intestazioni giuste
+                header_row_idx = 0
+                for i in range(min(15, len(df_raw))):
+                    row_str = " ".join(df_raw.iloc[i].astype(str).values).lower()
+                    if any(k in row_str for k in ["calciatore", "giocatore"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione"]):
+                        header_row_idx = i
+                        break
+                
+                # Rileggi impostando la riga di intestazione corretta
+                file_obj.seek(0)
+                if is_csv:
+                    for enc in ["utf-8", "latin1", "cp1252"]:
+                        try:
+                            file_obj.seek(0)
+                            df_res = pd.read_csv(file_obj, encoding=enc, header=header_row_idx)
+                            break
+                        except Exception:
+                            continue
+                else:
+                    df_res = pd.read_excel(file_obj, header=header_row_idx)
+                
+                return df_res
+
+            df_excel = parse_uploaded_file(uploaded_excel)
             
-            # Normalizza i nomi delle colonne per renderli case-insensitive e flessibili
+            # Normalizza le colonne pulendo spazi e maiuscole/minuscole
             df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
             
             map_colonne = {}
@@ -348,12 +377,12 @@ if uploaded_excel is not None:
                 
                 for _, row in df_excel.iterrows():
                     nome_g = str(row[map_colonne["calciatore"]]).strip()
-                    if not nome_g or nome_g.lower() in ["nan", "none", ""]:
+                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat"]:
                         continue
                         
                     nome_g_lower = nome_g.lower()
                     
-                    # Estrae il proprietario se presente nella colonna dedicata
+                    # Estrae il proprietario se presente
                     prop_val = "LIBERO"
                     if "proprietario" in map_colonne:
                         p_raw = str(row[map_colonne["proprietario"]]).strip().upper()
@@ -370,7 +399,6 @@ if uploaded_excel is not None:
                         except:
                             pass
 
-                    # Se il giocatore esiste nel listone di riferimento, aggiorna i dati
                     if nome_g_lower in master_dict:
                         g_info = master_dict[nome_g_lower]
                         ruolo_g = str(g_info["Ruolo"])
@@ -402,10 +430,10 @@ if uploaded_excel is not None:
                 st.session_state.rose_lega = new_rose
                 st.session_state.df_giocatori = df_temp
                 st.session_state.last_uploaded_excel = excel_identifier
-                st.sidebar.success("✅ Rose estratte e importate correttamente dal Listone!")
+                st.sidebar.success("✅ Rose estratte e importate correttamente!")
                 st.rerun()
             else:
-                st.sidebar.error("Impossibile trovare la colonna 'Calciatore' nel file caricato.")
+                st.sidebar.error("Impossibile individuare la colonna del nome/calciatore nel file. Verifica che la tabella contenga l'intestazione 'Calciatore' o 'Giocatore'.")
         except Exception as e:
             st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
 
