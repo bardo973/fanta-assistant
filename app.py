@@ -575,10 +575,10 @@ st.dataframe(
 )
 
 # ---------------------------------------------------------
-# 6. SEZIONE SVINCOLI E GESTIONE ROSA (SENZA FORM - AGGIORNAMENTO ISTANTANEO)
+# 6. SEZIONE SVINCOLI E GESTIONE ROSA (RENDI LIBERO / SVINCOLA)
 # ---------------------------------------------------------
 st.divider()
-st.subheader("🔄 Gestione Rosa & Svincoli")
+st.subheader("🔄 Gestione Rosa & Svincoli (Rendi Libero)")
 
 allenatore_svincolo = st.selectbox(
     "Seleziona allenatore che intende svincolare:",
@@ -591,12 +591,12 @@ if rosa_allenatore_attuale:
     nomi_giocatori_in_rosa = [g["Nome"] for g in rosa_allenatore_attuale]
 
     giocatore_da_svincolare = st.selectbox(
-        "Seleziona il giocatore da svincolare:",
+        "Seleziona il giocatore da svincolare (torna LIBERO):",
         nomi_giocatori_in_rosa,
         key="select_giocatore_svincolo",
     )
 
-    if st.button("🗑️ Conferma Svincolo Giocatore"):
+    if st.button("🗑️ Conferma Svincolo / Rendi Libero"):
         # Rimuove il giocatore dalla rosa dell'allenatore
         st.session_state.rose_lega[allenatore_svincolo] = [
             g
@@ -615,8 +615,80 @@ if rosa_allenatore_attuale:
                 st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
 
         st.success(
-            f"✅ **{giocatore_da_svincolare}** svincolato con successo da {allenatore_svincolo}!"
+            f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo} ed è ora **LIBERO**!"
         )
         st.rerun()
 else:
     st.info(f"La rosa di {allenatore_svincolo} è vuota.")
+
+# ---------------------------------------------------------
+# 7. SEZIONE GESTIONE PRESTITI TRA SQUADRE
+# ---------------------------------------------------------
+st.divider()
+st.subheader("🤝 Gestione Prestiti tra Squadre")
+
+col_p1, col_p2 = st.columns(2)
+with col_p1:
+    squadra_cedente = st.selectbox(
+        "Squadra checede in prestito:", PARTECIPANTI_LEGA, key="prestito_da"
+    )
+
+rosa_cedente = st.session_state.rose_lega[squadra_cedente]
+
+if rosa_cedente:
+    nomi_cedente = [g["Nome"] for g in rosa_cedente]
+    with col_p2:
+        squadra_ricevente = st.selectbox(
+            "Squadra che riceve in prestito:",
+            [p for p in PARTECIPANTI_LEGA if p != squadra_cedente],
+            key="prestito_a",
+        )
+
+    giocatore_prestito = st.selectbox(
+        "Seleziona il giocatore da dare in prestito:",
+        nomi_cedente,
+        key="giocatore_in_prestito",
+    )
+
+    if st.button("🔄 Conferma Trasferimento in Prestito"):
+        # Estrae l'oggetto giocatore dalla rosa cedente
+        giocatore_obj = next(
+            (
+                g
+                for g in rosa_cedente
+                if g["Nome"].strip().lower()
+                == giocatore_prestito.strip().lower()
+            ),
+            None,
+        )
+
+        if giocatore_obj:
+            # Rimuove dalla rosa cedente
+            st.session_state.rose_lega[squadra_cedente] = [
+                g
+                for g in rosa_cedente
+                if g["Nome"].strip().lower()
+                != giocatore_prestito.strip().lower()
+            ]
+            # Aggiunge alla rosa ricevente
+            st.session_state.rose_lega[squadra_ricevente].append(
+                giocatore_obj
+            )
+
+            # Aggiorna lo stato nel dataframe principale
+            match_df = df[
+                df["Nome"].str.strip().str.lower()
+                == giocatore_prestito.strip().lower()
+            ]
+            if not match_df.empty:
+                for idx_df in match_df.index:
+                    st.session_state.df_giocatori.at[
+                        idx_df, "Stato"
+                    ] = squadra_ricevente
+
+            st.success(
+                f"✅ Prestito completato: **{giocatore_prestito}** è passato da **{squadra_cedente}** a **{squadra_ricevente}**!"
+            )
+            st.rerun()
+else:
+    st.info(f"La rosa di {squadra_cedente} è vuota, impossibile effettuare prestiti.")
