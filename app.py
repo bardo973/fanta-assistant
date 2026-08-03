@@ -299,7 +299,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE (ROBUST PARSER) ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE (SAFE PARSER) ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV)")
 uploaded_excel = st.sidebar.file_uploader(
@@ -310,32 +310,31 @@ if uploaded_excel is not None:
     excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
     if st.session_state.get("last_uploaded_excel") != excel_identifier:
         try:
-            # Funzione di supporto per trovare dinamicamente la riga di intestazione corretta nel file
             def parse_uploaded_file(file_obj):
                 file_obj.seek(0)
                 is_csv = file_obj.name.endswith('.csv')
                 
-                # Prima prova a leggere normalmente
                 if is_csv:
                     for enc in ["utf-8", "latin1", "cp1252"]:
                         try:
                             file_obj.seek(0)
-                            df_raw = pd.read_csv(file_obj, encoding=enc, header=None)
+                            df_raw_local = pd.read_csv(file_obj, encoding=enc, header=None)
                             break
                         except Exception:
                             continue
+                    else:
+                        file_obj.seek(0)
+                        df_raw_local = pd.read_csv(file_obj, encoding="latin1", header=None)
                 else:
-                    df_raw = pd.read_excel(file_obj, header=None)
+                    df_raw_local = pd.read_excel(file_obj, header=None)
 
-                # Scansiona le prime righe per trovare quella che contiene le intestazioni giuste
                 header_row_idx = 0
-                for i in range(min(15, len(df_raw))):
-                    row_str = " ".join(df_raw.iloc[i].astype(str).values).lower()
-                    if any(k in row_str for k in ["calciatore", "giocatore"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione"]):
+                for i in range(min(15, len(df_raw_local))):
+                    row_str = " ".join(df_raw_local.iloc[i].astype(str).values).lower()
+                    if any(k in row_str for k in ["calciatore", "giocatore", "nome"]) and any(k in row_str for k in ["ruolo", "squadra", "quotazione"]):
                         header_row_idx = i
                         break
                 
-                # Rileggi impostando la riga di intestazione corretta
                 file_obj.seek(0)
                 if is_csv:
                     for enc in ["utf-8", "latin1", "cp1252"]:
@@ -345,14 +344,15 @@ if uploaded_excel is not None:
                             break
                         except Exception:
                             continue
+                    else:
+                        file_obj.seek(0)
+                        df_res = pd.read_csv(file_obj, encoding="latin1", header=header_row_idx)
                 else:
                     df_res = pd.read_excel(file_obj, header=header_row_idx)
                 
                 return df_res
 
             df_excel = parse_uploaded_file(uploaded_excel)
-            
-            # Normalizza le colonne pulendo spazi e maiuscole/minuscole
             df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
             
             map_colonne = {}
@@ -382,7 +382,6 @@ if uploaded_excel is not None:
                         
                     nome_g_lower = nome_g.lower()
                     
-                    # Estrae il proprietario se presente
                     prop_val = "LIBERO"
                     if "proprietario" in map_colonne:
                         p_raw = str(row[map_colonne["proprietario"]]).strip().upper()
@@ -391,7 +390,6 @@ if uploaded_excel is not None:
                             if prop_val not in PARTECIPANTI_LEGA:
                                 PARTECIPANTI_LEGA.append(prop_val)
                     
-                    # Estrae prezzo/quotazione
                     prezzo_val = 1
                     if "quotazione" in map_colonne:
                         try:
