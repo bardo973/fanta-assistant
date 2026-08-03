@@ -31,6 +31,7 @@ def load_data():
     ).fillna(1)
 
     possibili_colonne_prop = [
+        "proprietario",
         "Proprietario_Iniziale",
         "Proprietario",
         "Unnamed: 5",
@@ -298,11 +299,11 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE E ESTRAZIONE LISTONE ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE (STRUTTURA LISTONE: Ruolo, Calciatore, Squadra, Quotazione, proprietario) ---
 st.sidebar.divider()
-st.sidebar.subheader("📊 Importa Rose da Excel / WPS Office")
+st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV)")
 uploaded_excel = st.sidebar.file_uploader(
-    "Carica file Excel/WPS (es. rose fanta)", type=["xlsx", "xls", "csv"], key="excel_rose_uploader"
+    "Carica file listone rose", type=["xlsx", "xls", "csv"], key="excel_rose_uploader"
 )
 
 if uploaded_excel is not None:
@@ -320,97 +321,93 @@ if uploaded_excel is not None:
                         uploaded_excel.seek(0)
                         df_excel = pd.read_csv(uploaded_excel, encoding="cp1252")
             else:
-                df_excel = pd.read_excel(uploaded_excel, header=None)
+                df_excel = pd.read_excel(uploaded_excel)
             
-            def parse_scadenza_wps(val_scad):
-                if pd.isna(val_scad):
-                    return 2030
-                s = str(val_scad).strip().lower()
-                for y_str, y_val in [("26", 2026), ("27", 2027), ("28", 2028), ("29", 2029), ("30", 2030), ("31", 2031), ("32", 2032), ("33", 2033), ("34", 2034), ("35", 2035)]:
-                    if y_str in s:
-                        return y_val
-                try:
-                    num = int(float(s))
-                    if 2020 <= num <= 2040:
-                        return num
-                except:
-                    pass
-                return 2030
+            # Normalizza i nomi delle colonne per renderli case-insensitive e flessibili
+            df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
+            
+            map_colonne = {}
+            for col in df_excel.columns:
+                if any(k in col for k in ["calciatore", "giocatore", "nome"]):
+                    map_colonne["calciatore"] = col
+                elif any(k in col for k in ["ruolo"]):
+                    map_colonne["ruolo"] = col
+                elif any(k in col for k in ["squadra", "team"]):
+                    map_colonne["squadra"] = col
+                elif any(k in col for k in ["quotazione", "prezzo", "valore"]):
+                    map_colonne["quotazione"] = col
+                elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio"]):
+                    map_colonne["proprietario"] = col
 
-            if not df_excel.empty:
+            if "calciatore" in map_colonne:
                 new_rose = {}
                 df_temp = st.session_state.df_giocatori.copy()
                 df_temp["Stato"] = "LIBERO"
+                
                 master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
                 
-                corrente_proprietario = None
-                
-                for idx, row in df_excel.iterrows():
-                    row_vals = [str(val).strip() for val in row.values if pd.notna(val) and str(val).strip().lower() not in ["nan", "none", ""]]
-                    if not row_vals:
+                for _, row in df_excel.iterrows():
+                    nome_g = str(row[map_colonne["calciatore"]]).strip()
+                    if not nome_g or nome_g.lower() in ["nan", "none", ""]:
                         continue
                         
-                    primo_val = row_vals[0]
-                    primo_val_upper = primo_val.upper()
+                    nome_g_lower = nome_g.lower()
                     
-                    parole_da_ignorare = ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD", "RUOLO", "CALCIATORE", "SQUADRA", "PREZZO", "TOTALE", "CREDITI"]
-                    if primo_val_upper in parole_da_ignorare:
-                        continue
+                    # Estrae il proprietario se presente nella colonna dedicata
+                    prop_val = "LIBERO"
+                    if "proprietario" in map_colonne:
+                        p_raw = str(row[map_colonne["proprietario"]]).strip().upper()
+                        if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "nan"]:
+                            prop_val = p_raw
+                            if prop_val not in PARTECIPANTI_LEGA:
+                                PARTECIPANTI_LEGA.append(prop_val)
+                    
+                    # Estrae prezzo/quotazione
+                    prezzo_val = 1
+                    if "quotazione" in map_colonne:
+                        try:
+                            prezzo_val = int(float(row[map_colonne["quotazione"]]))
+                        except:
+                            pass
+
+                    # Se il giocatore esiste nel listone di riferimento, aggiorna i dati
+                    if nome_g_lower in master_dict:
+                        g_info = master_dict[nome_g_lower]
+                        ruolo_g = str(g_info["Ruolo"])
+                        squadra_g = str(g_info["Squadra"])
+                        quot_g = int(g_info["Quotazione"])
+                    else:
+                        ruolo_g = str(row[map_colonne["ruolo"]]) if "ruolo" in map_colonne else "C"
+                        squadra_g = str(row[map_colonne["squadra"]]) if "squadra" in map_colonne else "N/D"
+                        quot_g = prezzo_val
+
+                    if prop_val != "LIBERO":
+                        if prop_val not in new_rose:
+                            new_rose[prop_val] = []
                         
-                    if len(row_vals) <= 2 and len(primo_val) < 25 and not any(c.isdigit() for c in primo_val):
-                        corrente_proprietario = primo_val_upper
-                        if corrente_proprietario not in new_rose:
-                            new_rose[corrente_proprietario] = []
-                        if corrente_proprietario not in PARTECIPANTI_LEGA:
-                            PARTECIPANTI_LEGA.append(corrente_proprietario)
-                        continue
-
-                    for val in row_vals:
-                        val_lower = val.lower()
-                        if val_lower in master_dict and corrente_proprietario:
-                            g_info = master_dict[val_lower]
-                            prezzo_trovato = int(g_info["Quotazione"])
-                            scadenza_trovata = 2030
+                        if not any(str(g["Nome"]).strip().lower() == nome_g_lower for g in new_rose[prop_val]):
+                            new_rose[prop_val].append({
+                                "Nome": nome_g,
+                                "Ruolo": ruolo_g,
+                                "Squadra": squadra_g,
+                                "Prezzo_Acquisto": prezzo_val,
+                                "Valore_Attuale": quot_g,
+                                "Scadenza": 2030,
+                            })
                             
-                            for other_val in row_vals:
-                                ov_lower = other_val.lower()
-                                if any(m in ov_lower for m in ["feb", "set", "mar", "apr", "mag", "giu", "lug", "ago", "ott", "nov", "dic", "202", "203"]):
-                                    scadenza_trovata = parse_scadenza_wps(other_val)
-                                else:
-                                    try:
-                                        num_cand = int(float(other_val))
-                                        if 1 <= num_cand <= 500 and other_val != val:
-                                            prezzo_trovato = num_cand
-                                    except:
-                                        pass
+                        idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_g_lower].index
+                        if not idx_match.empty:
+                            df_temp.at[idx_match[0], "Stato"] = prop_val
 
-                            if corrente_proprietario not in new_rose:
-                                new_rose[corrente_proprietario] = []
-
-                            if not any(str(g["Nome"]).strip().lower() == val_lower for g in new_rose[corrente_proprietario]):
-                                new_rose[corrente_proprietario].append({
-                                    "Nome": g_info["Nome"],
-                                    "Ruolo": g_info["Ruolo"],
-                                    "Squadra": g_info["Squadra"],
-                                    "Prezzo_Acquisto": prezzo_trovato,
-                                    "Valore_Attuale": int(g_info["Quotazione"]),
-                                    "Scadenza": scadenza_trovata,
-                                })
-                                
-                                idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == val_lower].index
-                                if not idx_match.empty:
-                                    df_temp.at[idx_match[0], "Stato"] = corrente_proprietario
-
-                if new_rose and any(len(v) > 0 for v in new_rose.values()):
-                    st.session_state.rose_lega = new_rose
-                    st.session_state.df_giocatori = df_temp
-                    st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success("✅ File WPS Office / Excel importato con successo!")
-                    st.rerun()
-            
-            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato.")
+                st.session_state.rose_lega = new_rose
+                st.session_state.df_giocatori = df_temp
+                st.session_state.last_uploaded_excel = excel_identifier
+                st.sidebar.success("✅ Rose estratte e importate correttamente dal Listone!")
+                st.rerun()
+            else:
+                st.sidebar.error("Impossibile trovare la colonna 'Calciatore' nel file caricato.")
         except Exception as e:
-            st.sidebar.error(f"Errore nella lettura del file WPS Office/Excel: {e}")
+            st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
 
 # --- MODIFICA SCADENZE CONTRATTI ---
 st.sidebar.divider()
