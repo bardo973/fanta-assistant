@@ -299,7 +299,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE (SAFE PARSER) ---
+# --- IMPORTAZIONE EXCEL / CSV ULTRA-ROBUSTA ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV)")
 uploaded_excel = st.sidebar.file_uploader(
@@ -312,22 +312,32 @@ if uploaded_excel is not None:
         try:
             def parse_uploaded_file(file_obj):
                 file_obj.seek(0)
-                is_csv = file_obj.name.endswith('.csv')
+                file_name_lower = file_obj.name.lower()
                 
-                if is_csv:
-                    for enc in ["utf-8", "latin1", "cp1252"]:
-                        try:
-                            file_obj.seek(0)
-                            df_raw_local = pd.read_csv(file_obj, encoding=enc, header=None)
-                            break
-                        except Exception:
-                            continue
-                    else:
-                        file_obj.seek(0)
-                        df_raw_local = pd.read_csv(file_obj, encoding="latin1", header=None)
-                else:
+                # Se è un file excel vero
+                if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
                     df_raw_local = pd.read_excel(file_obj, header=None)
+                else:
+                    # È un CSV o file di testo: prova diversi separatori e codifiche in sicurezza
+                    df_raw_local = None
+                    for sep in [',', ';', '\t', '|']:
+                        for enc in ['utf-8', 'latin1', 'cp1252']:
+                            try:
+                                file_obj.seek(0)
+                                df_test = pd.read_csv(file_obj, encoding=enc, sep=sep, header=None, on_bad_lines='skip')
+                                if df_test.shape[1] > 1:  # Se ha più di una colonna, il separatore è corretto
+                                    df_raw_local = df_test
+                                    break
+                            except Exception:
+                                continue
+                        if df_raw_local is not None:
+                            break
+                    
+                    if df_raw_local is None:
+                        file_obj.seek(0)
+                        df_raw_local = pd.read_csv(file_obj, encoding='latin1', header=None, on_bad_lines='skip')
 
+                # Trova la riga d'intestazione corretta scansionando le prime righe
                 header_row_idx = 0
                 for i in range(min(15, len(df_raw_local))):
                     row_str = " ".join(df_raw_local.iloc[i].astype(str).values).lower()
@@ -336,19 +346,22 @@ if uploaded_excel is not None:
                         break
                 
                 file_obj.seek(0)
-                if is_csv:
-                    for enc in ["utf-8", "latin1", "cp1252"]:
+                if file_name_lower.endswith(('.xlsx', '.xls', '.ods')):
+                    df_res = pd.read_excel(file_obj, header=header_row_idx)
+                else:
+                    # Rileggi applicando la riga d'intestazione identificata
+                    sep_used = ','
+                    for s in [',', ';', '\t', '|']:
                         try:
                             file_obj.seek(0)
-                            df_res = pd.read_csv(file_obj, encoding=enc, header=header_row_idx)
-                            break
-                        except Exception:
+                            df_t = pd.read_csv(file_obj, encoding='latin1', sep=s, header=header_row_idx, nrows=5)
+                            if len(df_t.columns) > 1:
+                                sep_used = s
+                                break
+                        except:
                             continue
-                    else:
-                        file_obj.seek(0)
-                        df_res = pd.read_csv(file_obj, encoding="latin1", header=header_row_idx)
-                else:
-                    df_res = pd.read_excel(file_obj, header=header_row_idx)
+                    file_obj.seek(0)
+                    df_res = pd.read_csv(file_obj, encoding='latin1', sep=sep_used, header=header_row_idx, on_bad_lines='skip')
                 
                 return df_res
 
