@@ -238,7 +238,7 @@ st.sidebar.metric(
     f"{budget_rimanente_corrente} cr",
 )
 
-# --- CARICAMENTO STATO SALVATO (JSON) ---
+# --- CARICAMENTO STATO SALVATO (JSON) SICURO ---
 st.sidebar.divider()
 st.sidebar.subheader("💾 Salvataggio & Caricamento")
 stato_salva = {
@@ -263,6 +263,8 @@ uploaded_file = st.sidebar.file_uploader(
 if uploaded_file is not None:
     try:
         loaded_state = json.load(uploaded_file)
+
+        # Aggiornamento sicuro delle chiavi nello state
         st.session_state.budget_iniziale = loaded_state.get(
             "budget_iniziale", 500
         )
@@ -272,16 +274,19 @@ if uploaded_file is not None:
         )
 
         stati_caricati = loaded_state.get("stati_giocatori", {})
-        for idx, row in df.iterrows():
+
+        # Ricostruzione pulita degli stati del dataframe senza mutazioni dirette bloccanti
+        df_temp = st.session_state.df_giocatori.copy()
+        for idx, row in df_temp.iterrows():
             nome_giq = str(row["Nome"]).strip()
             found_status = "LIBERO"
             for k, v in stati_caricati.items():
                 if str(k).strip().lower() == nome_giq.lower():
                     found_status = v
                     break
-            df.at[idx, "Stato"] = found_status
+            df_temp.at[idx, "Stato"] = found_status
 
-        st.session_state.df_giocatori = df
+        st.session_state.df_giocatori = df_temp
         st.sidebar.success("✅ Stato caricato con successo!")
         st.rerun()
     except Exception as e:
@@ -293,7 +298,6 @@ squadra_da_esplorare = st.sidebar.selectbox(
     "Seleziona rosa da visualizzare:", PARTECIPANTI_LEGA, key="esplora_sidebar"
 )
 
-# Lettura dinamica e immediata dal dizionario in session_state
 rosa_selezionata_sidebar = st.session_state.get("rose_lega", {}).get(
     squadra_da_esplorare, []
 )
