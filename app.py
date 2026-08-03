@@ -155,10 +155,10 @@ if not lista_proprietari_csv:
     lista_proprietari_csv = [
         "BARDO",
         "ROBY",
+        "PECU",
         "SQUADRA_3",
         "SQUADRA_4",
         "SQUADRA_5",
-        "SQUADRA_6",
     ]
 
 PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
@@ -298,7 +298,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-# --- IMPORTAZIONE EXCEL / WPS OFFICE SICURA (AGGIORNATA) ---
+# --- IMPORTAZIONE EXCEL / WPS OFFICE E ESTRAZIONE LISTONE ---
 st.sidebar.divider()
 st.sidebar.subheader("📊 Importa Rose da Excel / WPS Office")
 uploaded_excel = st.sidebar.file_uploader(
@@ -320,7 +320,6 @@ if uploaded_excel is not None:
                         uploaded_excel.seek(0)
                         df_excel = pd.read_csv(uploaded_excel, encoding="cp1252")
             else:
-                # Legge il file Excel (supporta anche più fogli o file strutturati da WPS)
                 df_excel = pd.read_excel(uploaded_excel, header=None)
             
             def parse_scadenza_wps(val_scad):
@@ -346,22 +345,18 @@ if uploaded_excel is not None:
                 
                 corrente_proprietario = None
                 
-                # Scansione intelligente riga per riga per individuare proprietari e giocatori
                 for idx, row in df_excel.iterrows():
                     row_vals = [str(val).strip() for val in row.values if pd.notna(val) and str(val).strip().lower() not in ["nan", "none", ""]]
                     if not row_vals:
                         continue
                         
-                    # Controlla se la riga definisce un nuovo proprietario (es. nome isolato o intestazione di squadra)
                     primo_val = row_vals[0]
                     primo_val_upper = primo_val.upper()
                     
-                    # Filtra parole chiave non valide come nomi squadra
                     parole_da_ignorare = ["PORTIERI", "DIFENSORI", "CENTROCAMPISTI", "ATTACCANTI", "SCAD", "RUOLO", "CALCIATORE", "SQUADRA", "PREZZO", "TOTALE", "CREDITI"]
                     if primo_val_upper in parole_da_ignorare:
                         continue
                         
-                    # Se la riga ha pochi elementi ed è corta, potrebbe essere il nome del fanta-allenatore
                     if len(row_vals) <= 2 and len(primo_val) < 25 and not any(c.isdigit() for c in primo_val):
                         corrente_proprietario = primo_val_upper
                         if corrente_proprietario not in new_rose:
@@ -370,7 +365,6 @@ if uploaded_excel is not None:
                             PARTECIPANTI_LEGA.append(corrente_proprietario)
                         continue
 
-                    # Altrimenti cerca i giocatori all'interno della riga
                     for val in row_vals:
                         val_lower = val.lower()
                         if val_lower in master_dict and corrente_proprietario:
@@ -378,7 +372,6 @@ if uploaded_excel is not None:
                             prezzo_trovato = int(g_info["Quotazione"])
                             scadenza_trovata = 2030
                             
-                            # Cerca prezzi o scadenze vicine nella stessa riga
                             for other_val in row_vals:
                                 ov_lower = other_val.lower()
                                 if any(m in ov_lower for m in ["feb", "set", "mar", "apr", "mag", "giu", "lug", "ago", "ott", "nov", "dic", "202", "203"]):
@@ -394,7 +387,6 @@ if uploaded_excel is not None:
                             if corrente_proprietario not in new_rose:
                                 new_rose[corrente_proprietario] = []
 
-                            # Evita duplicati dello stesso giocatore nella stessa rosa
                             if not any(str(g["Nome"]).strip().lower() == val_lower for g in new_rose[corrente_proprietario]):
                                 new_rose[corrente_proprietario].append({
                                     "Nome": g_info["Nome"],
@@ -416,11 +408,11 @@ if uploaded_excel is not None:
                     st.sidebar.success("✅ File WPS Office / Excel importato con successo!")
                     st.rerun()
             
-            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato. Assicurati che i nomi dei giocatori corrispondano a quelli del listone.")
+            st.sidebar.error("Impossibile estrarre correttamente la struttura delle rose dal file caricato.")
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura del file WPS Office/Excel: {e}")
 
-# --- NUOVA SEZIONE SIDEBAR: MODIFICA SCADENZE CONTRATTI ---
+# --- MODIFICA SCADENZE CONTRATTI ---
 st.sidebar.divider()
 st.sidebar.subheader("📅 Modifica Scadenze Contratti")
 squadra_mod_scadenza = st.sidebar.selectbox("Seleziona squadra per contratti:", PARTECIPANTI_LEGA, key="mod_scad_sq")
@@ -559,7 +551,7 @@ if giocatori_liberi:
                 vincitore_asta
             )
             st.success(
-                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti con contratto quadriennale (Scad. 2030)!"
+                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
             )
             st.rerun()
 else:
