@@ -175,9 +175,9 @@ if "inizializzato" not in st.session_state:
         prop = row["Proprietario_Iniziale"]
         if prop in st.session_state.rose_lega:
             st.session_state.rose_lega[prop].append({
-                "Nome": row["Nome"],
-                "Ruolo": row["Ruolo"],
-                "Squadra": row["Squadra"],
+                "Nome": str(row["Nome"]),
+                "Ruolo": str(row["Ruolo"]),
+                "Squadra": str(row["Squadra"]),
                 "Prezzo_Acquisto": int(row["Quotazione"]),
                 "Valore_Attuale": int(row["Quotazione"]),
                 "Scadenza": int(row["Scadenza_Contratto"]),
@@ -238,7 +238,9 @@ stato_salva = {
     "budget_iniziale": st.session_state.budget_iniziale,
     "rose_lega": st.session_state.rose_lega,
     "extra_budget": st.session_state.extra_budget,
-    "stati_giocatori": df[["Nome", "Stato"]].set_index("Nome")["Stato"].to_dict(),
+    "stati_giocatori": df[["Nome", "Stato"]]
+    .set_index("Nome")["Stato"]
+    .to_dict(),
 }
 json_data = json.dumps(stato_salva, indent=4)
 st.sidebar.download_button(
@@ -264,11 +266,10 @@ if uploaded_file is not None:
 
         stati_caricati = loaded_state.get("stati_giocatori", {})
         for idx, row in df.iterrows():
-            nome_giocatore = row["Nome"].strip()
-            # Cerca match case-insensitive nel dizionario salvato
+            nome_giq = str(row["Nome"]).strip()
             found_status = "LIBERO"
             for k, v in stati_caricati.items():
-                if k.strip().lower() == nome_giocatore.lower():
+                if str(k).strip().lower() == nome_giq.lower():
                     found_status = v
                     break
             df.at[idx, "Stato"] = found_status
@@ -369,9 +370,9 @@ if giocatori_liberi:
 
         if submit_asta:
             st.session_state.rose_lega[vincitore_asta].append({
-                "Nome": g_data["Nome"],
-                "Ruolo": g_data["Ruolo"],
-                "Squadra": g_data["Squadra"],
+                "Nome": str(g_data["Nome"]),
+                "Ruolo": str(g_data["Ruolo"]),
+                "Squadra": str(g_data["Squadra"]),
                 "Prezzo_Acquisto": int(prezzo_aggiudicazione),
                 "Valore_Attuale": int(g_data["Quotazione"]),
                 "Scadenza": int(g_data["Scadenza_Contratto"]),
@@ -445,7 +446,7 @@ allenatore_svincolo = st.selectbox(
 rosa_allenatore_attuale = st.session_state.rose_lega[allenatore_svincolo]
 
 if rosa_allenatore_attuale:
-    nomi_giocatori_in_rosa = [g["Nome"] for g in rosa_allenatore_attuale]
+    nomi_giocatori_in_rosa = [str(g["Nome"]) for g in rosa_allenatore_attuale]
 
     giocatore_da_svincolare = st.selectbox(
         "Seleziona il giocatore da svincolare (torna LIBERO):",
@@ -454,18 +455,18 @@ if rosa_allenatore_attuale:
     )
 
     if st.button("🗑️ Conferma Svincolo / Rendi Libero"):
-        # Rimuove pulendo gli spazi e confrontando in minuscolo
+        # Rimuove il giocatore dalla rosa dell'allenatore in modo sicuro
         st.session_state.rose_lega[allenatore_svincolo] = [
             g
             for g in rosa_allenatore_attuale
-            if g["Nome"].strip().lower()
-            != giocatore_da_svincolare.strip().lower()
+            if str(g["Nome"]).strip().lower()
+            != str(giocatore_da_svincolare).strip().lower()
         ]
 
-        # Aggiorna lo stato a LIBERO nel dataframe globale
+        # Imposta lo stato a LIBERO nel DataFrame globale
         match_idx = st.session_state.df_giocatori[
-            st.session_state.df_giocatori["Nome"].str.strip().str.lower()
-            == giocatore_da_svincolare.strip().lower()
+            st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
+            == str(giocatore_da_svincolare).strip().lower()
         ].index
 
         if not match_idx.empty:
@@ -494,7 +495,7 @@ with col_p1:
 rosa_cedente = st.session_state.rose_lega[squadra_cedente]
 
 if rosa_cedente:
-    nomi_cedente = [g["Nome"] for g in rosa_cedente]
+    nomi_cedente = [str(g["Nome"]) for g in rosa_cedente]
     with col_p2:
         squadra_ricevente = st.selectbox(
             "Squadra che riceve in prestito:",
@@ -513,8 +514,8 @@ if rosa_cedente:
             (
                 g
                 for g in rosa_cedente
-                if g["Nome"].strip().lower()
-                == giocatore_prestito.strip().lower()
+                if str(g["Nome"]).strip().lower()
+                == str(giocatore_prestito).strip().lower()
             ),
             None,
         )
@@ -524,17 +525,17 @@ if rosa_cedente:
             st.session_state.rose_lega[squadra_cedente] = [
                 g
                 for g in rosa_cedente
-                if g["Nome"].strip().lower()
-                != giocatore_prestito.strip().lower()
+                if str(g["Nome"]).strip().lower()
+                != str(giocatore_prestito).strip().lower()
             ]
             st.session_state.rose_lega[squadra_ricevente].append(
                 giocatore_obj
             )
 
-            # Aggiorna lo stato nel dataframe globale
+            # Aggiorna lo stato nel DataFrame globale
             match_idx = st.session_state.df_giocatori[
-                st.session_state.df_giocatori["Nome"].str.strip().str.lower()
-                == giocatore_prestito.strip().lower()
+                st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
+                == str(giocatore_prestito).strip().lower()
             ].index
 
             if not match_idx.empty:
