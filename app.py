@@ -20,7 +20,6 @@ if "budget_iniziale" not in st.session_state:
 def ripara_testo(testo):
     if not isinstance(testo, str):
         return str(testo)
-    # Corregge i caratteri speciali sballati (es. Ã¨ -> è)
     for enc_from, enc_to in [('latin1', 'utf-8'), ('cp1252', 'utf-8')]:
         try:
             return testo.encode(enc_from).decode(enc_to)
@@ -105,13 +104,13 @@ def load_data():
 
     def assign_tier_and_contract(quot):
         if quot >= 25:
-            return pd.Series(["Top", 2029])
+            return pd.Series(["Top", "Giugno 2029"])
         elif quot >= 15:
-            return pd.Series(["Semitop", 2029])
+            return pd.Series(["Semitop", "Giugno 2029"])
         elif quot >= 8:
-            return pd.Series(["Titolare", 2029])
+            return pd.Series(["Titolare", "Giugno 2029"])
         else:
-            return pd.Series(["Scommessa", 2030])
+            return pd.Series(["Scommessa", "Giugno 2030"])
 
     df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(
         assign_tier_and_contract
@@ -229,7 +228,7 @@ if "inizializzato" not in st.session_state:
                 "Squadra": str(r["Squadra"]),
                 "Prezzo_Acquisto": int(r["Quotazione"]),
                 "Valore_Attuale": int(r["Quotazione"]),
-                "Scadenza": int(r["Scadenza_Contratto"]),
+                "Scadenza": str(r["Scadenza_Contratto"]),
             }
             for _, r in sub_df.iterrows()
         ]
@@ -371,7 +370,6 @@ if uploaded_excel is not None:
                 if text_content is None:
                     text_content = content_bytes.decode('latin1', errors='ignore')
                 
-                # Applica riparazione caratteri speciali
                 text_content = ripara_testo(text_content)
                 
                 lines = [line.strip() for line in text_content.splitlines() if line.strip()]
@@ -469,7 +467,7 @@ if uploaded_excel is not None:
                                 "Squadra": squadra_g,
                                 "Prezzo_Acquisto": prezzo_val,
                                 "Valore_Attuale": quot_g,
-                                "Scadenza": 2030,
+                                "Scadenza": "Giugno 2030",
                             })
                             
                         idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_g_lower].index
@@ -486,7 +484,7 @@ if uploaded_excel is not None:
         except Exception as e:
             st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
 
-# --- MODIFICA SCADENZE CONTRATTI ---
+# --- MODIFICA SCADENZE CONTRATTI CON MESI E ANNI ---
 st.sidebar.divider()
 st.sidebar.subheader("📅 Modifica Scadenze Contratti")
 squadra_mod_scadenza = st.sidebar.selectbox("Seleziona squadra per contratti:", PARTECIPANTI_LEGA, key="mod_scad_sq")
@@ -497,16 +495,31 @@ if rosa_mod_scadenza:
     giocatore_da_aggiornare = st.sidebar.selectbox("Seleziona giocatore:", nomi_mod_scadenza, key="mod_scad_gioc")
     
     gioc_obj_corrente = next((g for g in rosa_mod_scadenza if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower()), None)
-    scadenza_attuale_val = gioc_obj_corrente.get("Scadenza", 2030) if gioc_obj_corrente else 2030
+    scadenza_attuale_val = str(gioc_obj_corrente.get("Scadenza", "Giugno 2030")) if gioc_obj_corrente else "Giugno 2030"
     
-    nuova_scadenza = st.sidebar.number_input("Nuovo Anno Scadenza:", min_value=2026, max_value=2035, value=int(scadenza_attuale_val), step=1, key="input_nuova_scad")
+    # Scelta Mese e Anno per la scadenza
+    col_scad1, col_scad2 = st.sidebar.columns(2)
+    with col_scad1:
+        mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+        # Estrai il mese attuale se presente, altrimenti Giugno
+        mese_default = next((m for m in mesi_disponibili if m.lower() in scadenza_attuale_val.lower()), "Giugno")
+        idx_mese = mesi_disponibili.index(mese_default) if mese_default in mesi_disponibili else 5
+        nuovo_mese = st.selectbox("Mese:", mesi_disponibili, index=idx_mese, key="select_nuovo_mese")
+    
+    with col_scad2:
+        anni_disponibili = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035]
+        anno_default = next((a for a in anni_disponibili if str(a) in scadenza_attuale_val), 2030)
+        idx_anno = anni_disponibili.index(anno_default) if anno_default in anni_disponibili else 4
+        nuovo_anno = st.selectbox("Anno:", anni_disponibili, index=idx_anno, key="select_nuovo_anno")
+    
+    scadenza_formattata = f"{nuovo_mese} {nuovo_anno}"
     
     if st.sidebar.button("💾 Aggiorna Scadenza", key="btn_aggiorna_scad"):
         for g in st.session_state.rose_lega[squadra_mod_scadenza]:
             if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower():
-                g["Scadenza"] = int(nuova_scadenza)
+                g["Scadenza"] = scadenza_formattata
                 break
-        st.sidebar.success(f"✅ Contratto di **{giocatore_da_aggiornare}** aggiornato al **{nuova_scadenza}**!")
+        st.sidebar.success(f"✅ Contratto di **{giocatore_da_aggiornare}** aggiornato a **{scadenza_formattata}**!")
         st.rerun()
 else:
     st.sidebar.info("Rosa vuota.")
@@ -617,7 +630,7 @@ if giocatori_liberi:
                 "Squadra": str(g_data["Squadra"]),
                 "Prezzo_Acquisto": int(prezzo_aggiudicazione),
                 "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": 2030,
+                "Scadenza": "Giugno 2030",
             })
             st.session_state.rose_lega = current_rose
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
