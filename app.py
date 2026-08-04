@@ -234,6 +234,9 @@ if "extra_budget" not in st.session_state:
 if "prestiti_lega" not in st.session_state:
     st.session_state.prestiti_lega = []
 
+if "storico_scambi" not in st.session_state:
+    st.session_state.storico_scambi = []
+
 if "inizializzato" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
     for p in PARTECIPANTI_LEGA:
@@ -302,7 +305,7 @@ st.sidebar.metric(
     f"Mancanti: {giocatori_mancanti_corrente} giocatori"
 )
 
-# --- RIEPILOGO SOLDI RIMANENTI E GIOCATORI MANCANTI PER RUOLO (MENU A SINISTRA) ---
+# --- RIEPILOGO SOLDI RIMANENTI E GIOCATORI MANCANTI PER RUOLO CON BARRE DI PROGRESSO ---
 with st.sidebar.expander("📊 Riepilogo Soldi & Mancanti per Ruolo"):
     for part in PARTECIPANTI_LEGA:
         r_part = rose_lega_dict.get(part, [])
@@ -314,10 +317,14 @@ with st.sidebar.expander("📊 Riepilogo Soldi & Mancanti per Ruolo"):
         tot_mancanti = sum(mancanti_ruoli.values())
         
         st.markdown(f"**{part}** (Rimasti: **{budget_rim_part} cr** | Tot. Mancanti: **{tot_mancanti}**)")
-        st.text(f"  • Portieri (P): {mancanti_ruoli['P']} mancanti")
-        st.text(f"  • Difensori (D): {mancanti_ruoli['D']} mancanti")
-        st.text(f"  • Centrocampisti (C): {mancanti_ruoli['C']} mancanti")
-        st.text(f"  • Attaccanti (A): {mancanti_ruoli['A']} mancanti")
+        
+        for r_code, r_target in SLOT_TARGET_RUOLI.items():
+            current_count = presidi_ruolo[r_code]
+            progress_val = min(1.0, current_count / r_target) if r_target > 0 else 1.0
+            r_label = {"P": "Portieri (P)", "D": "Difensori (D)", "C": "Centrocampisti (C)", "A": "Attaccanti (A)"}[r_code]
+            st.text(f"  • {r_label}: {current_count}/{r_target}")
+            st.progress(progress_val)
+            
         st.markdown("---")
 
 # --- MENU A TENDINA NELLA SIDEBAR (ORDINE E PULIZIA) ---
@@ -329,6 +336,7 @@ with st.sidebar.expander("💾 Salvataggio & Caricamento JSON"):
         "rose_lega": rose_lega_dict,
         "extra_budget": extra_budget_dict,
         "prestiti_lega": st.session_state.get("prestiti_lega", []),
+        "storico_scambi": st.session_state.get("storico_scambi", []),
         "stati_giocatori": df[["Nome", "Stato"]]
         .set_index("Nome")["Stato"]
         .to_dict(),
@@ -358,6 +366,7 @@ with st.sidebar.expander("💾 Salvataggio & Caricamento JSON"):
                     "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
                 )
                 st.session_state.prestiti_lega = loaded_state.get("prestiti_lega", [])
+                st.session_state.storico_scambi = loaded_state.get("storico_scambi", [])
 
                 stati_caricati = loaded_state.get("stati_giocatori", {})
                 stati_map_lower = {
@@ -554,7 +563,7 @@ with st.sidebar.expander("📅 Modifica Scadenze Contratti"):
     else:
         st.info("Rosa vuota.")
 
-with st.sidebar.expander("📋 Esplora Rose & Valori"):
+with st.sidebar.expander("📋 Esplora Rose, Valori & Esportazione"):
     squadra_da_esplorare = st.selectbox(
         "Seleziona rosa da visualizzare:", PARTECIPANTI_LEGA, key="esplora_sidebar"
     )
@@ -566,13 +575,28 @@ with st.sidebar.expander("📋 Esplora Rose & Valori"):
             {
                 "Nome": g["Nome"],
                 "Ruolo": g["Ruolo"],
+                "Squadra": g.get("Squadra", "N/D"),
                 "Spesa": g.get("Prezzo_Acquisto", 1),
                 "Scadenza": g["Scadenza"],
             }
             for g in rosa_selezionata_sidebar
         ]
+        df_side_pd = pd.DataFrame(df_side_list)
         st.dataframe(
-            pd.DataFrame(df_side_list), use_container_width=True, hide_index=True
+            df_side_pd, use_container_width=True, hide_index=True
+        )
+        
+        # Esportazione Testo formattato per WhatsApp / Condivisione
+        txt_output = f"📋 **ROSA FANTA-LEGA: {squadra_da_esplorare}**\n"
+        for _, row_exp in df_side_pd.iterrows():
+            txt_output += f"- {row_exp['Ruolo']} | {row_exp['Nome']} ({row_exp['Squadra']}) [Spesa: {row_exp['Spesa']}cr | Scad: {row_exp['Scadenza']}]\n"
+        
+        st.download_button(
+            label="📥 Esporta Rosa (Testo / WhatsApp)",
+            data=txt_output,
+            file_name=f"rosa_{squadra_da_esplorare.lower()}.txt",
+            mime="text/plain",
+            key=f"download_txt_rosa_{squadra_da_esplorare}"
         )
     else:
         st.info("Rosa vuota.")
@@ -623,16 +647,17 @@ if giocatori_liberi:
             
             if giocatori_stesso_ruolo:
                 nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
-                giocatore_confronto_sel = st.selectbox("Seleziona giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
+                giocatore_confronto_sel = st.selectbox("Seleziona specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
                 
                 g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
                 if g_rosa_obj:
                     df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
                     fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
+                    scadenza_rosa_val = g_rosa_obj.get("Scadenza", "N/D")
                     
                     c_col1, c_col2 = st.columns(2)
-                    c_col1.metric(f"Giocatore in Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Quot: {quotazione_listone} cr")
-                    c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM")
+                    c_col1.metric(f"In Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Scad: {g_data['Scadenza_Contratto']}")
+                    c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM", f"Scad: {scadenza_rosa_val}")
                     
                     diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
                     if diff_fm > 0:
@@ -675,7 +700,7 @@ if giocatori_liberi:
                 "Squadra": str(g_data["Squadra"]),
                 "Prezzo_Acquisto": int(prezzo_aggiudicazione),
                 "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": "Giugno 2030",
+                "Scadenza": str(g_data["Scadenza_Contratto"]),
             })
             st.session_state.rose_lega = current_rose
             idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
@@ -871,7 +896,7 @@ with st.expander("🔄 Gestione Rosa & Svincoli (Rendi Libero)"):
     else:
         st.info(f"La rosa di {allenatore_svincolo} è vuota.")
 
-with st.expander("🤝 Scambi Diretti & Multipli tra Società (Con Soldi & Anteprima Forza)"):
+with st.expander("🤝 Scambi Diretti & Multipli tra Società (Con Soldi, Anteprima Forza & Storico)"):
     col_sc1, col_sc2 = st.columns(2)
     with col_sc1:
         societa_a = st.selectbox("Società A:", PARTECIPANTI_LEGA, key="scambio_soc_a")
@@ -948,10 +973,34 @@ with st.expander("🤝 Scambi Diretti & Multipli tra Società (Con Soldi & Antep
                 if not idx_g.empty:
                     st.session_state.df_giocatori.at[idx_g[0], "Stato"] = societa_a
 
+            # Registrazione nello Storico Scambi
+            st.session_state.storico_scambi.append({
+                "Societa_A": societa_a,
+                "Giocatori_A": giocatori_da_a,
+                "Soldi_A": soldi_da_a,
+                "Societa_B": societa_b,
+                "Giocatori_B": giocatori_da_b,
+                "Soldi_B": soldi_da_b
+            })
+
             st.success(f"✅ Scambio completato con successo tra **{societa_a}** e **{societa_b}** (inclusi i conguagli in crediti)!")
             st.rerun()
     else:
         st.info("Impossibile effettuare scambi: le rose selezionate sono vuote.")
+
+    if st.session_state.storico_scambi:
+        st.markdown("### 📜 Storico & Registro Ufficiale degli Scambi")
+        for idx_sc, sc_item in enumerate(reversed(st.session_state.storico_scambi)):
+            s_a = sc_item["Societa_A"]
+            s_b = sc_item["Societa_B"]
+            g_a = ", ".join(sc_item["Giocatori_A"]) if sc_item["Giocatori_A"] else "Nessun giocatore"
+            g_b = ", ".join(sc_item["Giocatori_B"]) if sc_item["Giocatori_B"] else "Nessun giocatore"
+            cr_a = sc_item["Soldi_A"]
+            cr_b = sc_item["Soldi_B"]
+            
+            st.text(f"#{len(st.session_state.storico_scambi) - idx_sc} | {s_a} 🔄 {s_b}")
+            st.markdown(f"> **{s_a}** cede: *{g_a}* (+ {cr_a} cr)  \n> **{s_b}** cede: *{g_b}* (+ {cr_b} cr)")
+            st.markdown("---")
 
 with st.expander("🤝 Gestione Prestiti tra Squadre (Durata, Rinnovo & Interruzione)"):
     col_p1, col_p2 = st.columns(2)
