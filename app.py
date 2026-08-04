@@ -49,6 +49,27 @@ def ripara_testo(testo):
             continue
     return testo
 
+def formatta_scadenza_csv(val_scad):
+    if not isinstance(val_scad, str) or not val_scad.strip() or val_scad.strip().lower() in ["nan", "none", "", "n/d"]:
+        return "Giugno 2030"
+    
+    v = val_scad.strip().lower()
+    mesi_mappa = {
+        "gen": "Gennaio", "feb": "Febbraio", "mar": "Marzo", "apr": "Aprile",
+        "mag": "Maggio", "giu": "Giugno", "lug": "Luglio", "ago": "Agosto",
+        "set": "Settembre", "ott": "Ottobre", "nov": "Novembre", "dic": "Dicembre"
+    }
+    
+    for m_abbr, m_nome in mesi_mappa.items():
+        if m_abbr in v:
+            parti = v.replace("-", " ").replace("/", " ").split()
+            anno_str = next((p for p in parti if len(p) >= 2 and p.isdigit()), "30")
+            if len(anno_str) == 2:
+                anno_str = "20" + anno_str
+            return f"{m_nome} {anno_str}"
+            
+    return val_scad.strip().capitalize()
+
 # ---------------------------------------------------------
 # 3. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
 # ---------------------------------------------------------
@@ -124,18 +145,25 @@ def load_data():
 
     df["Stato"] = df["Proprietario_Iniziale"]
 
-    def assign_tier_and_contract(quot):
-        if quot >= 25:
-            return pd.Series(["Top", "Giugno 2029"])
-        elif quot >= 15:
-            return pd.Series(["Semitop", "Giugno 2029"])
-        elif quot >= 8:
-            return pd.Series(["Titolare", "Giugno 2029"])
-        else:
-            return pd.Series(["Scommessa", "Giugno 2030"])
+    possibili_colonne_scad = ["scad", "scadenza", "contratto", "scadenza_contratto", "Unnamed: 3", "Unnamed: 4"]
+    col_scad_trovata = next((c for c in possibili_colonne_scad if c in df_raw.columns), None)
+    
+    if col_scad_trovata:
+        df["Scadenza_Contratto"] = df_raw[col_scad_trovata].astype(str).apply(formatta_scadenza_csv)
+    else:
+        def assign_default_contract(quot):
+            if quot >= 25:
+                return "Giugno 2029"
+            elif quot >= 15:
+                return "Giugno 2029"
+            elif quot >= 8:
+                return "Giugno 2029"
+            else:
+                return "Giugno 2030"
+        df["Scadenza_Contratto"] = df["Quotazione"].apply(assign_default_contract)
 
-    df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(
-        assign_tier_and_contract
+    df["Tier"] = df["Quotazione"].apply(
+        lambda q: "Top" if q >= 25 else ("Semitop" if q >= 15 else ("Titolare" if q >= 8 else "Scommessa"))
     )
 
     def genera_parametri_avanzati(row):
@@ -159,12 +187,18 @@ def load_data():
             malus_cartellini = "Basso"
 
         if quot >= 25:
-            return pd.Series([0.95, 36, 8.8, "Basso (Affidabile)", xg, xa, malus_cartellini, "Basso"])
+            p_tit, part_att, cont, r_inf, r_turn = 0.95, 36, 8.8, "Basso (Affidabile)", "Basso"
         elif quot >= 15:
-            return pd.Series([0.82, 32, 7.8, "Medio-Basso", xg, xa, malus_cartellini, "Medio"])
+            p_tit, part_att, cont, r_inf, r_turn = 0.82, 32, 7.8, "Medio-Basso", "Medio"
         elif quot >= 8:
-            return pd.Series([0.65, 27, 6.8, "Medio", xg, xa, malus_cartellini, "Medio"])
-        return pd.Series([0.40, 20, 5.8, "Variabile / Rischio", xg, xa, malus_cartellini, "Alto"])
+            p_tit, part_att, cont, r_inf, r_turn = 0.65, 27, 6.8, "Medio", "Medio"
+        else:
+            p_tit, part_att, cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
+
+        partite_titolare = int(round(part_att * p_tit))
+        partite_subentrato = max(0, int(part_att - partite_titolare))
+
+        return pd.Series([p_tit, part_att, cont, r_inf, xg, xa, malus_cartellini, r_turn, partite_titolare, partite_subentrato])
 
     df[
         [
@@ -175,7 +209,9 @@ def load_data():
             "xG_90",
             "xA_90",
             "Indice_Cartellini",
-            "Rischio_Turnover"
+            "Rischio_Turnover",
+            "Partite_Titolare",
+            "Partite_Subentrato"
         ]
     ] = df.apply(genera_parametri_avanzati, axis=1)
 
@@ -482,6 +518,8 @@ with st.sidebar.expander("📊 Importa Rose da Listone"):
                         map_colonne["quotazione"] = col
                     elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio"]):
                         map_colonne["proprietario"] = col
+                    elif any(k in col for k in ["scad", "contratto"]):
+                        map_colonne["scadenza"] = col
 
                 if "calciatore" not in map_colonne and len(df_excel.columns) > 0:
                     map_colonne["calciatore"] = df_excel.columns[0]
@@ -515,11 +553,18 @@ with st.sidebar.expander("📊 Importa Rose da Listone"):
                             except:
                                 pass
 
+                        scad_val = "Giugno 2030"
+                        if "scadenza" in map_colonne and map_colonne["scadenza"] in row:
+                            scad_raw = str(row[map_colonne["scadenza"]]).strip()
+                            scad_val = formatta_scadenza_csv(scad_raw)
+
                         if nome_g_lower in master_dict:
                             g_info = master_dict[nome_g_lower]
                             ruolo_g = str(g_info["Ruolo"])
                             squadra_g = ripara_testo(str(g_info["Squadra"]))
                             quot_g = int(g_info["Quotazione"])
+                            if scad_val == "Giugno 2030" and "Scadenza_Contratto" in g_info:
+                                scad_val = str(g_info["Scadenza_Contratto"])
                         else:
                             ruolo_g = ripara_testo(str(row[map_colonne["ruolo"]])) if "ruolo" in map_colonne and map_colonne["ruolo"] in row else "C"
                             squadra_g = ripara_testo(str(row[map_colonne["squadra"]])) if "squadra" in map_colonne and map_colonne["squadra"] in row else "N/D"
@@ -536,17 +581,18 @@ with st.sidebar.expander("📊 Importa Rose da Listone"):
                                     "Squadra": squadra_g,
                                     "Prezzo_Acquisto": prezzo_val,
                                     "Valore_Attuale": quot_g,
-                                    "Scadenza": "Giugno 2030",
+                                    "Scadenza": scad_val,
                                 })
                                 
                             idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_g_lower].index
                             if not idx_match.empty:
                                 df_temp.at[idx_match[0], "Stato"] = prop_val
+                                df_temp.at[idx_match[0], "Scadenza_Contratto"] = scad_val
 
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"Rosa caricata con successo! Trovati {len(df_excel)} elementi.")
+                    st.sidebar.success(f"Rosa e scadenze caricate con successo! Trovati {len(df_excel)} elementi.")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
@@ -584,6 +630,11 @@ with st.sidebar.expander("📅 Modifica Scadenze Contratti"):
                 if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower():
                     g["Scadenza"] = scadenza_formattata
                     break
+            
+            idx_m = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_aggiornare).strip().lower()].index
+            if not idx_m.empty:
+                st.session_state.df_giocatori.at[idx_m[0], "Scadenza_Contratto"] = scadenza_formattata
+
             st.success(f"✅ Contratto aggiornato a **{scadenza_formattata}**!")
             st.rerun()
     else:
@@ -633,7 +684,6 @@ st.title("⚡ Live Auction Intelligent Assistant (Advanced)")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
-# Filtri rapidi per Ruolo e Squadra prima di selezionare il giocatore in asta (con conversione sicura)
 df_liberi_base = df[df["Stato"] == "LIBERO"]
 
 if not df_liberi_base.empty:
@@ -675,12 +725,13 @@ if not df_liberi_base.empty:
             "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
         )
 
-        with st.expander("📊 Metriche Avanzate & Dettagli Realistici"):
-            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-            m_col1.metric("xG / 90 min", f"{g_data['xG_90']}")
-            m_col2.metric("xA / 90 min", f"{g_data['xA_90']}")
-            m_col3.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
-            m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
+        with st.expander("📊 Metriche Avanzate & Partite (Titolare / Subentrato)"):
+            m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
+            m_col1.metric("Partite Titolare 🟢", f"{g_data['Partite_Titolare']}")
+            m_col2.metric("Partite Subentrato 🟡", f"{g_data['Partite_Subentrato']}")
+            m_col3.metric("xG / 90 min", f"{g_data['xG_90']}")
+            m_col4.metric("xA / 90 min", f"{g_data['xA_90']}")
+            m_col5.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
 
         with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
             rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
@@ -691,7 +742,7 @@ if not df_liberi_base.empty:
                 
                 if giocatori_stesso_ruolo:
                     nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
-                    giocatore_confronto_sel = st.selectbox("Seleziona specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
+                    giocatore_confronto_sel = st.selectbox("Seleziono specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
                     
                     g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
                     if g_rosa_obj:
@@ -774,7 +825,7 @@ with col_cons_d:
     df_cons_d = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "D")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
     if not df_cons_d.empty:
         for _, row_g in df_cons_d.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {row_g['Partite_Titolare']}/{row_g['Partite_Subentrato']}\n- Quotazione: {row_g['Quotazione']} cr")
     else:
         st.write("Nessun difensore libero disponibile.")
 
@@ -783,7 +834,7 @@ with col_cons_c:
     df_cons_c = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "C")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
     if not df_cons_c.empty:
         for _, row_g in df_cons_c.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {row_g['Partite_Titolare']}/{row_g['Partite_Subentrato']}\n- Quotazione: {row_g['Quotazione']} cr")
     else:
         st.write("Nessun centrocampista libero disponibile.")
 
@@ -792,7 +843,7 @@ with col_cons_a:
     df_cons_a = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "A")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
     if not df_cons_a.empty:
         for _, row_g in df_cons_a.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {row_g['Partite_Titolare']}/{row_g['Partite_Subentrato']}\n- Quotazione: {row_g['Quotazione']} cr")
     else:
         st.write("Nessun attaccante libero disponibile.")
 
@@ -830,10 +881,9 @@ st.dataframe(
         "Ruolo",
         "Quotazione",
         "FantaMedia_Stimata",
-        "xG_90",
-        "xA_90",
+        "Partite_Titolare",
+        "Partite_Subentrato",
         "Status_Piazzati",
-        "Indice_Continuita",
         "Rischio_Infortunio",
         "Valore_Atteso",
     ]],
@@ -849,7 +899,7 @@ st.subheader("📋 Gestione Avanzata & Analisi Lega")
 
 with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
     st.markdown("""
-    Carica il file listone aggiornato (es. Excel, CSV o TXT esportato da Fantacalcio.it / Fantagazzetta). 
+    Carica il file listone aggiornato (es. Excel, CSV o TXT). 
     Questa funzione **aggiornerà quotazioni, ruoli, squadre e statistiche** di tutti i giocatori, lasciando **completamente inalterate** le rose e i crediti dei partecipanti già assegnati!
     """)
     
@@ -889,9 +939,11 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                 col_quot = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
                 col_ruolo = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["ruolo"])), None)
                 col_sq = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["squadra", "team"])), None)
+                col_scad = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["scad", "contratto"])), None)
                 
                 df_master_agg = st.session_state.df_giocatori.copy()
                 stati_correnti_map = {str(r["Nome"]).strip().lower(): r["Stato"] for _, r in df_master_agg.iterrows()}
+                scadenze_correnti_map = {str(r["Nome"]).strip().lower(): r["Scadenza_Contratto"] for _, r in df_master_agg.iterrows()}
                 
                 nuove_righe_list = []
                 
@@ -918,9 +970,13 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                     nome_key = nome_g.lower()
                     stato_precedente = stati_correnti_map.get(nome_key, "LIBERO")
                     
+                    scad_precedente = scadenze_correnti_map.get(nome_key, "Giugno 2030")
+                    if col_scad and col_scad in row_l:
+                        scad_raw = str(row_l[col_scad]).strip()
+                        scad_precedente = formatta_scadenza_csv(scad_raw)
+                    
                     quot = quot_val
                     tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
-                    scadenza = "Giugno 2029" if quot >= 8 else "Giugno 2030"
                     
                     if ruolo_val == "A":
                         xg = round(max(0.1, quot * 0.035), 2)
@@ -947,6 +1003,9 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                     else:
                         p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
                         
+                    p_titolare = int(round(part_att * p_tit))
+                    p_subentrato = max(0, int(part_att - p_titolare))
+
                     base_fm = 6.00
                     if ruolo_val == "A":
                         base_fm += 0.35 + (quot * 0.04)
@@ -972,7 +1031,7 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                         "Proprietario_Iniziale": stato_precedente if stato_precedente != "LIBERO" else "LIBERO",
                         "Stato": stato_precedente,
                         "Tier": tier,
-                        "Scadenza_Contratto": scadenza,
+                        "Scadenza_Contratto": scad_precedente,
                         "Percentuale_Titolarita": p_tit,
                         "Partite_Attese": part_att,
                         "Indice_Continuita": ind_cont,
@@ -981,6 +1040,8 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                         "xA_90": xa,
                         "Indice_Cartellini": cart,
                         "Rischio_Turnover": r_turn,
+                        "Partite_Titolare": p_titolare,
+                        "Partite_Subentrato": p_subentrato,
                         "FantaMedia_Stimata": fm_stimata,
                         "Status_Piazzati": status_p,
                         "Moltiplicatore_Team": molt_team,
@@ -990,7 +1051,7 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                 
                 if nuove_righe_list:
                     st.session_state.df_giocatori = pd.DataFrame(nuove_righe_list)
-                    st.success("✅ Listone aggiornato con successo! Tutte le quotazioni e statistiche sono state aggiornate, mentre le rose dei partecipanti sono rimaste perfettamente intatte.")
+                    st.success("✅ Listone aggiornato con successo! Tutte le quotazioni e statistiche sono state aggiornate, mentre le rose e le scadenze dei partecipanti sono rimaste perfettamente intatte.")
                     st.rerun()
                 else:
                     st.warning("Nessun dato valido trovato nel file caricato.")
@@ -999,10 +1060,9 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
         else:
             st.warning("Seleziona prima un file valido.")
 
-with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fantacalcio.it)"):
+with st.expander("📈 Aggiornamento Storico & Media 3 Anni"):
     st.markdown("""
-    Puoi caricare **fino a 3 file storici** (es. i listoni delle ultime 3 stagioni esportati da Fantacalcio.it / Fantagazzetta) 
-    per calcolare automaticamente una **media ponderata o cumulata** delle performance e aggiornare il listone attivo!
+    Puoi caricare **fino a 3 file storici** per calcolare automaticamente una **media ponderata** delle performance e aggiornare il listone attivo!
     """)
     
     col_up_a, col_up_b, col_up_c = st.columns(3)
@@ -1134,6 +1194,8 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                             "xA_90": 0.1,
                             "Indice_Cartellini": "Medio",
                             "Rischio_Turnover": "Medio",
+                            "Partite_Titolare": 26,
+                            "Partite_Subentrato": 6,
                             "FantaMedia_Stimata": round(min(base_fm, 9.5), 2),
                             "Status_Piazzati": "No",
                             "Moltiplicatore_Team": 0.95,
@@ -1203,6 +1265,9 @@ with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
                     else:
                         p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
                         
+                    p_titolare = int(round(part_att * p_tit))
+                    p_subentrato = max(0, int(part_att - p_titolare))
+
                     base_fm = 6.00
                     if nuovo_ruolo == "A":
                         base_fm += 0.35 + (quot * 0.04)
@@ -1234,6 +1299,8 @@ with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
                         "xA_90": xa,
                         "Indice_Cartellini": cart,
                         "Rischio_Turnover": r_turn,
+                        "Partite_Titolare": p_titolare,
+                        "Partite_Subentrato": p_subentrato,
                         "FantaMedia_Stimata": fm_stimata,
                         "Status_Piazzati": status_p,
                         "Moltiplicatore_Team": 0.95,
@@ -1499,19 +1566,28 @@ for idx_t, squadra_nome in enumerate(PARTECIPANTI_LEGA):
             df_rosa_tab = pd.DataFrame(rosa_sq)
             
             fiammate_fm = []
+            part_titolare_list = []
+            part_sub_list = []
             for _, r_item in df_rosa_tab.iterrows():
                 m_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(r_item["Nome"]).strip().lower()]
                 if not m_match.empty:
                     fiammate_fm.append(m_match["FantaMedia_Stimata"].values[0])
+                    part_titolare_list.append(m_match["Partite_Titolare"].values[0])
+                    part_sub_list.append(m_match["Partite_Subentrato"].values[0])
                 else:
                     fiammate_fm.append(6.0)
+                    part_titolare_list.append(24)
+                    part_sub_list.append(6)
+
             df_rosa_tab["FantaMedia"] = fiammate_fm
+            df_rosa_tab["Titolare"] = part_titolare_list
+            df_rosa_tab["Subentrato"] = part_sub_list
             
-            st.dataframe(df_rosa_tab[["Ruolo", "Nome", "Squadra", "Prezzo_Acquisto", "FantaMedia", "Scadenza"]], use_container_width=True, hide_index=True)
+            st.dataframe(df_rosa_tab[["Ruolo", "Nome", "Squadra", "Prezzo_Acquisto", "FantaMedia", "Titolare", "Subentrato", "Scadenza"]], use_container_width=True, hide_index=True)
             
             txt_rosa_full = f"📋 **ROSA FANTA-LEGA: {squadra_nome}**\n"
             for _, row_f in df_rosa_tab.iterrows():
-                txt_rosa_full += f"- {row_f['Ruolo']} | {row_f['Nome']} ({row_f['Squadra']}) [Spesa: {row_f['Prezzo_Acquisto']}cr | FM: {row_f.get('FantaMedia', 6.0)} | Scad: {row_f['Scadenza']}]\n"
+                txt_rosa_full += f"- {row_f['Ruolo']} | {row_f['Nome']} ({row_f['Squadra']}) [Spesa: {row_f['Prezzo_Acquisto']}cr | FM: {row_f.get('FantaMedia', 6.0)} | Tit/Sub: {row_f['Titolare']}/{row_f['Subentrato']} | Scad: {row_f['Scadenza']}]\n"
             
             st.download_button(
                 label=f"📥 Esporta Rosa {squadra_nome} (WhatsApp/Testo)",
