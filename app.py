@@ -262,8 +262,8 @@ for p in PARTECIPANTI_LEGA:
 
 df = st.session_state.df_giocatori
 
-# Slot target per ruolo (P: 3, D: 8, C: 8, A: 6 = 25 totali)
-SLOT_TARGET_RUOLI = {"P": 3, "D": 8, "C": 8, "A": 6}
+# Slot target per ruolo aggiornati (P: 3, D: 9, C: 9, A: 7 = 28 totali)
+SLOT_TARGET_RUOLI = {"P": 3, "D": 9, "C": 9, "A": 7}
 SLOT_TARGET_TOTALE = sum(SLOT_TARGET_RUOLI.values())
 
 # ---------------------------------------------------------
