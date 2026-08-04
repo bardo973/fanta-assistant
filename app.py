@@ -821,9 +821,9 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
             dfs_storico = []
             for idx_f, f_obj in enumerate(uploaded_files_list):
                 try:
-                    f_ext = f.name.split('.')[-1].lower()
+                    f_ext = f_obj.name.split('.')[-1].lower()
                     if f_ext == 'txt':
-                        c_bytes = f.read()
+                        c_bytes = f_obj.read()
                         t_cont = None
                         for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
                             try:
@@ -841,10 +841,10 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                         else:
                             df_temp_anno = pd.DataFrame({'Calciatore': lines})
                     elif f_ext in ['xlsx', 'xls', 'ods']:
-                        df_temp_anno = pd.read_excel(f, dtype=str)
+                        df_temp_anno = pd.read_excel(f_obj, dtype=str)
                     else:
-                        f.seek(0)
-                        df_temp_anno = pd.read_csv(f, encoding='latin1', dtype=str, on_bad_lines='skip')
+                        f_obj.seek(0)
+                        df_temp_anno = pd.read_csv(f_obj, encoding='latin1', dtype=str, on_bad_lines='skip')
                     
                     df_temp_anno.columns = [str(c).strip().lower() for c in df_temp_anno.columns]
                     
@@ -863,7 +863,7 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                     
                     dfs_storico.append(df_clean_anno)
                 except Exception as ex:
-                    st.error(f"Errore nella lettura del file {f.name}: {ex}")
+                    st.error(f"Errore nella lettura del file {f_obj.name}: {ex}")
 
             if dfs_storico:
                 df_unito = pd.concat(dfs_storico, ignore_index=True)
@@ -1292,7 +1292,7 @@ st.subheader("🛡️ Tabellone Generale delle Rose della Lega")
 tab_squadre = st.tabs(PARTECIPANTI_LEGA)
 for idx_t, squadra_nome in enumerate(PARTECIPANTI_LEGA):
     with tab_squadre[idx_t]:
-        rosa_ sq = st.session_state.rose_lega.get(squadra_nome, [])
+        rosa_sq = st.session_state.rose_lega.get(squadra_nome, [])
         spesa_sq = sum(item.get("Prezzo_Acquisto", 1) for item in rosa_sq)
         budget_rimanente_sq = (
             st.session_state.get("budget_iniziale", 500)
