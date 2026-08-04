@@ -284,11 +284,10 @@ extra_budget_dict = st.session_state.get(
 )
 
 rosa_corrente = rose_lega_dict.get(fanta_allenatore_attivo, [])
-spesa_corrente = sum(item.get("Prezzo_Acquisto", 1) for item in rosa_corrente)
+# Budget rimanente calcolato interamente senza sottrarre il costo della rosa
 budget_rimanente_corrente = (
     st.session_state.get("budget_iniziale", 500)
     + extra_budget_dict.get(fanta_allenatore_attivo, 0)
-    - spesa_corrente
 )
 
 slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
@@ -299,7 +298,7 @@ slot_liberi = {r: slot_target[r] - slot_presi[r] for r in slot_target}
 totale_slot_liberi = sum(slot_liberi.values())
 
 st.sidebar.metric(
-    f"Budget Rimanente ({fanta_allenatore_attivo})",
+    f"Budget Totale Disponibile ({fanta_allenatore_attivo})",
     f"{budget_rimanente_corrente} cr",
 )
 
@@ -583,28 +582,8 @@ if giocatori_liberi:
     )
     g_data = df[df["Nome"] == giocatore_sel].iloc[0]
 
-    riserva_minima = max(0, totale_slot_liberi - 1)
-    budget_spendibile = max(0, budget_rimanente_corrente - riserva_minima)
-
-    percentuali_tier = {
-        "Top": 0.45,
-        "Semitop": 0.22,
-        "Titolare": 0.08,
-        "Scommessa": 0.03,
-    }
-    base_offerta = int(
-        budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.04)
-    )
-
-    if g_data["Status_Piazzati"].startswith("Rigorista"):
-        base_offerta += 5
-    if g_data["FantaMedia_Stimata"] >= 7.0:
-        base_offerta += 3
-
-    max_offerta_consigliata = max(1, base_offerta)
-    max_offerta_consigliata = (
-        max_offerta_consigliata if slot_liberi[g_data["Ruolo"]] > 0 else 0
-    )
+    # Prezzo di partenza asta impostato esattamente sulla quotazione del listone
+    quotazione_listone = int(g_data["Quotazione"])
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(
@@ -615,7 +594,7 @@ if giocatori_liberi:
     col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
     col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
     col4.metric(
-        "🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr"
+        "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
     )
 
     # Box metriche avanzate (xG, xA, Cartellini, Infortuni)
@@ -644,7 +623,7 @@ if giocatori_liberi:
                     fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
                     
                     c_col1, c_col2 = st.columns(2)
-                    c_col1.metric(f"Giocatore in Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Quot: {g_data['Quotazione']} cr")
+                    c_col1.metric(f"Giocatore in Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Quot: {quotazione_listone} cr")
                     c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM")
                     
                     diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
@@ -666,7 +645,7 @@ if giocatori_liberi:
             prezzo_aggiudicazione = st.number_input(
                 "Prezzo di chiusura asta (crediti):",
                 min_value=1,
-                value=max(1, int(max_offerta_consigliata)),
+                value=max(1, quotazione_listone),
             )
         with col_B:
             vincitore_asta = st.selectbox(
@@ -912,7 +891,6 @@ if rosa_soc_a and rosa_soc_b:
         giocatori_da_b = st.multiselect(f"Giocatori ceduti da **{societa_b}**:", [g["Nome"] for g in rosa_soc_b], key="scambio_mult_b")
 
     if giocatori_da_a or giocatori_da_b:
-        # Calcolo preventivo forza prima di confermare
         sub_df_a = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_a])]
         sub_df_b = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_b])]
 
@@ -938,21 +916,17 @@ if rosa_soc_a and rosa_soc_b:
         if st.button("⚖️ Conferma ed Esegui Scambio", key="btn_esegui_scambio_multiplo"):
             current_rose = st.session_state.get("rose_lega", {})
             
-            # Estrai gli oggetti da spostare
             oggetti_a = [g for g in rosa_soc_a if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_a]]
             oggetti_b = [g for g in rosa_soc_b if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_b]]
 
-            # Rimuovi dalle rose attuali
             current_rose[societa_a] = [g for g in current_rose[societa_a] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_a]]
             current_rose[societa_b] = [g for g in current_rose[societa_b] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_b]]
 
-            # Aggiungi alle nuove rose
             current_rose[societa_a].extend(oggetti_b)
             current_rose[societa_b].extend(oggetti_a)
 
             st.session_state.rose_lega = current_rose
 
-            # Aggiorna lo stato nel dataframe generale
             for nome_g in giocatori_da_a:
                 idx_g = df[df["Nome"].astype(str).str.strip().str.lower() == str(nome_g).strip().lower()].index
                 if not idx_g.empty:
