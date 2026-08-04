@@ -145,7 +145,7 @@ def elabora_file_caricato(uploaded_file):
             map_colonne["squadra"] = col
         elif any(k in col for k in ["quotazione", "prezzo", "valore"]):
             map_colonne["quotazione"] = col
-        elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio", "vincolato", "titolare_cartellino"]):
+        elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio", "vincolato", "titolare_cartellino", "rosa"]):
             map_colonne["proprietario"] = col
         elif any(k in col for k in ["scad", "contratto", "scadenza"]):
             map_colonne["scadenza"] = col
@@ -171,38 +171,39 @@ def load_data():
     if df_raw is None:
         df_raw = pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione"])
 
-    df = pd.DataFrame()
-    df["Nome"] = (
-        df_raw["Calciatore"].astype(str).str.strip().apply(ripara_testo)
-        if "Calciatore" in df_raw.columns
-        else "Sconosciuto"
-    )
-    df["Squadra"] = (
-        df_raw["Squadra"].astype(str).str.strip().apply(ripara_testo)
-        if "Squadra" in df_raw.columns
-        else "N/D"
-    )
-    df["Ruolo"] = (
-        df_raw["Ruolo"].astype(str).str.strip()
-        if "Ruolo" in df_raw.columns
-        else "C"
-    )
-    df["Quotazione"] = (
-        pd.to_numeric(df_raw["Quotazione"], errors="coerce").fillna(1)
-        if "Quotazione" in df_raw.columns
-        else 1
-    )
+    # Normalizza i nomi delle colonne originali per facilitare la ricerca
+    df_raw.columns = [str(c).strip() for c in df_raw.columns]
+    df_raw_cols_lower = {str(c).strip().lower(): c for c in df_raw.columns}
 
+    df = pd.DataFrame()
+    
+    col_nome = next((df_raw_cols_lower[k] for k in ["calciatore", "giocatore", "nome", "player"] if k in df_raw_cols_lower), df_raw.columns[0])
+    df["Nome"] = df_raw[col_nome].astype(str).str.strip().apply(ripara_testo)
+
+    col_sq = next((df_raw_cols_lower[k] for k in ["squadra", "team"] if k in df_raw_cols_lower), None)
+    df["Squadra"] = df_raw[col_sq].astype(str).str.strip().apply(ripara_testo) if col_sq else "N/D"
+
+    col_ruolo = next((df_raw_cols_lower[k] for k in ["ruolo"] if k in df_raw_cols_lower), None)
+    df["Ruolo"] = df_raw[col_ruolo].astype(str).str.strip() if col_ruolo else "C"
+
+    col_quot = next((df_raw_cols_lower[k] for k in ["quotazione", "prezzo", "valore"] if k in df_raw_cols_lower), None)
+    df["Quotazione"] = pd.to_numeric(df_raw[col_quot], errors="coerce").fillna(1) if col_quot else 1
+
+    # Cerca colonna proprietario / vincolato in modo esteso
     possibili_colonne_prop = [
-        "proprietario",
-        "Proprietario_Iniziale",
-        "Proprietario",
-        "Unnamed: 5",
-        "Squadra_Fantacalcio",
+        "proprietario", "prop", "squadra_fantacalcio", "vincolato", 
+        "titolare_cartellino", "rosa", "proprietario_iniziale"
     ]
     colonna_trovata = next(
-        (c for c in possibili_colonne_prop if c in df_raw.columns), None
+        (df_raw_cols_lower[k] for k in possibili_colonne_prop if k in df_raw_cols_lower), None
     )
+    
+    # Se non trovata per nome esatto, cerchiamo per sottostringa
+    if not colonna_trovata:
+        for col_l, col_orig in df_raw_cols_lower.items():
+            if any(term in col_l for term in ["prop", "vincol", "rosa", "squadra_fanta", "titolare"]):
+                colonna_trovata = col_orig
+                break
 
     if colonna_trovata:
         df["Proprietario_Iniziale"] = (
@@ -212,14 +213,7 @@ def load_data():
             lambda x: (
                 "LIBERO"
                 if x in [
-                    "NAN",
-                    "NONE",
-                    "",
-                    "SVINCOLATO",
-                    "LIBERO",
-                    "#N/D",
-                    "#RIF!",
-                    "0",
+                    "NAN", "NONE", "", "SVINCOLATO", "LIBERO", "#N/D", "#RIF!", "0", "NAT", "INF"
                 ]
                 or x.startswith("=")
                 else x
@@ -230,8 +224,14 @@ def load_data():
 
     df["Stato"] = df["Proprietario_Iniziale"]
 
-    possibili_colonne_scad = ["scad", "scadenza", "contratto", "scadenza_contratto", "Unnamed: 3", "Unnamed: 4"]
-    col_scad_trovata = next((c for c in possibili_colonne_scad if c in df_raw.columns), None)
+    # Cerca colonna scadenza contratto
+    possibili_colonne_scad = ["scad", "scadenza", "contratto", "scadenza_contratto"]
+    col_scad_trovata = next((df_raw_cols_lower[k] for k in possibili_colonne_scad if k in df_raw_cols_lower), None)
+    if not col_scad_trovata:
+        for col_l, col_orig in df_raw_cols_lower.items():
+            if any(term in col_l for term in ["scad", "contratt"]):
+                col_scad_trovata = col_orig
+                break
     
     if col_scad_trovata:
         df["Scadenza_Contratto"] = df_raw[col_scad_trovata].astype(str).apply(formatta_scadenza_csv)
@@ -550,7 +550,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                 df_excel, map_colonne = elabora_file_caricato(uploaded_excel)
 
                 if "calciatore" in map_colonne:
-                    new_rose = {}
+                    new_rose = {p: [] for p in PARTECIPANTI_LEGA}
                     df_temp = st.session_state.df_giocatori.copy()
                     df_temp["Stato"] = "LIBERO"
                     
@@ -566,10 +566,12 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                         prop_val = "LIBERO"
                         if "proprietario" in map_colonne:
                             p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
-                            if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!"] and not p_raw.startswith("="):
+                            if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!", "NAT", "INF"] and not p_raw.startswith("="):
                                 prop_val = p_raw
                                 if prop_val not in PARTECIPANTI_LEGA:
                                     PARTECIPANTI_LEGA.append(prop_val)
+                                    if prop_val not in new_rose:
+                                        new_rose[prop_val] = []
                         
                         prezzo_val = 1
                         if "quotazione" in map_colonne:
@@ -617,7 +619,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"Rose, vincolati e scadenze estratti con successo! Trovati {len(df_excel)} elementi.")
+                    st.sidebar.success(f"Rose, vincolati e scadenze estratti con successo!")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
@@ -1059,7 +1061,7 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                     st.success("✅ Listone aggiornato con successo! Tutte le quotazioni e statistiche sono state aggiornate, mentre le rose e le scadenze dei partecipanti sono rimaste perfettamente intatte.")
                     st.rerun()
                 else:
-                    st.warning("Nessun dato valido trovato nel file caricato.")
+                    st.warning("Nessun dato trovato nel file.")
             except Exception as e:
                 st.error(f"Errore durante l'elaborazione del file: {e}")
         else:
@@ -1184,7 +1186,7 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni"):
                         df_master_corr = pd.concat([df_master_corr, pd.DataFrame([nuova_riga_m])], ignore_index=True)
 
                 st.session_state.df_giocatori = df_master_corr
-                st.success("✅ Storico elaborato con successo! Listone aggiornato con medie ponderate delle quotazioni.")
+                st.success("✅ Storico elaborato con successo!")
                 st.rerun()
         else:
             st.warning("Carica almeno un file storico per procedere.")
@@ -1288,10 +1290,10 @@ with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
                     }
                     
                     st.session_state.df_giocatori = pd.concat([st.session_state.df_giocatori, pd.DataFrame([nuova_riga])], ignore_index=True)
-                    st.success(f"✅ **{nome_pulito}** ({nuovo_ruolo} - {squadra_pulita}) aggiunto con successo al listone come **LIBERO**!")
+                    st.success(f"✅ **{nome_pulito}** aggiunto con successo!")
                     st.rerun()
             else:
-                st.error("Inserisci un nome valido per il giocatore.")
+                st.error("Inserisci un nome valido.")
 
 with st.expander("🔮 Analisi Predittiva & Consigli per Bardo"):
     punteggi_squadre = {}
@@ -1316,7 +1318,7 @@ with st.expander("🔮 Analisi Predittiva & Consigli per Bardo"):
 
     with col_pred1:
         st.markdown("### 🏆 Previsione Squadra Più Forte")
-        st.info(f"Basandosi sulle rose attuali, l'algoritmo predice che la squadra più forte della lega è: **{squadra_piu_forte}**!")
+        st.info(f"Basandosi sulle rose attuali, l'algoritmo predice che la squadra più forte è: **{squadra_piu_forte}**!")
         
         df_ranking = pd.DataFrame(list(punteggi_squadre.items()), columns=["Squadra", "Indice di Forza"]).sort_values(by="Indice di Forza", ascending=False)
         df_ranking["Indice di Forza"] = df_ranking["Indice di Forza"].round(1)
@@ -1341,7 +1343,7 @@ with st.expander("🔮 Analisi Predittiva & Consigli per Bardo"):
             else:
                 st.warning("La rosa di Bardo non contiene giocatori registrati nel listone o è vuota.")
         else:
-            st.warning("La rosa di Bardo è attualmente vuota. Inizia ad acquistare giocatori!")
+            st.warning("La rosa di Bardo è attualmente vuota.")
 
 with st.expander("🔄 Gestione Rosa & Svincoli (Rendi Libero)"):
     allenatore_svincolo = st.selectbox(
@@ -1382,7 +1384,7 @@ with st.expander("🔄 Gestione Rosa & Svincoli (Rendi Libero)"):
                     st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
 
             st.success(
-                f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo} ed è ora nuovamente **LIBERO**!"
+                f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo}!"
             )
             st.rerun()
     else:
@@ -1476,15 +1478,15 @@ with st.expander("🤝 Scambi Diretti & Multipli tra Società (Con Soldi, Antepr
                 st.session_state.storico_scambi = []
             st.session_state.storico_scambi.append(record_scambio)
 
-            st.success(f"✅ Scambio multiplo eseguito con successo tra **{societa_a}** e **{societa_b}**!")
+            st.success(f"✅ Scambio multiplo eseguito con successo!")
             st.rerun()
     else:
-        st.info("Le rose selezionate non hanno giocatori disponibili per lo scambio.")
+        st.info("Le rose selezionate non hanno giocatori disponibili.")
 
     if st.session_state.get("storico_scambi"):
         st.markdown("#### 📜 Storico Scambi Eseguiti nella Lega")
         for i, sc in enumerate(st.session_state.storico_scambi):
-            st.text(f"Scambio #{i+1}: {sc['Da']} (da' {sc['Giocatori_A']} + {sc['Soldi_A_a_B']}cr) ⇄ {sc['A']} (da' {sc['Giocatori_B']} + {sc['Soldi_B_a_A']}cr)")
+            st.text(f"Scambio #{i+1}: {sc['Da']} ⇄ {sc['A']}")
 
 with st.expander("🏢 Gestione Prestiti FantaLega"):
     col_p1, col_p2 = st.columns(2)
@@ -1506,7 +1508,7 @@ with st.expander("🏢 Gestione Prestiti FantaLega"):
             if "prestiti_lega" not in st.session_state:
                 st.session_state.prestiti_lega = []
             st.session_state.prestiti_lega.append(prestito_record)
-            st.success(f"✅ **{giocatore_prestito_sel}** concesso in prestito da **{prestito_da}** a **{prestito_a}** con successo!")
+            st.success(f"✅ **{giocatore_prestito_sel}** in prestito con successo!")
             st.rerun()
     else:
         st.info("La squadra cedente non ha giocatori in rosa.")
