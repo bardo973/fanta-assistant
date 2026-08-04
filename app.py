@@ -626,6 +626,41 @@ if giocatori_liberi:
         m_col3.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
         m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
 
+    # --- COMPARAZIONE CON I GIOCATORI DELLA ROSA PER ALZARE LA MEDIA ---
+    with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
+        rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
+        if rosa_allenatore_attuale:
+            # Filtra i giocatori della rosa dello stesso ruolo (o tutti se si preferisce)
+            st.write(f"Confronto di **{g_data['Nome']}** ({g_data['Ruolo']} - FM: **{g_data['FantaMedia_Stimata']}**) con i tuoi giocatori in rosa dello stesso ruolo:")
+            
+            giocatori_stesso_ruolo = [g for g in rosa_allenatore_attuale if g["Ruolo"] == g_data["Ruolo"]]
+            
+            if giocatori_stesso_ruolo:
+                nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
+                giocatore_confronto_sel = st.selectbox("Seleziona giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
+                
+                # Trova i dati del giocatore in rosa
+                g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
+                if g_rosa_obj:
+                    df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
+                    fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
+                    
+                    c_col1, c_col2 = st.columns(2)
+                    c_col1.metric(f"Giocatore in Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Quot: {g_data['Quotazione']} cr")
+                    c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM")
+                    
+                    diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
+                    if diff_fm > 0:
+                        st.success(f"📈 **Consiglio:** Acquistare **{g_data['Nome']}** e sostituirlo/alternarlo a **{giocatore_confronto_sel}** **alzerà la media** della tua rosa di **+{diff_fm} FM** in questo ruolo!")
+                    elif diff_fm < 0:
+                        st.warning(f"📉 **Attenzione:** **{g_data['Nome']}** ha una FantaMedia stimata inferiore rispetto a **{giocatore_confronto_sel}** ({diff_fm} FM). Prenderlo non alzerà la media in questo slot.")
+                    else:
+                        st.info(f"⚖️ **Neutro:** I due giocatori hanno esattamente la stessa FantaMedia stimata ({fm_rosa} FM).")
+            else:
+                st.info(f"Non hai ancora giocatori nel ruolo **{g_data['Ruolo']}** nella tua rosa. Acquistare questo giocatore completerà lo slot!")
+        else:
+            st.info("La tua rosa è attualmente vuota, questo sarà il tuo primo acquisto per il ruolo!")
+
     with st.form("form_aggiudicazione"):
         st.write("Registra Acquisto Asta")
         col_A, col_B = st.columns(2)
@@ -752,7 +787,7 @@ st.dataframe(
 )
 
 # ---------------------------------------------------------
-# 7. NUOVA SEZIONE: CONSIGLI PER BARDO & PREVISIONE SQUADRA PIÙ FORTE
+# 7. NUOVA SEZIONE: PREVISIONE SQUADRA PIÙ FORTE & ANALISI ROSA BARDO
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🔮 Analisi Predittiva & Consigli per Bardo")
@@ -786,7 +821,7 @@ with col_pred1:
     st.dataframe(df_ranking, use_container_width=True, hide_index=True)
 
 with col_pred2:
-    st.markdown("### 🎸 Consigli per Bardo (Miglioramento Rosa)")
+    st.markdown("### 🎸 Stato Rosa Bardo")
     rosa_bardo = st.session_state.rose_lega.get("BARDO", [])
     
     if rosa_bardo:
@@ -801,19 +836,10 @@ with col_pred2:
             st.write("Composizione Rosa di Bardo:")
             for r, count in ruoli_bardo.items():
                 st.text(f"- {r}: {count} giocatori")
-            
-            st.write("---")
-            st.write("Giocatori liberi consigliati per alzare la media:")
-            consigli_liberi = df[(df["Stato"] == "LIBERO") & (df["FantaMedia_Stimata"] > fm_media_bardo)].sort_values(by="FantaMedia_Stimata", ascending=False).head(5)
-            
-            if not consigli_liberi.empty:
-                st.dataframe(consigli_liberi[["Nome", "Ruolo", "Squadra", "Quotazione", "FantaMedia_Stimata", "Tier"]], use_container_width=True, hide_index=True)
-            else:
-                st.success("La tua rosa ha già un'ottima media rispetto ai liberi rimasti!")
         else:
             st.warning("La rosa di Bardo non contiene giocatori registrati nel listone o è vuota.")
     else:
-        st.warning("La rosa di Bardo è attualmente vuota. Inizia ad acquistare giocatori per ricevere consigli mirati!")
+        st.warning("La rosa di Bardo è attualmente vuota. Inizia ad acquistare giocatori!")
 
 # ---------------------------------------------------------
 # 8. SEZIONE SVINCOLI E GESTIONE ROSA
