@@ -630,7 +630,6 @@ if giocatori_liberi:
     with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
         rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
         if rosa_allenatore_attuale:
-            # Filtra i giocatori della rosa dello stesso ruolo (o tutti se si preferisce)
             st.write(f"Confronto di **{g_data['Nome']}** ({g_data['Ruolo']} - FM: **{g_data['FantaMedia_Stimata']}**) con i tuoi giocatori in rosa dello stesso ruolo:")
             
             giocatori_stesso_ruolo = [g for g in rosa_allenatore_attuale if g["Ruolo"] == g_data["Ruolo"]]
@@ -639,7 +638,6 @@ if giocatori_liberi:
                 nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
                 giocatore_confronto_sel = st.selectbox("Seleziona giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
                 
-                # Trova i dati del giocatore in rosa
                 g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
                 if g_rosa_obj:
                     df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
@@ -710,7 +708,6 @@ else:
 st.divider()
 st.subheader("🎯 Scout di Rendimento & Consigli Consigliati (Top 2 per Ruolo)")
 
-# Suggerimenti 2 giocatori liberi per ruolo (Difensori, Centrocampisti, Attaccanti)
 st.markdown("### 🌟 Giocatori Consigliati (Liberi)")
 col_cons_d, col_cons_c, col_cons_a = st.columns(3)
 
@@ -892,71 +889,81 @@ else:
     st.info(f"La rosa di {allenatore_svincolo} è vuota.")
 
 # ---------------------------------------------------------
-# 9. SEZIONE SCAMBI & VALUTAZIONE FORZA (CON VERIFICA PERDITA)
+# 9. SEZIONE SCAMBI & VALUTAZIONE FORZA (MULTIPLI 2+ x 1)
 # ---------------------------------------------------------
 st.divider()
-st.subheader("🤝 Scambi Diretti tra Società (Con Analisi Forza)")
+st.subheader("🤝 Scambi Diretti & Multipli tra Società (Con Anteprima Forza)")
 
 col_sc1, col_sc2 = st.columns(2)
 with col_sc1:
-    societa_a = st.selectbox("Società 1 (Cede / Riceve):", PARTECIPANTI_LEGA, key="scambio_soc_a")
+    societa_a = st.selectbox("Società A:", PARTECIPANTI_LEGA, key="scambio_soc_a")
 with col_sc2:
-    societa_b = st.selectbox("Società 2 (Cede / Riceve):", [p for p in PARTECIPANTI_LEGA if p != societa_a], key="scambio_soc_b")
+    societa_b = st.selectbox("Società B:", [p for p in PARTECIPANTI_LEGA if p != societa_a], key="scambio_soc_b")
 
 rosa_soc_a = st.session_state.get("rose_lega", {}).get(societa_a, [])
 rosa_soc_b = st.session_state.get("rose_lega", {}).get(societa_b, [])
 
 if rosa_soc_a and rosa_soc_b:
+    st.markdown("#### 📋 Seleziona i giocatori oggetto dello scambio")
     col_g1, col_g2 = st.columns(2)
     with col_g1:
-        giocatore_da_a = st.selectbox(f"Giocatore che cede **{societa_a}**:", [g["Nome"] for g in rosa_soc_a], key="scambio_gioc_a")
+        giocatori_da_a = st.multiselect(f"Giocatori ceduti da **{societa_a}**:", [g["Nome"] for g in rosa_soc_a], key="scambio_mult_a")
     with col_g2:
-        giocatore_da_b = st.selectbox(f"Giocatore che cede **{societa_b}**:", [g["Nome"] for g in rosa_soc_b], key="scambio_gioc_b")
+        giocatori_da_b = st.multiselect(f"Giocatori ceduti da **{societa_b}**:", [g["Nome"] for g in rosa_soc_b], key="scambio_mult_b")
 
-    if st.button("⚖️ Analizza & Esegui Scambio", key="btn_esegui_scambio"):
-        obj_a = next((g for g in rosa_soc_a if str(g["Nome"]).strip().lower() == str(giocatore_da_a).strip().lower()), None)
-        obj_b = next((g for g in rosa_soc_b if str(g["Nome"]).strip().lower() == str(giocatore_da_b).strip().lower()), None)
+    if giocatori_da_a or giocatori_da_b:
+        # Calcolo preventivo forza prima di confermare
+        sub_df_a = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_a])]
+        sub_df_b = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_b])]
 
-        if obj_a and obj_b:
-            df_m_a = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_a).strip().lower()]
-            df_m_b = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_b).strip().lower()]
+        tot_fm_a = sub_df_a["FantaMedia_Stimata"].sum() if not sub_df_a.empty else 0.0
+        tot_fm_b = sub_df_b["FantaMedia_Stimata"].sum() if not sub_df_b.empty else 0.0
 
-            fm_a = df_m_a["FantaMedia_Stimata"].values[0] if not df_m_a.empty else 6.0
-            fm_b = df_m_b["FantaMedia_Stimata"].values[0] if not df_m_b.empty else 6.0
+        st.markdown("---")
+        st.markdown("### 📊 Anteprima Bilancio Forza (Prima di Confermare)")
+        prev_col1, prev_col2 = st.columns(2)
+        prev_col1.metric(f"Totale FantaMedia offerta da {societa_a}", f"{tot_fm_a:.2f} FM")
+        prev_col2.metric(f"Totale FantaMedia offerta da {societa_b}", f"{tot_fm_b:.2f} FM")
 
-            st.write(f"📊 **Confronto Valore (FantaMedia Stimata):**")
-            st.write(f"- {giocatore_da_a} ({societa_a}): **{fm_a} FM**")
-            st.write(f"- {giocatore_da_b} ({societa_b}): **{fm_b} FM**")
+        if tot_fm_a > tot_fm_b:
+            diff_scambio = round(tot_fm_a - tot_fm_b, 2)
+            st.warning(f"⚠️ **Verifica Scambio:** La società **{societa_b}** ci guadagna in forza (+{diff_scambio} FM), mentre **{societa_a} ci perde** in termini di FantaMedia complessiva ceduta!")
+        elif tot_fm_b > tot_fm_a:
+            diff_scambio = round(tot_fm_b - tot_fm_a, 2)
+            st.warning(f"⚠️ **Verifica Scambio:** La società **{societa_a}** ci guadagna in forza (+{diff_scambio} FM), mentre **{societa_b} ci perde** in termini di FantaMedia complessiva ceduta!")
+        else:
+            st.success("⚖️ Lo scambio risulta perfettamente bilanciato in termini di forza stimata!")
 
-            # Verifica chi ci perde in termini di forza
-            if fm_a > fm_b:
-                st.warning(f"⚠️ **Attenzione!** La società **{societa_b}** ci perde in forza cedendo un giocatore più debole o ricevendo uno inferiore (differenza: {round(fm_a - fm_b, 2)} FM a favore di {societa_a}).")
-            elif fm_b > fm_a:
-                st.warning(f"⚠️ **Attenzione!** La società **{societa_a}** ci perde in forza cedendo un giocatore più debole o ricevendo uno inferiore (differenza: {round(fm_b - fm_a, 2)} FM a favore di {societa_b}).")
-            else:
-                st.success("⚖️ Lo scambio è perfettamente bilanciato in termini di forza stimata!")
-
+        st.markdown("---")
+        if st.button("⚖️ Conferma ed Esegui Scambio", key="btn_esegui_scambio_multiplo"):
             current_rose = st.session_state.get("rose_lega", {})
             
-            # Rimuovi e scambia
-            current_rose[societa_a] = [g for g in current_rose[societa_a] if str(g["Nome"]).strip().lower() != str(giocatore_da_a).strip().lower()]
-            current_rose[societa_b] = [g for g in current_rose[societa_b] if str(g["Nome"]).strip().lower() != str(giocatore_da_b).strip().lower()]
+            # Estrai gli oggetti da spostare
+            oggetti_a = [g for g in rosa_soc_a if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_a]]
+            oggetti_b = [g for g in rosa_soc_b if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_b]]
 
-            current_rose[societa_a].append(obj_b)
-            current_rose[societa_b].append(obj_a)
+            # Rimuovi dalle rose attuali
+            current_rose[societa_a] = [g for g in current_rose[societa_a] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_a]]
+            current_rose[societa_b] = [g for g in current_rose[societa_b] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_b]]
+
+            # Aggiungi alle nuove rose
+            current_rose[societa_a].extend(oggetti_b)
+            current_rose[societa_b].extend(oggetti_a)
 
             st.session_state.rose_lega = current_rose
 
-            # Aggiorna stato nel dataframe generale
-            idx_a = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_a).strip().lower()].index
-            idx_b = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_b).strip().lower()].index
+            # Aggiorna lo stato nel dataframe generale
+            for nome_g in giocatori_da_a:
+                idx_g = df[df["Nome"].astype(str).str.strip().str.lower() == str(nome_g).strip().lower()].index
+                if not idx_g.empty:
+                    st.session_state.df_giocatori.at[idx_g[0], "Stato"] = societa_b
 
-            if not idx_a.empty:
-                st.session_state.df_giocatori.at[idx_a[0], "Stato"] = societa_b
-            if not idx_b.empty:
-                st.session_state.df_giocatori.at[idx_b[0], "Stato"] = societa_a
+            for nome_g in giocatori_da_b:
+                idx_g = df[df["Nome"].astype(str).str.strip().str.lower() == str(nome_g).strip().lower()].index
+                if not idx_g.empty:
+                    st.session_state.df_giocatori.at[idx_g[0], "Stato"] = societa_a
 
-            st.success(f"✅ Scambio completato con successo tra **{societa_a}** e **{societa_b}**!")
+            st.success(f"✅ Scambio multiplo completato con successo tra **{societa_a}** e **{societa_b}**!")
             st.rerun()
 else:
     st.info("Impossibile effettuare scambi: una o entrambe le rose selezionate sono vuote.")
