@@ -14,8 +14,6 @@ st.set_page_config(
 
 # --- FUNZIONE IMMAGINE DI SFONDO (URL O LOCALE) ---
 def set_custom_background():
-    # Puoi inserire qui il link di un'immagine di sfondo (es. tema stadio/neon scuro) 
-    # oppure il percorso di un'immagine locale (es. "sfondo.jpg")
     bg_url_or_file = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1920&auto=format&fit=crop"
     
     css_code = f"""
@@ -286,7 +284,6 @@ for p in PARTECIPANTI_LEGA:
 
 df = st.session_state.df_giocatori
 
-# Sincronizza lo "Stato" di ciascun giocatore nel DataFrame principale in base alle rose attuali di session_state
 for p_squadra, lista_gioc in st.session_state.rose_lega.items():
     for g_item in lista_gioc:
         nome_g_corr = str(g_item["Nome"]).strip().lower()
@@ -294,12 +291,11 @@ for p_squadra, lista_gioc in st.session_state.rose_lega.items():
         if not idx_match.empty:
             df.at[idx_match[0], "Stato"] = p_squadra
 
-# Slot target per ruolo aggiornati (P: 3, D: 9, C: 9, A: 7 = 28 totali)
 SLOT_TARGET_RUOLI = {"P": 3, "D": 9, "C": 9, "A": 7}
 SLOT_TARGET_TOTALE = sum(SLOT_TARGET_RUOLI.values())
 
 # ---------------------------------------------------------
-# 4. SIDEBAR: PANNELLO DI CONTROLLO CON MENU A TENDINA & RIEPILOGO LEGA
+# 4. SIDEBAR: PANNELLO DI CONTROLLO & RIEPILOGO LEGA
 # ---------------------------------------------------------
 st.sidebar.title("🏆 FantaLega Dashboard")
 fanta_allenatore_attivo = st.sidebar.selectbox(
@@ -337,7 +333,6 @@ st.sidebar.metric(
     f"Mancanti: {giocatori_mancanti_corrente} giocatori"
 )
 
-# --- RIEPILOGO SOLDI RIMANENTI E GIOCATORI MANCANTI PER RUOLO CON BARRE DI PROGRESSO ---
 with st.sidebar.expander("📊 Riepilogo Soldi & Mancanti per Ruolo"):
     for part in PARTECIPANTI_LEGA:
         r_part = rose_lega_dict.get(part, [])
@@ -359,7 +354,6 @@ with st.sidebar.expander("📊 Riepilogo Soldi & Mancanti per Ruolo"):
             
         st.markdown("---")
 
-# --- MENU A TENDINA NELLA SIDEBAR (ORDINE E PULIZIA) ---
 st.sidebar.subheader("🛠️ Strumenti di Gestione")
 
 with st.sidebar.expander("💾 Salvataggio & Caricamento JSON"):
@@ -633,115 +627,136 @@ with st.sidebar.expander("📋 Esplora Rose, Valori & Esportazione"):
         st.info("Rosa vuota.")
 
 # ---------------------------------------------------------
-# 5. DASHBOARD PRINCIPALE: ASTA LIVE & PARAMETRI AVANZATI
+# 5. DASHBOARD PRINCIPALE: ASTA LIVE & SELEZIONE RUOLO/SQUADRA
 # ---------------------------------------------------------
 st.title("⚡ Live Auction Intelligent Assistant (Advanced)")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
-giocatori_liberi = df[df["Stato"] == "LIBERO"]["Nome"].tolist()
 
-if giocatori_liberi:
-    giocatore_sel = st.selectbox(
-        "Seleziona il giocatore chiamato in asta:",
-        giocatori_liberi,
-        key="seleziona_giocatore_asta",
-    )
-    g_data = df[df["Nome"] == giocatore_sel].iloc[0]
+# Filtri rapidi per Ruolo e Squadra prima di selezionare il giocatore in asta
+df_liberi_base = df[df["Stato"] == "LIBERO"]
 
-    quotazione_listone = int(g_data["Quotazione"])
+if not df_liberi_base.empty:
+    col_filtro_a, col_filtro_b = st.columns(2)
+    with col_filtro_a:
+        ruoli_disponibili_asta = ["Tutti"] + sorted(df_liberi_base["Ruolo"].unique().tolist())
+        ruolo_filtro_scelta = st.selectbox("Filtra per Ruolo in Asta:", ruoli_disponibili_asta, key="filtro_ruolo_asta_call")
+    with col_filtro_b:
+        squadre_disponibili_asta = ["Tutte"] + sorted(df_liberi_base["Squadra"].unique().tolist())
+        squadra_filtro_scelta = st.selectbox("Filtra per Squadra Serie A in Asta:", squadre_disponibili_asta, key="filtro_squadra_asta_call")
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(
-        "Ruolo & Squadra",
-        f"{g_data['Ruolo']} - {g_data['Squadra']}",
-        f"Tier: {g_data['Tier']}",
-    )
-    col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
-    col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
-    col4.metric(
-        "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
-    )
+    df_liberi_filtrati = df_liberi_base.copy()
+    if ruolo_filtro_scelta != "Tutti":
+        df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Ruolo"] == ruolo_filtro_scelta]
+    if squadra_filtro_scelta != "Tutte":
+        df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Squadra"] == squadra_filtro_scelta]
 
-    with st.expander("📊 Metriche Avanzate & Dettagli Realistici"):
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-        m_col1.metric("xG / 90 min", f"{g_data['xG_90']}")
-        m_col2.metric("xA / 90 min", f"{g_data['xA_90']}")
-        m_col3.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
-        m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
+    giocatori_liberi = df_liberi_filtrati["Nome"].tolist()
 
-    with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
-        rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
-        if rosa_allenatore_attuale:
-            st.write(f"Confronto di **{g_data['Nome']}** ({g_data['Ruolo']} - FM: **{g_data['FantaMedia_Stimata']}**) con i tuoi giocatori in rosa dello stesso ruolo:")
-            
-            giocatori_stesso_ruolo = [g for g in rosa_allenatore_attuale if g["Ruolo"] == g_data["Ruolo"]]
-            
-            if giocatori_stesso_ruolo:
-                nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
-                giocatore_confronto_sel = st.selectbox("Seleziona specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
+    if giocatori_liberi:
+        giocatore_sel = st.selectbox(
+            "Seleziona il giocatore chiamato in asta:",
+            giocatori_liberi,
+            key="seleziona_giocatore_asta",
+        )
+        g_data = df[df["Nome"] == giocatore_sel].iloc[0]
+
+        quotazione_listone = int(g_data["Quotazione"])
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric(
+            "Ruolo & Squadra",
+            f"{g_data['Ruolo']} - {g_data['Squadra']}",
+            f"Tier: {g_data['Tier']}",
+        )
+        col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
+        col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
+        col4.metric(
+            "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
+        )
+
+        with st.expander("📊 Metriche Avanzate & Dettagli Realistici"):
+            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+            m_col1.metric("xG / 90 min", f"{g_data['xG_90']}")
+            m_col2.metric("xA / 90 min", f"{g_data['xA_90']}")
+            m_col3.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
+            m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
+
+        with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
+            rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
+            if rosa_allenatore_attuale:
+                st.write(f"Confronto di **{g_data['Nome']}** ({g_data['Ruolo']} - FM: **{g_data['FantaMedia_Stimata']}**) con i tuoi giocatori in rosa dello stesso ruolo:")
                 
-                g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
-                if g_rosa_obj:
-                    df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
-                    fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
-                    scadenza_rosa_val = g_rosa_obj.get("Scadenza", "N/D")
+                giocatori_stesso_ruolo = [g for g in rosa_allenatore_attuale if g["Ruolo"] == g_data["Ruolo"]]
+                
+                if giocatori_stesso_ruolo:
+                    nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
+                    giocatore_confronto_sel = st.selectbox("Seleziona specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
                     
-                    c_col1, c_col2 = st.columns(2)
-                    c_col1.metric(f"In Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Scad: {g_data['Scadenza_Contratto']}")
-                    c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM", f"Scad: {scadenza_rosa_val}")
-                    
-                    diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
-                    if diff_fm > 0:
-                        st.success(f"📈 **Consiglio:** Acquistare **{g_data['Nome']}** e sostituirlo/alternarlo a **{giocatore_confronto_sel}** **alzerà la media** della tua rosa di **+{diff_fm} FM** in questo ruolo!")
-                    elif diff_fm < 0:
-                        st.warning(f"📉 **Attenzione:** **{g_data['Nome']}** ha una FantaMedia stimata inferiore rispetto a **{giocatore_confronto_sel}** ({diff_fm} FM). Prenderlo non alzerà la media in questo slot.")
-                    else:
-                        st.info(f"⚖️ **Neutro:** I due giocatori hanno esattamente la stessa FantaMedia stimata ({fm_rosa} FM).")
+                    g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
+                    if g_rosa_obj:
+                        df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
+                        fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
+                        scadenza_rosa_val = g_rosa_obj.get("Scadenza", "N/D")
+                        
+                        c_col1, c_col2 = st.columns(2)
+                        c_col1.metric(f"In Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Scad: {g_data['Scadenza_Contratto']}")
+                        c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM", f"Scad: {scadenza_rosa_val}")
+                        
+                        diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
+                        if diff_fm > 0:
+                            st.success(f"📈 **Consiglio:** Acquistare **{g_data['Nome']}** e sostituirlo/alternarlo a **{giocatore_confronto_sel}** **alzerà la media** della tua rosa di **+{diff_fm} FM** in questo ruolo!")
+                        elif diff_fm < 0:
+                            st.warning(f"📉 **Attenzione:** **{g_data['Nome']}** ha una FantaMedia stimata inferiore rispetto a **{giocatore_confronto_sel}** ({diff_fm} FM). Prenderlo non alzerà la media in questo slot.")
+                        else:
+                            st.info(f"⚖️ **Neutro:** I due giocatori hanno esattamente la stessa FantaMedia stimata ({fm_rosa} FM).")
+                else:
+                    st.info(f"Non hai ancora giocatori nel ruolo **{g_data['Ruolo']}** nella tua rosa. Acquistare questo giocatore completerà lo slot!")
             else:
-                st.info(f"Non hai ancora giocatori nel ruolo **{g_data['Ruolo']}** nella tua rosa. Acquistare questo giocatore completerà lo slot!")
-        else:
-            st.info("La tua rosa è attualmente vuota, questo sarà il tuo primo acquisto per il ruolo!")
+                st.info("La tua rosa è attualmente vuota, questo sarà il tuo primo acquisto per il ruolo!")
 
-    with st.form("form_aggiudicazione"):
-        st.write("Registra Acquisto Asta")
-        col_A, col_B = st.columns(2)
-        with col_A:
-            prezzo_aggiudicazione = st.number_input(
-                "Prezzo di chiusura asta (crediti):",
-                min_value=1,
-                value=max(1, quotazione_listone),
-            )
-        with col_B:
-            vincitore_asta = st.selectbox(
-                "Assegna a fanta-allenatore:",
-                PARTECIPANTI_LEGA,
-                index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0,
-                key="vincitore_asta_form",
-            )
-        submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
+        with st.form("form_aggiudicazione"):
+            st.write("Registra Acquisto Asta")
+            col_A, col_B = st.columns(2)
+            with col_A:
+                prezzo_aggiudicazione = st.number_input(
+                    "Prezzo di chiusura asta (crediti):",
+                    min_value=1,
+                    value=max(1, quotazione_listone),
+                )
+            with col_B:
+                vincitore_asta = st.selectbox(
+                    "Assegna a fanta-allenatore:",
+                    PARTECIPANTI_LEGA,
+                    index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0,
+                    key="vincitore_asta_form",
+                )
+            submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
 
-        if submit_asta:
-            current_rose = st.session_state.get("rose_lega", {})
-            if vincitore_asta not in current_rose:
-                current_rose[vincitore_asta] = []
-            
-            current_rose[vincitore_asta].append({
-                "Nome": str(g_data["Nome"]),
-                "Ruolo": str(g_data["Ruolo"]),
-                "Squadra": str(g_data["Squadra"]),
-                "Prezzo_Acquisto": int(prezzo_aggiudicazione),
-                "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": str(g_data["Scadenza_Contratto"]),
-            })
-            st.session_state.rose_lega = current_rose
-            idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
-            st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = (
-                vincitore_asta
-            )
-            st.success(
-                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
-            )
-            st.rerun()
+            if submit_asta:
+                current_rose = st.session_state.get("rose_lega", {})
+                if vincitore_asta not in current_rose:
+                    current_rose[vincitore_asta] = []
+                
+                current_rose[vincitore_asta].append({
+                    "Nome": str(g_data["Nome"]),
+                    "Ruolo": str(g_data["Ruolo"]),
+                    "Squadra": str(g_data["Squadra"]),
+                    "Prezzo_Acquisto": int(prezzo_aggiudicazione),
+                    "Valore_Attuale": int(g_data["Quotazione"]),
+                    "Scadenza": str(g_data["Scadenza_Contratto"]),
+                })
+                st.session_state.rose_lega = current_rose
+                idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
+                st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = (
+                    vincitore_asta
+                )
+                st.success(
+                    f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
+                )
+                st.rerun()
+    else:
+        st.warning("Nessun giocatore libero corrisponde ai filtri di ruolo e squadra selezionati.")
 else:
     st.success("🎉 Tutti i giocatori sono stati assegnati!")
 
@@ -1460,7 +1475,7 @@ with st.expander("🏢 Gestione Prestiti FantaLega"):
                 st.rerun()
 
 # ---------------------------------------------------------
-# 8. TABELLONE GENERALE DELLE ROSE E AGGIORNAMENTO LISTONE
+# 8. TABELLONE GENERALE DELLE ROSE
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🛡️ Tabellone Generale delle Rose della Lega")
