@@ -262,6 +262,14 @@ for p in PARTECIPANTI_LEGA:
 
 df = st.session_state.df_giocatori
 
+# Sincronizza lo "Stato" di ciascun giocatore nel DataFrame principale in base alle rose attuali di session_state
+for p_squadra, lista_gioc in st.session_state.rose_lega.items():
+    for g_item in lista_gioc:
+        nome_g_corr = str(g_item["Nome"]).strip().lower()
+        idx_match = df[df["Nome"].astype(str).str.strip().str.lower() == nome_g_corr].index
+        if not idx_match.empty:
+            df.at[idx_match[0], "Stato"] = p_squadra
+
 # Slot target per ruolo aggiornati (P: 3, D: 9, C: 9, A: 7 = 28 totali)
 SLOT_TARGET_RUOLI = {"P": 3, "D": 9, "C": 9, "A": 7}
 SLOT_TARGET_TOTALE = sum(SLOT_TARGET_RUOLI.values())
@@ -800,6 +808,162 @@ st.dataframe(
 st.divider()
 st.subheader("📋 Gestione Avanzata & Analisi Lega")
 
+with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
+    st.markdown("""
+    Carica il file listone aggiornato (es. Excel, CSV o TXT esportato da Fantacalcio.it / Fantagazzetta). 
+    Questa funzione **aggiornerà quotazioni, ruoli, squadre e statistiche** di tutti i giocatori, lasciando **completamente inalterate** le rose e i crediti dei partecipanti già assegnati!
+    """)
+    
+    uploaded_listone_agg = st.file_uploader("📂 Seleziona file listone aggiornato", type=["xlsx", "xls", "csv", "txt"], key="up_listone_agg_puro")
+
+    if st.button("🚀 Aggiorna Listone Mantenendo le Rose", key="btn_esegui_aggiornamento_puro"):
+        if uploaded_listone_agg is not None:
+            try:
+                f_ext = uploaded_listone_agg.name.split('.')[-1].lower()
+                if f_ext == 'txt':
+                    c_bytes = uploaded_listone_agg.read()
+                    t_cont = None
+                    for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+                        try:
+                            t_cont = c_bytes.decode(enc)
+                            break
+                        except:
+                            continue
+                    if t_cont is None:
+                        t_cont = c_bytes.decode('latin1', errors='ignore')
+                    t_cont = ripara_testo(t_cont)
+                    lines = [l.strip() for l in t_cont.splitlines() if l.strip()]
+                    if any(',' in l or '\t' in l or ';' in l for l in lines[:3]):
+                        sep_c = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
+                        df_nuovo_listone = pd.read_csv(io.StringIO(t_cont), sep=sep_c, dtype=str)
+                    else:
+                        df_nuovo_listone = pd.DataFrame({'Calciatore': lines})
+                elif f_ext in ['xlsx', 'xls', 'ods']:
+                    df_nuovo_listone = pd.read_excel(uploaded_listone_agg, dtype=str)
+                else:
+                    uploaded_listone_agg.seek(0)
+                    df_nuovo_listone = pd.read_csv(uploaded_listone_agg, encoding='latin1', dtype=str, on_bad_lines='skip')
+                
+                df_nuovo_listone.columns = [str(c).strip().lower() for c in df_nuovo_listone.columns]
+                
+                # Identifica colonne chiave
+                col_nome = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["calciatore", "giocatore", "nome", "player"])), df_nuovo_listone.columns[0])
+                col_quot = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
+                col_ruolo = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["ruolo"])), None)
+                col_sq = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["squadra", "team"])), None)
+                
+                df_master_agg = st.session_state.df_giocatori.copy()
+                
+                # Dizionario temporaneo degli stati attuali dei giocatori per non perderli
+                stati_correnti_map = {str(r["Nome"]).strip().lower(): r["Stato"] for _, r in df_master_agg.iterrows()}
+                
+                nuove_righe_list = []
+                
+                for _, row_l in df_nuovo_listone.iterrows():
+                    nome_g = ripara_testo(str(row_l[col_nome]).strip())
+                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
+                        continue
+                        
+                    quot_val = 1
+                    if col_quot and col_quot in row_l:
+                        try:
+                            quot_val = int(float(str(row_l[col_quot]).replace(',', '.')))
+                        except:
+                            pass
+                            
+                    ruolo_val = ripara_testo(str(row_l[col_ruolo]).strip().upper()) if col_ruolo and col_ruolo in row_l else "C"
+                    if ruolo_val not in ["P", "D", "C", "A"]:
+                        ruolo_val = "C"
+                        
+                    squadra_val = ripara_testo(str(row_l[col_sq]).strip()) if col_sq and col_sq in row_l else "N/D"
+                    if squadra_val.lower() in ["nan", "none", ""]:
+                        squadra_val = "N/D"
+                        
+                    nome_key = nome_g.lower()
+                    stato_precedente = stati_correnti_map.get(nome_key, "LIBERO")
+                    
+                    # Genera parametri avanzati aggiornati
+                    quot = quot_val
+                    tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
+                    scadenza = "Giugno 2029" if quot >= 8 else "Giugno 2030"
+                    
+                    if ruolo_val == "A":
+                        xg = round(max(0.1, quot * 0.035), 2)
+                        xa = round(max(0.05, quot * 0.015), 2)
+                        cart = "Medio" if quot < 20 else "Basso"
+                    elif ruolo_val == "C":
+                        xg = round(max(0.05, quot * 0.02), 2)
+                        xa = round(max(0.08, quot * 0.025), 2)
+                        cart = "Medio-Alto"
+                    elif ruolo_val == "D":
+                        xg = round(max(0.02, quot * 0.01), 2)
+                        xa = round(max(0.03, quot * 0.015), 2)
+                        cart = "Alto"
+                    else:
+                        xg, xa = 0.0, 0.0
+                        cart = "Basso"
+                        
+                    if quot >= 25:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.95, 36, 8.8, "Basso (Affidabile)", "Basso"
+                    elif quot >= 15:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.82, 32, 7.8, "Medio-Basso", "Medio"
+                    elif quot >= 8:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.65, 27, 6.8, "Medio", "Medio"
+                    else:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
+                        
+                    base_fm = 6.00
+                    if ruolo_val == "A":
+                        base_fm += 0.35 + (quot * 0.04)
+                    elif ruolo_val == "C":
+                        base_fm += 0.20 + (quot * 0.03)
+                    elif ruolo_val == "D":
+                        base_fm += 0.10 + (quot * 0.02)
+                    else:
+                        base_fm = 5.50 + (quot * 0.01)
+                    fm_stimata = round(min(base_fm, 9.5), 2)
+                    
+                    status_p = "Rigorista 🎯" if quot >= 28 else ("Vice-Rigorista 👟" if quot >= 18 else "No")
+                    
+                    hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
+                    molt_team = hype_squadra.get(squadra_val, 0.95)
+                    val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * molt_team, 1)
+                    
+                    nuove_righe_list.append({
+                        "Nome": nome_g,
+                        "Squadra": squadra_val,
+                        "Ruolo": ruolo_val,
+                        "Quotazione": quot,
+                        "Proprietario_Iniziale": stato_precedente if stato_precedente != "LIBERO" else "LIBERO",
+                        "Stato": stato_precedente,
+                        "Tier": tier,
+                        "Scadenza_Contratto": scadenza,
+                        "Percentuale_Titolarita": p_tit,
+                        "Partite_Attese": part_att,
+                        "Indice_Continuita": ind_cont,
+                        "Rischio_Infortunio": r_inf,
+                        "xG_90": xg,
+                        "xA_90": xa,
+                        "Indice_Cartellini": cart,
+                        "Rischio_Turnover": r_turn,
+                        "FantaMedia_Stimata": fm_stimata,
+                        "Status_Piazzati": status_p,
+                        "Moltiplicatore_Team": molt_team,
+                        "Valore_Atteso": val_atteso,
+                        "Indice_VfM": round(val_atteso / quot, 2)
+                    })
+                
+                if nuove_righe_list:
+                    st.session_state.df_giocatori = pd.DataFrame(nuove_righe_list)
+                    st.success("✅ Listone aggiornato con successo! Tutte le quotazioni e statistiche sono state aggiornate, mentre le rose dei partecipanti sono rimaste perfettamente intatte.")
+                    st.rerun()
+                else:
+                    st.warning("Nessun dato valido trovato nel file caricato.")
+            except Exception as e:
+                st.error(f"Errore durante l'elaborazione del file: {e}")
+        else:
+            st.warning("Seleziona prima un file valido.")
+
 with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fantacalcio.it)"):
     st.markdown("""
     Puoi caricare **fino a 3 file storici** (es. i listoni delle ultime 3 stagioni esportati da Fantacalcio.it / Fantagazzetta) 
@@ -871,7 +1035,6 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                 # Raggruppa per nome normalizzato per calcolare la media ponderata delle quotazioni
                 df_unito["Nome_Key"] = df_unito["Nome"].str.lower()
                 
-                # Esempio di aggregazione ponderata
                 df_agg = df_unito.groupby("Nome_Key").agg(
                     Nome=("Nome", "first"),
                     Ruolo=("Ruolo", "last"),
@@ -879,7 +1042,6 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                     Quotazione_Media=("Quotazione", lambda x: int(np.average(x, weights=df_unito.loc[x.index, "Peso_Anno"])))
                 ).reset_index(drop=True)
                 
-                # Aggiorna il dataframe principale preservando lo stato dei proprietari
                 df_master_corr = st.session_state.df_giocatori.copy()
                 
                 for _, r_agg in df_agg.iterrows():
@@ -887,12 +1049,10 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                     match_m = df_master_corr[df_master_corr["Nome"].astype(str).str.strip().str.lower() == n_key]
                     
                     if not match_m.empty:
-                        # Aggiorna quotazione e ricalcola metriche
                         idx_m = match_m.index[0]
                         nuova_q = int(r_agg["Quotazione_Media"])
                         df_master_corr.at[idx_m, "Quotazione"] = nuova_q
                         
-                        # Ricalcola tier, fanta media, ecc.
                         q = nuova_q
                         r_ruolo = df_master_corr.at[idx_m, "Ruolo"]
                         
@@ -910,12 +1070,11 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                             base_fm = 5.50 + (q * 0.01)
                         df_master_corr.at[idx_m, "FantaMedia_Stimata"] = round(min(base_fm, 9.5), 2)
                     else:
-                        # Aggiungi nuovo giocatore se non presente nel master
                         nuova_q = int(r_agg["Quotazione_Media"])
                         r_ruolo = str(r_agg["Ruolo"])
                         sq = str(r_agg["Squadra"])
                         
-                        tier = "Top" if nuova_q >= 25 else ("Semitop" if nuova_q >= 15 else ("Titolare" if nuova_q >= 8 else "Scommessa"))
+                        tier = "Top" if nuova_q >= 25 else ("Semitop" if nuova_q >= 15 else ("Titolare" if nueva_q >= 8 if False else ("Titolare" if nuova_q >= 8 else "Scommessa")))
                         base_fm = 6.00
                         if r_ruolo == "A":
                             base_fm += 0.35 + (nuova_q * 0.04)
