@@ -801,6 +801,107 @@ st.dataframe(
 st.divider()
 st.subheader("📋 Gestione Avanzata & Analisi Lega")
 
+with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
+    st.markdown("Aggiungi manualmente un nuovo giocatore (es. nuovo acquisto di calciomercato) direttamente nel database del listone come **LIBERO**:")
+    
+    with st.form("form_aggiungi_nuovo_giocatore"):
+        col_nq1, col_nq2 = st.columns(2)
+        with col_nq1:
+            nuovo_nome = st.text_input("Nome Giocatore:")
+            nuovo_ruolo = st.selectbox("Ruolo:", ["P", "D", "C", "A"])
+        with col_nq2:
+            nuova_squadra = st.text_input("Squadra Serie A (es. Inter, Milan...):")
+            nuova_quotazione = st.number_input("Quotazione / Valore iniziale (cr):", min_value=1, value=10)
+            
+        submit_nuovo_g = st.form_submit_button("Aggiungi al Listone")
+        
+        if submit_nuovo_g:
+            if nuovo_nome.strip():
+                nome_pulito = ripara_testo(nuovo_nome.strip())
+                squadra_pulita = ripara_testo(nuova_squadra.strip() if nuova_squadra else "N/D")
+                
+                # Verifica se esiste già
+                esistente = st.session_state.df_giocatori[
+                    st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower() == nome_pulito.lower()
+                ]
+                
+                if not esistente.empty:
+                    st.warning(f"⚠️ Il giocatore **{nome_pulito}** è già presente nel listone!")
+                else:
+                    # Calcolo automatico parametri basati sulla quotazione inserita
+                    quot = int(nuova_quotazione)
+                    tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
+                    scadenza = "Giugno 2029" if quot >= 8 else "Giugno 2030"
+                    
+                    if nuovo_ruolo == "A":
+                        xg = round(max(0.1, quot * 0.035), 2)
+                        xa = round(max(0.05, quot * 0.015), 2)
+                        cart = "Medio" if quot < 20 else "Basso"
+                    elif nuovo_ruolo == "C":
+                        xg = round(max(0.05, quot * 0.02), 2)
+                        xa = round(max(0.08, quot * 0.025), 2)
+                        cart = "Medio-Alto"
+                    elif nuovo_ruolo == "D":
+                        xg = round(max(0.02, quot * 0.01), 2)
+                        xa = round(max(0.03, quot * 0.015), 2)
+                        cart = "Alto"
+                    else:
+                        xg, xa = 0.0, 0.0
+                        cart = "Basso"
+                        
+                    if quot >= 25:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.95, 36, 8.8, "Basso (Affidabile)", "Basso"
+                    elif quot >= 15:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.82, 32, 7.8, "Medio-Basso", "Medio"
+                    elif quot >= 8:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.65, 27, 6.8, "Medio", "Medio"
+                    else:
+                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
+                        
+                    base_fm = 6.00
+                    if nuovo_ruolo == "A":
+                        base_fm += 0.35 + (quot * 0.04)
+                    elif nuovo_ruolo == "C":
+                        base_fm += 0.20 + (quot * 0.03)
+                    elif nuovo_ruolo == "D":
+                        base_fm += 0.10 + (quot * 0.02)
+                    else:
+                        base_fm = 5.50 + (quot * 0.01)
+                    fm_stimata = round(min(base_fm, 9.5), 2)
+                    
+                    status_p = "Rigorista 🎯" if quot >= 28 else ("Vice-Rigorista 👟" if quot >= 18 else "No")
+                    val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * 0.95, 1)
+                    
+                    nuova_riga = {
+                        "Nome": nome_pulito,
+                        "Squadra": squadra_pulita,
+                        "Ruolo": nuovo_ruolo,
+                        "Quotazione": quot,
+                        "Proprietario_Iniziale": "LIBERO",
+                        "Stato": "LIBERO",
+                        "Tier": tier,
+                        "Scadenza_Contratto": scadenza,
+                        "Percentuale_Titolarita": p_tit,
+                        "Partite_Attese": part_att,
+                        "Indice_Continuita": ind_cont,
+                        "Rischio_Infortunio": r_inf,
+                        "xG_90": xg,
+                        "xA_90": xa,
+                        "Indice_Cartellini": cart,
+                        "Rischio_Turnover": r_turn,
+                        "FantaMedia_Stimata": fm_stimata,
+                        "Status_Piazzati": status_p,
+                        "Moltiplicatore_Team": 0.95,
+                        "Valore_Atteso": val_atteso,
+                        "Indice_VfM": round(val_atteso / quot, 2)
+                    }
+                    
+                    st.session_state.df_giocatori = pd.concat([st.session_state.df_giocatori, pd.DataFrame([nuova_riga])], ignore_index=True)
+                    st.success(f"✅ **{nome_pulito}** ({nuovo_ruolo} - {squadra_pulita}) aggiunto con successo al listone come **LIBERO**!")
+                    st.rerun()
+            else:
+                st.error("Inserisci un nome valido per il giocatore.")
+
 with st.expander("🔮 Analisi Predittiva & Consigli per Bardo"):
     punteggi_squadre = {}
     for part in PARTECIPANTI_LEGA:
