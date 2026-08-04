@@ -12,7 +12,6 @@ st.set_page_config(
     page_title="FantaLega AI Advanced Predictor & Manager", layout="wide"
 )
 
-# --- FUNZIONE IMMAGINE DI SFONDO (URL O LOCALE) ---
 def set_custom_background():
     bg_url_or_file = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1920&auto=format&fit=crop"
     
@@ -71,7 +70,6 @@ def formatta_scadenza_csv(val_scad):
     return val_scad.strip().capitalize()
 
 def safe_get(data, keys, default="N/D"):
-    """Cerca in modo sicuro una chiave all'interno di una Series o di un Dict evitando KeyError."""
     if data is None:
         return default
     if isinstance(keys, str):
@@ -90,6 +88,72 @@ def safe_get(data, keys, default="N/D"):
             pass
         return val
     return default
+
+def elabora_file_caricato(uploaded_file):
+    file_extension = uploaded_file.name.split('.')[-1].lower()
+    df_excel = None
+    
+    if file_extension == 'txt':
+        content_bytes = uploaded_file.read()
+        text_content = None
+        for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+            try:
+                text_content = content_bytes.decode(enc)
+                break
+            except:
+                continue
+        if text_content is None:
+            text_content = content_bytes.decode('latin1', errors='ignore')
+        
+        text_content = ripara_testo(text_content)
+        lines = [line.strip() for line in text_content.splitlines() if line.strip()]
+        if any(',' in line or '\t' in line or ';' in line for line in lines[:3]):
+            sep_char = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
+            df_excel = pd.read_csv(io.StringIO(text_content), sep=sep_char, dtype=str)
+        else:
+            df_excel = pd.DataFrame({'Calciatore': lines})
+            
+    elif file_extension in ['xlsx', 'xls', 'ods']:
+        df_excel = pd.read_excel(uploaded_file, dtype=str)
+    else:
+        uploaded_file.seek(0)
+        for s in [',', ';', '\t', '|']:
+            for enc in ['utf-8', 'latin1', 'cp1252']:
+                try:
+                    uploaded_file.seek(0)
+                    df_test = pd.read_csv(uploaded_file, encoding=enc, sep=s, dtype=str, on_bad_lines='skip')
+                    if df_test.shape[1] > 1:
+                        df_excel = df_test
+                        break
+                except:
+                    continue
+            if df_excel is not None:
+                break
+        if df_excel is None:
+            uploaded_file.seek(0)
+            df_excel = pd.read_csv(uploaded_file, encoding='latin1', dtype=str, on_bad_lines='skip')
+
+    df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
+    
+    map_colonne = {}
+    for col in df_excel.columns:
+        if any(k in col for k in ["calciatore", "giocatore", "nome", "player"]):
+            map_colonne["calciatore"] = col
+        elif any(k in col for k in ["ruolo"]):
+            map_colonne["ruolo"] = col
+        elif any(k in col for k in ["squadra", "team"]):
+            map_colonne["squadra"] = col
+        elif any(k in col for k in ["quotazione", "prezzo", "valore"]):
+            map_colonne["quotazione"] = col
+        elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio", "vincolato", "titolare_cartellino"]):
+            map_colonne["proprietario"] = col
+        elif any(k in col for k in ["scad", "contratto", "scadenza"]):
+            map_colonne["scadenza"] = col
+
+    if "calciatore" not in map_colonne and len(df_excel.columns) > 0:
+        map_colonne["calciatore"] = df_excel.columns[0]
+
+    return df_excel, map_colonne
 
 # ---------------------------------------------------------
 # 3. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
@@ -474,76 +538,16 @@ with st.sidebar.expander("💾 Salvataggio & Caricamento JSON"):
             except Exception as e:
                 st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-with st.sidebar.expander("📊 Importa Rose da Listone"):
+with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
     uploaded_excel = st.file_uploader(
-        "Carica file listone rose", type=["xlsx", "xls", "csv", "txt"], key="excel_rose_uploader"
+        "Carica file rose/vincolati", type=["xlsx", "xls", "csv", "txt"], key="excel_rose_uploader"
     )
 
     if uploaded_excel is not None:
         excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
         if st.session_state.get("last_uploaded_excel") != excel_identifier:
             try:
-                file_extension = uploaded_excel.name.split('.')[-1].lower()
-                
-                if file_extension == 'txt':
-                    content_bytes = uploaded_excel.read()
-                    text_content = None
-                    for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
-                        try:
-                            text_content = content_bytes.decode(enc)
-                            break
-                        except:
-                            continue
-                    if text_content is None:
-                        text_content = content_bytes.decode('latin1', errors='ignore')
-                    
-                    text_content = ripara_testo(text_content)
-                    lines = [line.strip() for line in text_content.splitlines() if line.strip()]
-                    if any(',' in line or '\t' in line or ';' in line for line in lines[:3]):
-                        sep_char = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
-                        df_excel = pd.read_csv(io.StringIO(text_content), sep=sep_char, dtype=str)
-                    else:
-                        df_excel = pd.DataFrame({'Calciatore': lines})
-                elif file_extension in ['xlsx', 'xls', 'ods']:
-                    df_excel = pd.read_excel(uploaded_excel, dtype=str)
-                else:
-                    uploaded_excel.seek(0)
-                    df_excel = None
-                    for s in [',', ';', '\t', '|']:
-                        for enc in ['utf-8', 'latin1', 'cp1252']:
-                            try:
-                                uploaded_excel.seek(0)
-                                df_test = pd.read_csv(uploaded_excel, encoding=enc, sep=s, dtype=str, on_bad_lines='skip')
-                                if df_test.shape[1] > 1:
-                                    df_excel = df_test
-                                    break
-                            except:
-                                continue
-                        if df_excel is not None:
-                            break
-                    if df_excel is None:
-                        uploaded_excel.seek(0)
-                        df_excel = pd.read_csv(uploaded_excel, encoding='latin1', dtype=str, on_bad_lines='skip')
-
-                df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
-                
-                map_colonne = {}
-                for col in df_excel.columns:
-                    if any(k in col for k in ["calciatore", "giocatore", "nome", "player"]):
-                        map_colonne["calciatore"] = col
-                    elif any(k in col for k in ["ruolo"]):
-                        map_colonne["ruolo"] = col
-                    elif any(k in col for k in ["squadra", "team"]):
-                        map_colonne["squadra"] = col
-                    elif any(k in col for k in ["quotazione", "prezzo", "valore"]):
-                        map_colonne["quotazione"] = col
-                    elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio"]):
-                        map_colonne["proprietario"] = col
-                    elif any(k in col for k in ["scad", "contratto"]):
-                        map_colonne["scadenza"] = col
-
-                if "calciatore" not in map_colonne and len(df_excel.columns) > 0:
-                    map_colonne["calciatore"] = df_excel.columns[0]
+                df_excel, map_colonne = elabora_file_caricato(uploaded_excel)
 
                 if "calciatore" in map_colonne:
                     new_rose = {}
@@ -613,7 +617,7 @@ with st.sidebar.expander("📊 Importa Rose da Listone"):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"Rosa e scadenze caricate con successo! Trovati {len(df_excel)} elementi.")
+                    st.sidebar.success(f"Rose, vincolati e scadenze estratti con successo! Trovati {len(df_excel)} elementi.")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
@@ -747,7 +751,6 @@ if not df_liberi_base.empty:
         )
 
         with st.expander("📊 Metriche Avanzate & Partite (Titolare / Subentrato)"):
-            # Estrazione sicura con fallback multipli per evitare KeyError
             p_titolare = safe_get(g_data, ['Partite_Titolare', 'Partite Titolare', 'Titolare'], 0)
             p_subentrato = safe_get(g_data, ['Partite_Subentrato', 'Partite Subentrato', 'Subentrato'], 0)
             xg_val = safe_get(g_data, ['xG_90', 'xG'], 0.0)
@@ -936,38 +939,12 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
     if st.button("🚀 Aggiorna Listone Mantenendo le Rose", key="btn_esegui_aggiornamento_puro"):
         if uploaded_listone_agg is not None:
             try:
-                f_ext = uploaded_listone_agg.name.split('.')[-1].lower()
-                if f_ext == 'txt':
-                    c_bytes = uploaded_listone_agg.read()
-                    t_cont = None
-                    for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
-                        try:
-                            t_cont = c_bytes.decode(enc)
-                            break
-                        except:
-                            continue
-                    if t_cont is None:
-                        t_cont = c_bytes.decode('latin1', errors='ignore')
-                    t_cont = ripara_testo(t_cont)
-                    lines = [l.strip() for l in t_cont.splitlines() if l.strip()]
-                    if any(',' in l or '\t' in l or ';' in l for l in lines[:3]):
-                        sep_c = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
-                        df_nuovo_listone = pd.read_csv(io.StringIO(t_cont), sep=sep_c, dtype=str)
-                    else:
-                        df_nuovo_listone = pd.DataFrame({'Calciatore': lines})
-                elif f_ext in ['xlsx', 'xls', 'ods']:
-                    df_nuovo_listone = pd.read_excel(uploaded_listone_agg, dtype=str)
-                else:
-                    uploaded_listone_agg.seek(0)
-                    df_nuovo_listone = pd.read_csv(uploaded_listone_agg, encoding='latin1', dtype=str, on_bad_lines='skip')
-                
-                df_nuovo_listone.columns = [str(c).strip().lower() for c in df_nuovo_listone.columns]
-                
-                col_nome = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["calciatore", "giocatore", "nome", "player"])), df_nuovo_listone.columns[0])
-                col_quot = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
-                col_ruolo = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["ruolo"])), None)
-                col_sq = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["squadra", "team"])), None)
-                col_scad = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["scad", "contratto"])), None)
+                df_nuovo_listone, map_colonne_agg = elabora_file_caricato(uploaded_listone_agg)
+                col_nome = map_colonne_agg.get("calciatore", df_nuovo_listone.columns[0])
+                col_quot = map_colonne_agg.get("quotazione", None)
+                col_ruolo = map_colonne_agg.get("ruolo", None)
+                col_sq = map_colonne_agg.get("squadra", None)
+                col_scad = map_colonne_agg.get("scadenza", None)
                 
                 df_master_agg = st.session_state.df_giocatori.copy()
                 stati_correnti_map = {str(r["Nome"]).strip().lower(): r["Stato"] for _, r in df_master_agg.iterrows()}
@@ -1108,37 +1085,11 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni"):
             dfs_storico = []
             for idx_f, f_obj in enumerate(uploaded_files_list):
                 try:
-                    f_ext = f_obj.name.split('.')[-1].lower()
-                    if f_ext == 'txt':
-                        c_bytes = f_obj.read()
-                        t_cont = None
-                        for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
-                            try:
-                                t_cont = c_bytes.decode(enc)
-                                break
-                            except:
-                                continue
-                        if t_cont is None:
-                            t_cont = c_bytes.decode('latin1', errors='ignore')
-                        t_cont = ripara_testo(t_cont)
-                        lines = [l.strip() for l in t_cont.splitlines() if l.strip()]
-                        if any(',' in l or '\t' in l or ';' in l for l in lines[:3]):
-                            sep_c = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
-                            df_temp_anno = pd.read_csv(io.StringIO(t_cont), sep=sep_c, dtype=str)
-                        else:
-                            df_temp_anno = pd.DataFrame({'Calciatore': lines})
-                    elif f_ext in ['xlsx', 'xls', 'ods']:
-                        df_temp_anno = pd.read_excel(f_obj, dtype=str)
-                    else:
-                        f_obj.seek(0)
-                        df_temp_anno = pd.read_csv(f_obj, encoding='latin1', dtype=str, on_bad_lines='skip')
-                    
-                    df_temp_anno.columns = [str(c).strip().lower() for c in df_temp_anno.columns]
-                    
-                    col_nome = next((c for c in df_temp_anno.columns if any(k in c for k in ["calciatore", "giocatore", "nome", "player"])), df_temp_anno.columns[0])
-                    col_quot = next((c for c in df_temp_anno.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
-                    col_ruolo = next((c for c in df_temp_anno.columns if any(k in c for k in ["ruolo"])), None)
-                    col_sq = next((c for c in df_temp_anno.columns if any(k in c for k in ["squadra", "team"])), None)
+                    df_temp_anno, map_c_anno = elabora_file_caricato(f_obj)
+                    col_nome = map_c_anno.get("calciatore", df_temp_anno.columns[0])
+                    col_quot = map_c_anno.get("quotazione", None)
+                    col_ruolo = map_c_anno.get("ruolo", None)
+                    col_sq = map_c_anno.get("squadra", None)
                     
                     df_clean_anno = pd.DataFrame()
                     df_clean_anno["Nome"] = df_temp_anno[col_nome].astype(str).str.strip().apply(ripara_testo)
