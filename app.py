@@ -1,5 +1,6 @@
 import io
 import json
+import base64
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -10,6 +11,29 @@ import streamlit as st
 st.set_page_config(
     page_title="FantaLega AI Advanced Predictor & Manager", layout="wide"
 )
+
+# --- FUNZIONE IMMAGINE DI SFONDO (URL O LOCALE) ---
+def set_custom_background():
+    # Puoi inserire qui il link di un'immagine di sfondo (es. tema stadio/neon scuro) 
+    # oppure il percorso di un'immagine locale (es. "sfondo.jpg")
+    bg_url_or_file = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1920&auto=format&fit=crop"
+    
+    css_code = f"""
+    <style>
+    [data-testid="stAppViewContainer"] {{
+        background-image: linear-gradient(rgba(10, 14, 23, 0.85), rgba(10, 14, 23, 0.90)), url("{bg_url_or_file}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    [data-testid="stSidebar"] {{
+        background-color: rgba(15, 20, 30, 0.95);
+    }}
+    </style>
+    """
+    st.markdown(css_code, unsafe_allow_html=True)
+
+set_custom_background()
 
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
@@ -846,15 +870,12 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                 
                 df_nuovo_listone.columns = [str(c).strip().lower() for c in df_nuovo_listone.columns]
                 
-                # Identifica colonne chiave
                 col_nome = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["calciatore", "giocatore", "nome", "player"])), df_nuovo_listone.columns[0])
                 col_quot = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
                 col_ruolo = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["ruolo"])), None)
                 col_sq = next((c for c in df_nuovo_listone.columns if any(k in c for k in ["squadra", "team"])), None)
                 
                 df_master_agg = st.session_state.df_giocatori.copy()
-                
-                # Dizionario temporaneo degli stati attuali dei giocatori per non perderli
                 stati_correnti_map = {str(r["Nome"]).strip().lower(): r["Stato"] for _, r in df_master_agg.iterrows()}
                 
                 nuove_righe_list = []
@@ -882,7 +903,6 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
                     nome_key = nome_g.lower()
                     stato_precedente = stati_correnti_map.get(nome_key, "LIBERO")
                     
-                    # Genera parametri avanzati aggiornati
                     quot = quot_val
                     tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
                     scadenza = "Giugno 2029" if quot >= 8 else "Giugno 2030"
@@ -967,7 +987,7 @@ with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
 with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fantacalcio.it)"):
     st.markdown("""
     Puoi caricare **fino a 3 file storici** (es. i listoni delle ultime 3 stagioni esportati da Fantacalcio.it / Fantagazzetta) 
-    per calcolare automaticamente una **media ponderata o cumulata** delle performance (Quotazioni, FantaMedia, Presenze) e aggiornare il listone attivo!
+    per calcolare automaticamente una **media ponderata o cumulata** delle performance e aggiornare il listone attivo!
     """)
     
     col_up_a, col_up_b, col_up_c = st.columns(3)
@@ -1108,13 +1128,13 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                         df_master_corr = pd.concat([df_master_corr, pd.DataFrame([nuova_riga_m])], ignore_index=True)
 
                 st.session_state.df_giocatori = df_master_corr
-                st.success("✅ Storico degli ultimi anni elaborato con successo! Listone aggiornato con medie ponderate delle quotazioni.")
+                st.success("✅ Storico elaborato con successo! Listone aggiornato con medie ponderate delle quotazioni.")
                 st.rerun()
         else:
             st.warning("Carica almeno un file storico per procedere.")
 
 with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
-    st.markdown("Aggiungi manualmente un nuovo giocatore (es. nuovo acquisto di calciomercato) direttamente nel database del listone come **LIBERO**:")
+    st.markdown("Aggiungi manualmente un nuovo giocatore direttamente nel database del listone come **LIBERO**:")
     
     with st.form("form_aggiungi_nuovo_giocatore"):
         col_nq1, col_nq2 = st.columns(2)
@@ -1463,7 +1483,6 @@ for idx_t, squadra_nome in enumerate(PARTECIPANTI_LEGA):
         if rosa_sq:
             df_rosa_tab = pd.DataFrame(rosa_sq)
             
-            # Calcola fanta media associata
             fiammate_fm = []
             for _, r_item in df_rosa_tab.iterrows():
                 m_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(r_item["Nome"]).strip().lower()]
