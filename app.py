@@ -627,7 +627,7 @@ if giocatori_liberi:
         m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
 
     with st.form("form_aggiudicazione"):
-        st.write("### Registra Acquisto Asta")
+        st.write("Registra Acquisto Asta")
         col_A, col_B = st.columns(2)
         with col_A:
             prezzo_aggiudicazione = st.number_input(
@@ -670,11 +670,43 @@ else:
     st.success("🎉 Tutti i giocatori sono stati assegnati!")
 
 # ---------------------------------------------------------
-# 6. SEZIONE SCOUTING AVANZATO & FILTRI
+# 6. SEZIONE SCOUTING AVANZATO & FILTRI (CON CONSIGLI 2 PER RUOLO)
 # ---------------------------------------------------------
 st.divider()
-st.subheader("🎯 Scout di Rendimento & Parametri Avanzati")
+st.subheader("🎯 Scout di Rendimento & Consigli Consigliati (Top 2 per Ruolo)")
 
+# Suggerimenti 2 giocatori liberi per ruolo (Difensori, Centrocampisti, Attaccanti)
+st.markdown("### 🌟 Giocatori Consigliati (Liberi)")
+col_cons_d, col_cons_c, col_cons_a = st.columns(3)
+
+with col_cons_d:
+    st.markdown("#### 🛡️ Difensori Top")
+    df_cons_d = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "D")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
+    if not df_cons_d.empty:
+        for _, row_g in df_cons_d.iterrows():
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+    else:
+        st.write("Nessun difensore libero disponibile.")
+
+with col_cons_c:
+    st.markdown("#### ⚙️ Centrocampisti Top")
+    df_cons_c = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "C")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
+    if not df_cons_c.empty:
+        for _, row_g in df_cons_c.iterrows():
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+    else:
+        st.write("Nessun centrocampista libero disponibile.")
+
+with col_cons_a:
+    st.markdown("#### ⚽ Attaccanti Top")
+    df_cons_a = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "A")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
+    if not df_cons_a.empty:
+        for _, row_g in df_cons_a.iterrows():
+            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Quotazione: {row_g['Quotazione']} cr")
+    else:
+        st.write("Nessun attaccante libero disponibile.")
+
+st.divider()
 col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
     filtro_ruolo = st.selectbox(
@@ -766,12 +798,12 @@ with col_pred2:
             st.metric("FantaMedia Media Attuale (Bardo)", f"{fm_media_bardo:.2f} FM")
             
             ruoli_bardo = df_bardo["Ruolo"].value_counts()
-            st.write("**Composizione Rosa di Bardo:**")
+            st.write("Composizione Rosa di Bardo:")
             for r, count in ruoli_bardo.items():
                 st.text(f"- {r}: {count} giocatori")
             
             st.write("---")
-            st.write("**Giocatori liberi consigliati per alzare la media:**")
+            st.write("Giocatori liberi consigliati per alzare la media:")
             consigli_liberi = df[(df["Stato"] == "LIBERO") & (df["FantaMedia_Stimata"] > fm_media_bardo)].sort_values(by="FantaMedia_Stimata", ascending=False).head(5)
             
             if not consigli_liberi.empty:
@@ -834,7 +866,77 @@ else:
     st.info(f"La rosa di {allenatore_svincolo} è vuota.")
 
 # ---------------------------------------------------------
-# 9. SEZIONE GESTIONE PRESTITI (6 MESI / 1 ANNO, RINNOVO & INTERRUZIONE)
+# 9. SEZIONE SCAMBI & VALUTAZIONE FORZA (CON VERIFICA PERDITA)
+# ---------------------------------------------------------
+st.divider()
+st.subheader("🤝 Scambi Diretti tra Società (Con Analisi Forza)")
+
+col_sc1, col_sc2 = st.columns(2)
+with col_sc1:
+    societa_a = st.selectbox("Società 1 (Cede / Riceve):", PARTECIPANTI_LEGA, key="scambio_soc_a")
+with col_sc2:
+    societa_b = st.selectbox("Società 2 (Cede / Riceve):", [p for p in PARTECIPANTI_LEGA if p != societa_a], key="scambio_soc_b")
+
+rosa_soc_a = st.session_state.get("rose_lega", {}).get(societa_a, [])
+rosa_soc_b = st.session_state.get("rose_lega", {}).get(societa_b, [])
+
+if rosa_soc_a and rosa_soc_b:
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        giocatore_da_a = st.selectbox(f"Giocatore che cede **{societa_a}**:", [g["Nome"] for g in rosa_soc_a], key="scambio_gioc_a")
+    with col_g2:
+        giocatore_da_b = st.selectbox(f"Giocatore che cede **{societa_b}**:", [g["Nome"] for g in rosa_soc_b], key="scambio_gioc_b")
+
+    if st.button("⚖️ Analizza & Esegui Scambio", key="btn_esegui_scambio"):
+        obj_a = next((g for g in rosa_soc_a if str(g["Nome"]).strip().lower() == str(giocatore_da_a).strip().lower()), None)
+        obj_b = next((g for g in rosa_soc_b if str(g["Nome"]).strip().lower() == str(giocatore_da_b).strip().lower()), None)
+
+        if obj_a and obj_b:
+            df_m_a = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_a).strip().lower()]
+            df_m_b = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_b).strip().lower()]
+
+            fm_a = df_m_a["FantaMedia_Stimata"].values[0] if not df_m_a.empty else 6.0
+            fm_b = df_m_b["FantaMedia_Stimata"].values[0] if not df_m_b.empty else 6.0
+
+            st.write(f"📊 **Confronto Valore (FantaMedia Stimata):**")
+            st.write(f"- {giocatore_da_a} ({societa_a}): **{fm_a} FM**")
+            st.write(f"- {giocatore_da_b} ({societa_b}): **{fm_b} FM**")
+
+            # Verifica chi ci perde in termini di forza
+            if fm_a > fm_b:
+                st.warning(f"⚠️ **Attenzione!** La società **{societa_b}** ci perde in forza cedendo un giocatore più debole o ricevendo uno inferiore (differenza: {round(fm_a - fm_b, 2)} FM a favore di {societa_a}).")
+            elif fm_b > fm_a:
+                st.warning(f"⚠️ **Attenzione!** La società **{societa_a}** ci perde in forza cedendo un giocatore più debole o ricevendo uno inferiore (differenza: {round(fm_b - fm_a, 2)} FM a favore di {societa_b}).")
+            else:
+                st.success("⚖️ Lo scambio è perfettamente bilanciato in termini di forza stimata!")
+
+            current_rose = st.session_state.get("rose_lega", {})
+            
+            # Rimuovi e scambia
+            current_rose[societa_a] = [g for g in current_rose[societa_a] if str(g["Nome"]).strip().lower() != str(giocatore_da_a).strip().lower()]
+            current_rose[societa_b] = [g for g in current_rose[societa_b] if str(g["Nome"]).strip().lower() != str(giocatore_da_b).strip().lower()]
+
+            current_rose[societa_a].append(obj_b)
+            current_rose[societa_b].append(obj_a)
+
+            st.session_state.rose_lega = current_rose
+
+            # Aggiorna stato nel dataframe generale
+            idx_a = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_a).strip().lower()].index
+            idx_b = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_b).strip().lower()].index
+
+            if not idx_a.empty:
+                st.session_state.df_giocatori.at[idx_a[0], "Stato"] = societa_b
+            if not idx_b.empty:
+                st.session_state.df_giocatori.at[idx_b[0], "Stato"] = societa_a
+
+            st.success(f"✅ Scambio completato con successo tra **{societa_a}** e **{societa_b}**!")
+            st.rerun()
+else:
+    st.info("Impossibile effettuare scambi: una o entrambe le rose selezionate sono vuote.")
+
+# ---------------------------------------------------------
+# 10. SEZIONE GESTIONE PRESTITI (6 MESI / 1 ANNO, RINNOVO & INTERRUZIONE)
 # ---------------------------------------------------------
 st.divider()
 st.subheader("🤝 Gestione Prestiti tra Squadre (Durata, Rinnovo & Interruzione)")
