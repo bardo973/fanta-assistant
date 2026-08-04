@@ -1012,7 +1012,6 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                     
                     df_temp_anno.columns = [str(c).strip().lower() for c in df_temp_anno.columns]
                     
-                    # Trova colonne chiave
                     col_nome = next((c for c in df_temp_anno.columns if any(k in c for k in ["calciatore", "giocatore", "nome", "player"])), df_temp_anno.columns[0])
                     col_quot = next((c for c in df_temp_anno.columns if any(k in c for k in ["quotazione", "prezzo", "valore"])), None)
                     col_ruolo = next((c for c in df_temp_anno.columns if any(k in c for k in ["ruolo"])), None)
@@ -1023,7 +1022,7 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                     df_clean_anno["Quotazione"] = pd.to_numeric(df_temp_anno[col_quot], errors="coerce").fillna(1) if col_quot else 1
                     df_clean_anno["Ruolo"] = df_temp_anno[col_ruolo].astype(str).str.strip() if col_ruolo else "C"
                     df_clean_anno["Squadra"] = df_temp_anno[col_sq].astype(str).str.strip().apply(ripara_testo) if col_sq else "N/D"
-                    df_clean_anno["Peso_Anno"] = 3 - idx_f if idx_f < 3 else 1 # Ponderazione: anno corrente pesa di più
+                    df_clean_anno["Peso_Anno"] = 3 - idx_f if idx_f < 3 else 1
                     
                     dfs_storico.append(df_clean_anno)
                 except Exception as ex:
@@ -1031,8 +1030,6 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
 
             if dfs_storico:
                 df_unito = pd.concat(dfs_storico, ignore_index=True)
-                
-                # Raggruppa per nome normalizzato per calcolare la media ponderata delle quotazioni
                 df_unito["Nome_Key"] = df_unito["Nome"].str.lower()
                 
                 df_agg = df_unito.groupby("Nome_Key").agg(
@@ -1074,7 +1071,7 @@ with st.expander("📈 Aggiornamento Storico & Media 3 Anni (Fantagazzetta / Fan
                         r_ruolo = str(r_agg["Ruolo"])
                         sq = str(r_agg["Squadra"])
                         
-                        tier = "Top" if nuova_q >= 25 else ("Semitop" if nuova_q >= 15 else ("Titolare" if nueva_q >= 8 if False else ("Titolare" if nuova_q >= 8 else "Scommessa")))
+                        tier = "Top" if nuova_q >= 25 else ("Semitop" if nuova_q >= 15 else ("Titolare" if nuova_q >= 8 else "Scommessa"))
                         base_fm = 6.00
                         if r_ruolo == "A":
                             base_fm += 0.35 + (nuova_q * 0.04)
