@@ -633,16 +633,16 @@ st.title("⚡ Live Auction Intelligent Assistant (Advanced)")
 
 st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
-# Filtri rapidi per Ruolo e Squadra prima di selezionare il giocatore in asta
+# Filtri rapidi per Ruolo e Squadra prima di selezionare il giocatore in asta (con conversione sicura)
 df_liberi_base = df[df["Stato"] == "LIBERO"]
 
 if not df_liberi_base.empty:
     col_filtro_a, col_filtro_b = st.columns(2)
     with col_filtro_a:
-        ruoli_disponibili_asta = ["Tutti"] + sorted(df_liberi_base["Ruolo"].unique().tolist())
+        ruoli_disponibili_asta = ["Tutti"] + sorted([str(r) for r in df_liberi_base["Ruolo"].dropna().unique().tolist()])
         ruolo_filtro_scelta = st.selectbox("Filtra per Ruolo in Asta:", ruoli_disponibili_asta, key="filtro_ruolo_asta_call")
     with col_filtro_b:
-        squadre_disponibili_asta = ["Tutte"] + sorted(df_liberi_base["Squadra"].unique().tolist())
+        squadre_disponibili_asta = ["Tutte"] + sorted([str(s) for s in df_liberi_base["Squadra"].dropna().unique().tolist()])
         squadra_filtro_scelta = st.selectbox("Filtra per Squadra Serie A in Asta:", squadre_disponibili_asta, key="filtro_squadra_asta_call")
 
     df_liberi_filtrati = df_liberi_base.copy()
