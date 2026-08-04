@@ -222,7 +222,6 @@ if not lista_proprietari_csv:
     ]
 
 PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
-# Assicuriamoci che BARDO sia presente nelle opzioni se non già estratto
 if "BARDO" not in PARTECIPANTI_LEGA:
     PARTECIPANTI_LEGA.append("BARDO")
     PARTECIPANTI_LEGA = sorted(PARTECIPANTI_LEGA)
@@ -233,7 +232,6 @@ if "rose_lega" not in st.session_state:
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
 
-# Inizializzazione Prestiti in Session State
 if "prestiti_lega" not in st.session_state:
     st.session_state.prestiti_lega = []
 
@@ -727,18 +725,15 @@ st.dataframe(
 st.divider()
 st.subheader("🔮 Analisi Predittiva & Consigli per Bardo")
 
-# Calcolo delle performance/punteggi medi stimati per ciascuna squadra della lega
 punteggi_squadre = {}
 for part in PARTECIPANTI_LEGA:
     rosa_part = st.session_state.rose_lega.get(part, [])
     if rosa_part:
-        # Calcola la fanta-media totale o media ponderata dei giocatori in rosa
         nomi_rosa = [str(g["Nome"]).strip().lower() for g in rosa_part]
         sub_df = df[df["Nome"].astype(str).str.strip().str.lower().isin(nomi_rosa)]
         if not sub_df.empty:
             fm_totale = sub_df["FantaMedia_Stimata"].sum()
             val_atteso_totale = sub_df["Valore_Atteso"].sum()
-            # Indice di forza combinato
             forza_complessiva = (fm_totale * 1.5) + (val_atteso_totale * 0.8)
         else:
             forza_complessiva = 0.0
@@ -746,7 +741,6 @@ for part in PARTECIPANTI_LEGA:
         forza_complessiva = 0.0
     punteggi_squadre[part] = forza_complessiva
 
-# Individua la squadra più forte
 squadra_piu_forte = max(punteggi_squadre, key=punteggi_squadre.get) if punteggi_squadre and max(punteggi_squadre.values()) > 0 else "Nessuna (Rose vuote)"
 
 col_pred1, col_pred2 = st.columns(2)
@@ -755,7 +749,6 @@ with col_pred1:
     st.markdown("### 🏆 Previsione Squadra Più Forte")
     st.info(f"Basandosi sulle rose attuali, l'algoritmo predice che la squadra più forte della lega è: **{squadra_piu_forte}**!")
     
-    # Mostriamo una tabellina riassuntiva dei punteggi predittivi
     df_ranking = pd.DataFrame(list(punteggi_squadre.items()), columns=["Squadra", "Indice di Forza"]).sort_values(by="Indice di Forza", ascending=False)
     df_ranking["Indice di Forza"] = df_ranking["Indice di Forza"].round(1)
     st.dataframe(df_ranking, use_container_width=True, hide_index=True)
@@ -772,15 +765,13 @@ with col_pred2:
             fm_media_bardo = df_bardo["FantaMedia_Stimata"].mean()
             st.metric("FantaMedia Media Attuale (Bardo)", f"{fm_media_bardo:.2f} FM")
             
-            # Analizziamo i reparti scoperti o con media più bassa
             ruoli_bardo = df_bardo["Ruolo"].value_counts()
-            st.write(**Composizione Rosa di Bardo:**)
+            st.write("**Composizione Rosa di Bardo:**")
             for r, count in ruoli_bardo.items():
                 st.text(f"- {r}: {count} giocatori")
             
             st.write("---")
             st.write("**Giocatori liberi consigliati per alzare la media:**")
-            # Filtriamo i giocatori liberi con FantaMedia superiore alla media attuale di Bardo
             consigli_liberi = df[(df["Stato"] == "LIBERO") & (df["FantaMedia_Stimata"] > fm_media_bardo)].sort_values(by="FantaMedia_Stimata", ascending=False).head(5)
             
             if not consigli_liberi.empty:
