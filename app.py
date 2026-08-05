@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pypdf
+import io
 
 st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
 
@@ -128,65 +130,126 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             st.sidebar.error(f"Errore nella lettura: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
-    st.markdown("Carica un file CSV/Excel con le rose. Colonne richieste: **Squadra**, **Nome**, **Ruolo**, **Costo** (o Quotazione).")
-    rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx"], key="upload_rose")
+    st.markdown("Carica un file CSV, Excel o PDF con le rose. Colonne/righe richieste: **Squadra**, **Nome**, **Ruolo**, **Costo**.")
+    rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx", "pdf"], key="upload_rose")
     
     if rose_file is not None:
         try:
+            df_rose = None
             if rose_file.name.endswith('.csv'):
                 df_rose = pd.read_csv(rose_file, encoding='utf-8', on_bad_lines='skip')
-            else:
+            elif rose_file.name.endswith('.xlsx'):
                 df_rose = pd.read_excel(rose_file)
+            elif rose_file.name.endswith('.pdf'):
+                # Estrazione testo dal PDF e conversione in DataFrame basilare per righe
+                reader = pypdf.PdfReader(rose_file)
+                righe_pdf = []
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        for line in text.split('\n'):
+                            if line.strip():
+                                righe_pdf.append({"testo_riga": line.strip()})
+                df_rose = pd.DataFrame(righe_pdf)
             
-            df_rose.columns = [str(c).strip().lower() for c in df_rose.columns]
-            
-            # Mappatura colonne flessibile
-            col_squadra = next((c for c in df_rose.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
-            col_nome = next((c for c in df_rose.columns if 'nome' in c or 'giocatore' in c), None)
-            col_ruolo = next((c for c in df_rose.columns if 'ruolo' in c or 'r' == c), None)
-            col_costo = next((c for c in df_rose.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
-            
-            if col_squadra and col_nome:
-                # Resetta o popola le rose
-                count_importati = 0
-                for _, row in df_rose.iterrows():
-                    sq_nome = str(row[col_squadra]).strip().upper()
-                    # Cerca corrispondenza esatta o parziale con le 10 squadre
-                    sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
-                    
-                    if sq_match:
-                        g_nome = str(row[col_nome]).strip()
-                        g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
-                        g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1.0
+            if df_rose is not None and not df_rose.empty:
+                # Gestione specifica se è stato caricato un PDF (parsing euristico a righe)
+                if rose_file.name.endswith('.pdf'):
+                    count_importati = 0
+                    sq_corrente = "BARDO" # Default iniziale
+                    for _, row in df_rose.iterrows():
+                        riga = row["testo_riga"]
+                        riga_upper = riga.upper()
                         
-                        # Cerca info nel db generale se presenti
-                        db_g = st.session_state.giocatori_db
-                        match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                        # Cerca se la riga contiene il nome di una delle 10 squadre
+                        sq_match = next((s for s in NOMI_SQUADRE if s in riga_upper), None)
+                        if sq_match and len(riga.split()) <= 3:
+                            sq_corrente = sq_match
+                            continue
                         
-                        squadra_sa = "N/D"
-                        quot = 10
-                        fm = 6.0
-                        if not match_db.empty:
-                            squadra_sa = match_db.iloc[0]['Squadra_SerieA']
-                            quot = int(match_db.iloc[0]['Quotazione'])
-                            fm = float(match_db.iloc[0]['FantaMedia'])
-                            g_ruolo = str(match_db.iloc[0]['Ruolo'])
+                        # Altrimenti prova a estrarre informazioni sul giocatore (es. Nome Ruolo Costo)
+                        parti = riga.split()
+                        if len(parti) >= 2:
+                            g_nome = parti[0]
+                            g_ruolo = "C"
+                            g_costo = 1
+                            for p in parti:
+                                if p in ["P", "D", "C", "A"]:
+                                    g_ruolo = p
+                                elif p.isdigit():
+                                    g_costo = int(p)
+                            
+                            # Cerca info nel db generale
+                            db_g = st.session_state.giocatori_db
+                            match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                            
+                            squadra_sa = "N/D"
+                            quot = 10
+                            fm = 6.0
+                            if not match_db.empty:
+                                squadra_sa = match_db.iloc[0]['Squadra_SerieA']
+                                quot = int(match_db.iloc[0]['Quotazione'])
+                                fm = float(match_db.iloc[0]['FantaMedia'])
+                                g_ruolo = str(match_db.iloc[0]['Ruolo'])
 
-                        # Aggiungi alla rosa se non già presente
-                        if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
-                            st.session_state.squadre[sq_match]["rosa"].append({
-                                "Nome": g_nome,
-                                "Ruolo": g_ruolo,
-                                "Squadra_SerieA": squadra_sa,
-                                "Quotazione": quot,
-                                "FantaMedia": fm,
-                                "Costo_Acquisto": int(g_costo)
-                            })
-                            count_importati += 1
+                            if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_corrente]["rosa"]):
+                                st.session_state.squadre[sq_corrente]["rosa"].append({
+                                    "Nome": g_nome,
+                                    "Ruolo": g_ruolo,
+                                    "Squadra_SerieA": squadra_sa,
+                                    "Quotazione": quot,
+                                    "FantaMedia": fm,
+                                    "Costo_Acquisto": g_costo
+                                })
+                                count_importati += 1
+                    st.sidebar.success(f"Importati {count_importati} giocatori dal PDF con successo!")
                 
-                st.sidebar.success(f"Importati {count_importati} giocatori nelle rose con successo!")
+                else:
+                    # Logica standard per CSV / Excel
+                    df_rose.columns = [str(c).strip().lower() for c in df_rose.columns]
+                    col_squadra = next((c for c in df_rose.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
+                    col_nome = next((c for c in df_rose.columns if 'nome' in c or 'giocatore' in c), None)
+                    col_ruolo = next((c for c in df_rose.columns if 'ruolo' in c or 'r' == c), None)
+                    col_costo = next((c for c in df_rose.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
+                    
+                    if col_squadra and col_nome:
+                        count_importati = 0
+                        for _, row in df_rose.iterrows():
+                            sq_nome = str(row[col_squadra]).strip().upper()
+                            sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
+                            
+                            if sq_match:
+                                g_nome = str(row[col_nome]).strip()
+                                g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
+                                g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1
+                                
+                                db_g = st.session_state.giocatori_db
+                                match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                                
+                                squadra_sa = "N/D"
+                                quot = 10
+                                fm = 6.0
+                                if not match_db.empty:
+                                    squadra_sa = match_db.iloc[0]['Squadra_SerieA']
+                                    quot = int(match_db.iloc[0]['Quotazione'])
+                                    fm = float(match_db.iloc[0]['FantaMedia'])
+                                    g_ruolo = str(match_db.iloc[0]['Ruolo'])
+
+                                if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
+                                    st.session_state.squadre[sq_match]["rosa"].append({
+                                        "Nome": g_nome,
+                                        "Ruolo": g_ruolo,
+                                        "Squadra_SerieA": squadra_sa,
+                                        "Quotazione": quot,
+                                        "FantaMedia": fm,
+                                        "Costo_Acquisto": int(g_costo)
+                                    })
+                                    count_importati += 1
+                        st.sidebar.success(f"Importati {count_importati} giocatori nelle rose con successo!")
+                    else:
+                        st.sidebar.error("Colonne essenziali mancanti ('Squadra' o 'Nome').")
             else:
-                st.sidebar.error("Colonne essenziali mancanti ('Squadra' o 'Nome').")
+                st.sidebar.error("Il file caricato è vuoto o non leggibile.")
         except Exception as e:
             st.sidebar.error(f"Errore caricamento rose: {e}")
 
@@ -204,10 +267,8 @@ if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting, Quotazioni & FantaMedie Avanzate")
     df = st.session_state.giocatori_db.copy()
 
-    # Calcolo Indice Efficienza (Value for Money)
     df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
 
-    # Verifica stato di svincolato o già preso
     giocatori_assegnati = {}
     for sq, dati in st.session_state.squadre.items():
         for g in dati["rosa"]:
@@ -232,13 +293,11 @@ if menu == "🔍 Scouting & Database":
     if search_nome:
         df_filtrato = df_filtrato[df_filtrato["Nome"].str.contains(search_nome, case=False, na=False)]
 
-    # Ordinamento per Indice Affare
     df_filtrato = df_filtrato.sort_values(by="Indice_Affare", ascending=False)
 
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
     st.dataframe(df_filtrato, use_container_width=True)
 
-    # Sezione Watchlist Rapida
     st.markdown("---")
     st.subheader("⭐ Watchlist (Lista dei Desideri Personale)")
     g_watchlist = st.selectbox("Aggiungi giocatore alla Watchlist", df["Nome"].values, key="sel_watchlist")
@@ -277,11 +336,9 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         col_m1.metric("Crediti Residui", f"{crediti_disponibili} 🪙")
         col_m2.metric("Giocatori in Rosa", f"{rosa_attuale_len} / 25")
 
-        # Raccoglie tutti i nomi dei giocatori già vincolati nelle rose di tutte le 10 squadre (case-insensitive)
         giocatori_in_rosa = [g["Nome"].lower() for sq_data in st.session_state.squadre.values() for g in sq_data["rosa"]]
         db_g = st.session_state.giocatori_db
         
-        # Filtra via dal mercato i giocatori già vincolati
         svincolati = db_g[~db_g["Nome"].str.lower().isin(giocatori_in_rosa)]
 
         if len(svincolati) > 0:
@@ -304,7 +361,6 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "FantaMedia": info_g["FantaMedia"],
                         "Costo_Acquisto": prezzo_acquisto
                     })
-                    # Registra nel log
                     st.session_state.storico_mercato.insert(0, {
                         "Orario": datetime.now().strftime("%H:%M:%S"),
                         "Operazione": "ACQUISTO",
@@ -441,7 +497,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
-                    # Conteggio reparti
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
                     d = conti_ruoli.get("D", 0)
