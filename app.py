@@ -371,6 +371,22 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             prezzo_consigliato = int(info_g["Quotazione"])
             st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
 
+            # --- CONFRONTO TRA IL GIOCATORE IN ACQUISTO E QUELLI ATTUALMENTE IN ROSA ---
+            st.markdown("#### ⚖️ Confronto con i giocatori della tua rosa (stesso ruolo)")
+            rosa_sq_corrente = st.session_state.squadre[squadra_selezionata]["rosa"]
+            if len(rosa_sq_corrente) > 0:
+                df_rosa_sq = pd.DataFrame(rosa_sq_corrente)
+                df_rosa_stesso_ruolo = df_rosa_sq[df_rosa_sq["Ruolo"] == info_g["Ruolo"]]
+                
+                # Aggiungiamo dati di confronto uniti dal DB se disponibili
+                if not df_rosa_stesso_ruolo.empty:
+                    st.caption(Giocatori nel ruolo di {info_g['Ruolo']} attualmente nella rosa di {squadra_selezionata}:)
+                    st.dataframe(df_rosa_stesso_ruolo[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+                else:
+                    st.info(f"Non hai altri giocatori di ruolo {info_g['Ruolo']} in rosa.")
+            else:
+                st.info("La tua rosa è attualmente vuota.")
+
             col_acq1, col_acq2 = st.columns(2)
             with col_acq1:
                 prezzo_acquisto = st.number_input("Prezzo di Acquisto (crediti)", min_value=1, max_value=max(1, crediti_disponibili), value=prezzo_consigliato, key="input_prezzo_acq")
@@ -457,6 +473,31 @@ elif menu == "🤝 Scambi tra Proprietà":
         rosa_sq2 = st.session_state.squadre[sq2]["rosa"]
         giocatori_sq2_scelti = st.multiselect("Giocatori ceduti da Squadra 2", [g["Nome"] for g in rosa_sq2], key="g_sq2")
         denaro_sq2 = st.number_input(f"Crediti offerti da {sq2} (Conguaglio)", min_value=0, max_value=st.session_state.squadre[sq2]["crediti"], value=0, key="d_sq2")
+
+    # --- CONFRONTO DIRETTO TRA I GIOCATORI SELEZIONATI PER LO SCAMBIO ---
+    if len(giocatori_sq1_scelti) > 0 or len(giocatori_sq2_scelti) > 0:
+        st.markdown("---")
+        st.subheader("⚖️ Tabella di Confronto Scambio")
+        
+        oggetti_s1_preview = [g for g in rosa_sq1 if g["Nome"] in giocatori_sq1_scelti]
+        oggetti_s2_preview = [g for g in rosa_sq2 if g["Nome"] in giocatori_sq2_scelti]
+        
+        col_scambio_1, col_scambio_2 = st.columns(2)
+        with col_scambio_1:
+            st.markdown(f"**Giocatori in uscita da {sq1}**")
+            if oggetti_s1_preview:
+                df_prev1 = pd.DataFrame(oggetti_s1_preview)
+                st.dataframe(df_prev1[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+            else:
+                st.caption("Nessun giocatore selezionato da questa squadra.")
+                
+        with col_scambio_2:
+            st.markdown(f"**Giocatori in uscita da {sq2}**")
+            if oggetti_s2_preview:
+                df_prev2 = pd.DataFrame(oggetti_s2_preview)
+                st.dataframe(df_prev2[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+            else:
+                st.caption("Nessun giocatore selezionato da questa squadra.")
 
     st.markdown("---")
     tipo_operazione = st.radio("Tipo di operazione", ["Scambio Definitivo", "Prestito con Diritto/Obbligo"])
