@@ -546,8 +546,9 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                 df_excel, map_colonne = elabora_file_caricato(uploaded_excel)
 
                 if "calciatore" in map_colonne:
-                    new_rose = st.session_state.get("rose_lega", {p: [] for p in PARTECIPANTI_LEGA})
+                    new_rose = {p: [] for p in PARTECIPANTI_LEGA}
                     df_temp = st.session_state.df_giocatori.copy()
+                    df_temp["Stato"] = "LIBERO"
                     
                     master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
                     
@@ -559,7 +560,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                         nome_g_lower = nome_g.lower()
                         
                         prop_val = "LIBERO"
-                        if "proprietario" in map_colonne and map_colonne["proprietario"] in row:
+                        if "proprietario" in map_colonne:
                             p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
                             if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!", "NAT", "INF"] and not p_raw.startswith("="):
                                 prop_val = p_raw
@@ -569,7 +570,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                                         new_rose[prop_val] = []
                         
                         prezzo_val = 1
-                        if "quotazione" in map_colonne and map_colonne["quotazione"] in row:
+                        if "quotazione" in map_colonne:
                             try:
                                 prezzo_val = int(float(str(row[map_colonne["quotazione"]]).replace(',', '.')))
                             except:
@@ -596,13 +597,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                             if prop_val not in new_rose:
                                 new_rose[prop_val] = []
                             
-                            esistente = next((g for g in new_rose[prop_val] if str(g["Nome"]).strip().lower() == nome_g_lower), None)
-                            if esistente:
-                                esistente["Ruolo"] = ruolo_g
-                                esistente["Squadra"] = squadra_g
-                                esistente["Prezzo_Acquisto"] = prezzo_val
-                                esistente["Scadenza"] = scad_val
-                            else:
+                            if not any(str(g["Nome"]).strip().lower() == nome_g_lower for g in new_rose[prop_val]):
                                 new_rose[prop_val].append({
                                     "Nome": nome_g,
                                     "Ruolo": ruolo_g,
@@ -620,174 +615,12 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"Rose, vincolati e scadenze aggiornati con successo!")
+                    st.sidebar.success(f"Rose, vincolati e scadenze estratti con successo!")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
             except Exception as e:
                 st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
-
-with st.sidebar.expander("📋 Importa Listone Quotazioni (es. 2026/2027)"):
-    st.info("Carica il nuovo listone per aggiungere i nuovi giocatori o aggiornare le quotazioni senza perdere le rose esistenti.")
-    uploaded_listone = st.file_uploader(
-        "Carica listone (es. quotazioni_fantacalcio_2026/2027)", type=["xlsx", "xls", "csv", "txt"], key="excel_listone_uploader"
-    )
-
-    if uploaded_listone is not None:
-        listone_identifier = f"{uploaded_listone.name}_{uploaded_listone.size}"
-        if st.session_state.get("last_uploaded_listone") != listone_identifier:
-            try:
-                df_listone_raw, map_col_listone = elabora_file_caricato(uploaded_listone)
-
-                if "calciatore" in map_col_listone:
-                    df_master = st.session_state.df_giocatori.copy()
-                    
-                    stati_attuali_map = {}
-                    for p_squadra, lista_gioc in st.session_state.rose_lega.items():
-                        for g in lista_gioc:
-                            stati_attuali_map[str(g["Nome"]).strip().lower()] = {
-                                "proprietario": p_squadra,
-                                "prezzo": g.get("Prezzo_Acquisto", 1),
-                                "scadenza": g.get("Scadenza", "Giugno 2030")
-                            }
-                    
-                    for _, row in df_master.iterrows():
-                        n_low = str(row["Nome"]).strip().lower()
-                        if n_low not in stati_attuali_map and row["Stato"] != "LIBERO":
-                            stati_attuali_map[n_low] = {
-                                "proprietario": row["Stato"],
-                                "prezzo": int(row["Quotazione"]),
-                                "scadenza": str(row.get("Scadenza_Contratto", "Giugno 2030"))
-                            }
-
-                    nuovi_righe_master = []
-                    nuove_rose = {p: list(st.session_state.rose_lega.get(p, [])) for p in PARTECIPANTI_LEGA}
-                    
-                    for _, row in df_listone_raw.iterrows():
-                        nome_g = ripara_testo(str(row[map_col_listone["calciatore"]]).strip())
-                        if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
-                            continue
-                        
-                        nome_g_lower = nome_g.lower()
-                        
-                        ruolo_g = ripara_testo(str(row[map_col_listone["ruolo"]])) if "ruolo" in map_col_listone and map_col_listone["ruolo"] in row else "C"
-                        squadra_g = ripara_testo(str(row[map_col_listone["squadra"]])) if "squadra" in map_col_listone and map_col_listone["squadra"] in row else "N/D"
-                        
-                        quot_val = 1
-                        if "quotazione" in map_col_listone and map_col_listone["quotazione"] in row:
-                            try:
-                                quot_val = int(float(str(row[map_col_listone["quotazione"]]).replace(',', '.')))
-                            except:
-                                pass
-
-                        proprietario_finale = "LIBERO"
-                        scadenza_finale = "Giugno 2030"
-                        
-                        if nome_g_lower in stati_attuali_map:
-                            proprietario_finale = stati_attuali_map[nome_g_lower]["proprietario"]
-                            scadenza_finale = stati_attuali_map[nome_g_lower]["scadenza"]
-                        
-                        tier_g = "Top" if quot_val >= 25 else ("Semitop" if quot_val >= 15 else ("Titolare" if quot_val >= 8 else "Scommessa"))
-                        
-                        if ruolo_g == "A":
-                            xg = round(max(0.1, quot_val * 0.035), 2)
-                            xa = round(max(0.05, quot_val * 0.015), 2)
-                        elif ruolo_g == "C":
-                            xg = round(max(0.05, quot_val * 0.02), 2)
-                            xa = round(max(0.08, quot_val * 0.025), 2)
-                        elif ruolo_g == "D":
-                            xg = round(max(0.02, quot_val * 0.01), 2)
-                            xa = round(max(0.03, quot_val * 0.015), 2)
-                        else:
-                            xg, xa = 0.0, 0.0
-
-                        if quot_val >= 25:
-                            p_tit, part_att = 0.95, 36
-                        elif quot_val >= 15:
-                            p_tit, part_att = 0.82, 32
-                        elif quot_val >= 8:
-                            p_tit, part_att = 0.65, 27
-                        else:
-                            p_tit, part_att = 0.40, 20
-
-                        partite_titolare = int(round(part_att * p_tit))
-                        partite_subentrato = max(0, int(part_att - partite_titolare))
-                        
-                        base_fm = 6.00
-                        if ruolo_g == "A":
-                            base_fm += 0.35 + (quot_val * 0.04)
-                        elif ruolo_g == "C":
-                            base_fm += 0.20 + (quot_val * 0.03)
-                        elif ruolo_g == "D":
-                            base_fm += 0.10 + (quot_val * 0.02)
-                        else:
-                            base_fm = 5.50 + (quot_val * 0.01)
-                        fanta_media = round(min(base_fm, 9.5), 2)
-                        
-                        status_piaz = "Rigorista 🎯" if quot_val >= 28 else ("Vice-Rigorista 👟" if quot_val >= 18 else "No")
-                        
-                        hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
-                        mult_team = hype_squadra.get(squadra_g, 0.95)
-                        val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * mult_team, 1)
-                        indice_vfm = round(val_atteso / quot_val, 2) if quot_val > 0 else 0.0
-
-                        nuovi_righe_master.append({
-                            "Nome": nome_g,
-                            "Squadra": squadra_g,
-                            "Ruolo": ruolo_g,
-                            "Quotazione": quot_val,
-                            "Proprietario_Iniziale": proprietario_finale,
-                            "Stato": proprietario_finale,
-                            "Scadenza_Contratto": scadenza_finale,
-                            "Tier": tier_g,
-                            "Percentuale_Titolarita": p_tit,
-                            "Partite_Attese": part_att,
-                            "Indice_Continuita": 7.8 if quot_val >= 15 else 6.8,
-                            "Rischio_Infortunio": "Basso" if quot_val >= 15 else "Medio",
-                            "xG_90": xg,
-                            "xA_90": xa,
-                            "Indice_Cartellini": "Medio",
-                            "Rischio_Turnover": "Basso" if quot_val >= 15 else "Medio",
-                            "Partite_Titolare": partite_titolare,
-                            "Partite_Subentrato": partite_subentrato,
-                            "FantaMedia_Stimata": fanta_media,
-                            "Status_Piazzati": status_piaz,
-                            "Moltiplicatore_Team": mult_team,
-                            "Valore_Atteso": val_atteso,
-                            "Indice_VfM": indice_vfm
-                        })
-
-                        if proprietario_finale != "LIBERO":
-                            if proprietario_finale not in nuove_rose:
-                                nuove_rose[proprietario_finale] = []
-                            
-                            esistente_rosa = next((g for g in nuove_rose[proprietario_finale] if str(g["Nome"]).strip().lower() == nome_g_lower), None)
-                            if esistente_rosa:
-                                esistente_rosa["Ruolo"] = ruolo_g
-                                esistente_rosa["Squadra"] = squadra_g
-                                esistente_rosa["Valore_Attuale"] = quot_val
-                            else:
-                                prezzo_acq = stati_attuali_map[nome_g_lower]["prezzo"]
-                                nuove_rose[proprietario_finale].append({
-                                    "Nome": nome_g,
-                                    "Ruolo": ruolo_g,
-                                    "Squadra": squadra_g,
-                                    "Prezzo_Acquisto": prezzo_acq,
-                                    "Valore_Attuale": quot_val,
-                                    "Scadenza": scadenza_finale
-                                })
-
-                    df_nuovo_master = pd.DataFrame(nuovi_righe_master)
-                    st.session_state.df_giocatori = df_nuovo_master
-                    st.session_state.rose_lega = nuove_rose
-                    st.session_state.last_uploaded_listone = listone_identifier
-
-                    st.sidebar.success(f"✅ Listone aggiornato con successo! Nuovi giocatori integrati e rose preservate.")
-                    st.rerun()
-                else:
-                    st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel listone.")
-            except Exception as e:
-                st.sidebar.error(f"Errore durante l'importazione del listone: {e}")
 
 with st.sidebar.expander("📅 Modifica Scadenze Contratti"):
     squadra_mod_scadenza = st.selectbox("Seleziona squadra:", PARTECIPANTI_LEGA, key="mod_scad_sq")
