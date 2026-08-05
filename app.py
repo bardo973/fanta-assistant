@@ -26,32 +26,32 @@ if 'watchlist' not in st.session_state:
 # Rosa precaricata di esempio per PECU (se vuota)
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Anni_Contratto": 3},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8, "Anni_Contratto": 2},
-        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Anni_Contratto": 1},
-        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Anni_Contratto": 3},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Costo_Acquisto": 10, "Anni_Contratto": 4},
-        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 1, "Anni_Contratto": 2},
-        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Anni_Contratto": 3},
-        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Costo_Acquisto": 9, "Anni_Contratto": 2},
-        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 7, "Anni_Contratto": 1},
-        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Costo_Acquisto": 4, "Anni_Contratto": 2},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Costo_Acquisto": 9, "Anni_Contratto": 3},
-        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 7, "Anni_Contratto": 2},
-        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Costo_Acquisto": 13, "Anni_Contratto": 3},
-        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Costo_Acquisto": 6, "Anni_Contratto": 1},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Costo_Acquisto": 13, "Anni_Contratto": 4},
-        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 5, "Anni_Contratto": 2},
-        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Costo_Acquisto": 9, "Anni_Contratto": 2},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Costo_Acquisto": 13, "Anni_Contratto": 3},
-        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Costo_Acquisto": 18, "Anni_Contratto": 1},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Costo_Acquisto": 18, "Anni_Contratto": 3},
-        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Costo_Acquisto": 7, "Anni_Contratto": 2},
-        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Costo_Acquisto": 7, "Anni_Contratto": 3},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Costo_Acquisto": 11, "Anni_Contratto": 2},
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Costo_Acquisto": 27, "Anni_Contratto": 4},
-        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 3, "Anni_Contratto": 5},
-        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Anni_Contratto": 1}
+        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Anni_Contratto": 3.0},
+        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8, "Anni_Contratto": 2.0},
+        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Anni_Contratto": 0.4}, # In scadenza < 6 mesi
+        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Anni_Contratto": 3.0},
+        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Costo_Acquisto": 10, "Anni_Contratto": 4.0},
+        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 1, "Anni_Contratto": 2.0},
+        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Anni_Contratto": 3.0},
+        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Costo_Acquisto": 9, "Anni_Contratto": 2.0},
+        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 7, "Anni_Contratto": 0.5}, # In scadenza 6 mesi esatti
+        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Costo_Acquisto": 4, "Anni_Contratto": 2.0},
+        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Costo_Acquisto": 9, "Anni_Contratto": 3.0},
+        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 7, "Anni_Contratto": 2.0},
+        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Costo_Acquisto": 13, "Anni_Contratto": 3.0},
+        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Costo_Acquisto": 6, "Anni_Contratto": 1.0},
+        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Costo_Acquisto": 13, "Anni_Contratto": 4.0},
+        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 5, "Anni_Contratto": 2.0},
+        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Costo_Acquisto": 9, "Anni_Contratto": 2.0},
+        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Costo_Acquisto": 13, "Anni_Contratto": 3.0},
+        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Costo_Acquisto": 18, "Anni_Contratto": 0.2}, # In scadenza < 6 mesi
+        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Costo_Acquisto": 18, "Anni_Contratto": 3.0},
+        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Costo_Acquisto": 7, "Anni_Contratto": 2.0},
+        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Costo_Acquisto": 7, "Anni_Contratto": 3.0},
+        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Costo_Acquisto": 11, "Anni_Contratto": 2.0},
+        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Costo_Acquisto": 27, "Anni_Contratto": 4.0},
+        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 3, "Anni_Contratto": 4.0},
+        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Anni_Contratto": 1.0}
     ]
 
 if 'giocatori_db' not in st.session_state:
@@ -169,16 +169,16 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             g_nome = parti[0]
                             g_ruolo = "C"
                             g_costo = 1
-                            g_contratto = 1
+                            g_contratto = 4.0 # Default a 4 anni
                             for p in parti:
                                 if p in ["P", "D", "C", "A"]:
                                     g_ruolo = p
-                                elif p.isdigit():
-                                    val_num = int(p)
-                                    if val_num <= 5:
+                                elif p.replace('.', '', 1).isdigit():
+                                    val_num = float(p)
+                                    if val_num <= 5.0:
                                         g_contratto = val_num
                                     else:
-                                        g_costo = val_num
+                                        g_costo = int(val_num)
                             
                             db_g = st.session_state.giocatori_db
                             match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
@@ -223,7 +223,6 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 g_nome = str(row[col_nome]).strip()
                                 g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
                                 
-                                # Conversione sicura per evitare errori di tipo (Timestamp, stringhe, NaN)
                                 raw_costo = row[col_costo] if col_costo and pd.notna(row[col_costo]) else 1
                                 try:
                                     g_costo = int(pd.to_numeric(raw_costo, errors='coerce'))
@@ -231,12 +230,12 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 except:
                                     g_costo = 1
 
-                                raw_contratto = row[col_contratto] if col_contratto and pd.notna(row[col_contratto]) else 1
+                                raw_contratto = row[col_contratto] if col_contratto and pd.notna(row[col_contratto]) else 4.0
                                 try:
-                                    g_contratto = int(pd.to_numeric(raw_contratto, errors='coerce'))
-                                    if pd.isna(g_contratto): g_contratto = 1
+                                    g_contratto = float(pd.to_numeric(raw_contratto, errors='coerce'))
+                                    if pd.isna(g_contratto): g_contratto = 4.0
                                 except:
-                                    g_contratto = 1
+                                    g_contratto = 4.0
                                 
                                 db_g = st.session_state.giocatori_db
                                 match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
@@ -343,7 +342,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
     tab_acq, tab_vend, tab_reg = st.tabs(["📥 Acquista da Svincolati", "📤 Vendi / Svincola", "📜 Registro Operazioni"])
 
     with tab_acq:
-        st.subheader("Acquista un giocatore svincolato")
+        st.subheader("Acquista un giocatore svincolato (Contratto standard: 4 anni)")
         squadra_selezionata = st.selectbox("Seleziona la tua Squadra", NOMI_SQUADRE, key="mercato_sq")
         crediti_disponibili = st.session_state.squadre[squadra_selezionata]["crediti"]
         rosa_attuale_len = len(st.session_state.squadre[squadra_selezionata]["rosa"])
@@ -362,13 +361,9 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             info_g = svincolati[svincolati["Nome"] == giocatore_scelto].iloc[0]
             
             prezzo_consigliato = int(info_g["Quotazione"])
-            st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
+            st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}** | Contratto assegnato: **4 anni**")
 
-            col_acq1, col_acq2 = st.columns(2)
-            with col_acq1:
-                prezzo_acquisto = st.number_input("Prezzo di Acquisto (crediti)", min_value=1, max_value=max(1, crediti_disponibili), value=prezzo_consigliato, key="input_prezzo_acq")
-            with col_acq2:
-                anni_contratto = st.number_input("Anni di Contratto", min_value=1, max_value=5, value=1, key="input_anni_acq")
+            prezzo_acquisto = st.number_input("Prezzo di Acquisto (crediti)", min_value=1, max_value=max(1, crediti_disponibili), value=prezzo_consigliato, key="input_prezzo_acq")
 
             if st.button("Conferma Acquisto"):
                 if crediti_disponibili >= prezzo_acquisto:
@@ -380,14 +375,14 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "Quotazione": info_g["Quotazione"],
                         "FantaMedia": info_g["FantaMedia"],
                         "Costo_Acquisto": prezzo_acquisto,
-                        "Anni_Contratto": anni_contratto
+                        "Anni_Contratto": 4.0 # Contratto fisso a 4 anni come richiesto
                     })
                     st.session_state.storico_mercato.insert(0, {
                         "Orario": datetime.now().strftime("%H:%M:%S"),
                         "Operazione": "ACQUISTO",
-                        "Dettagli": f"{squadra_selezionata} acquista {giocatore_scelto} ({info_g['Ruolo']}) per {prezzo_acquisto} crediti (Contratto: {anni_contratto} anni)."
+                        "Dettagli": f"{squadra_selezionata} acquista {giocatore_scelto} ({info_g['Ruolo']}) per {prezzo_acquisto} crediti (Contratto: 4 anni)."
                     })
-                    st.success(f"Acquisto completato! {giocatore_scelto} è ora in rosa a {squadra_selezionata}.")
+                    st.success(f"Acquisto completato! {giocatore_scelto} è ora in rosa a {squadra_selezionata} con contratto di 4 anni.")
                     st.rerun()
                 else:
                     st.error("Crediti insufficienti per completare l'acquisto!")
@@ -526,7 +521,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     
                     with st.expander("⚙️ Gestisci / Modifica Anni Contratto Rosa"):
                         g_sel_contratto = st.selectbox("Seleziona Giocatore", rosa_df["Nome"].values, key=f"sel_c_{nome_sq}")
-                        nuovi_anni = st.slider("Anni di Contratto", 1, 5, 2, key=f"slide_c_{nome_sq}")
+                        nuovi_anni = st.slider("Anni di Contratto", 0.1, 5.0, 2.0, 0.1, key=f"slide_c_{nome_sq}")
                         if st.button("Aggiorna Contratto", key=f"btn_c_{nome_sq}"):
                             for g_item in st.session_state.squadre[nome_sq]["rosa"]:
                                 if g_item["Nome"] == g_sel_contratto:
@@ -536,7 +531,14 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
 
                     st.caption(f"Composizione reparto ➔ Portieri: {p} | Difensori: {d} | Centrocampisti: {c} | Attaccanti: {a} (Tot: {len(rosa_df)})")
                     
-                    st.dataframe(rosa_df, use_container_width=True)
+                    # Funzione per evidenziare in rosso i giocatori con contratto in scadenza nei 6 mesi (<= 0.5 anni)
+                    def evidenzia_scadenze(s):
+                        is_scadenza = s.get('Anni_Contratto', 4.0) <= 0.5
+                        return ['background-color: #ffcccc; color: #900000; font-weight: bold;' if is_scadenza else '' for _ in s]
+
+                    rosa_styled = rosa_df.style.apply(evidenzia_scadenze, axis=1)
+                    st.dataframe(rosa_styled, use_container_width=True)
+                    st.caption("🔴 *I giocatori evidenziati in rosso hanno il contratto in scadenza nei 6 mesi (<= 0.5 anni).*")
                 else:
                     st.info("La rosa è attualmente vuota.")
 
@@ -551,7 +553,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             
             p, d, c, a = 0, 0, 0, 0
             spesa_totale = 0
-            contratti_in_scadenza = 0
+            contratti_in_scadenza = 0 # Anni_Contratto <= 0.5 (6 mesi)
             
             for g in rosa:
                 r = g.get("Ruolo", "C")
@@ -560,7 +562,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 elif r == "C": c += 1
                 elif r == "A": a += 1
                 spesa_totale += g.get("Costo_Acquisto", 0)
-                if g.get("Anni_Contratto", 1) == 1:
+                if g.get("Anni_Contratto", 4.0) <= 0.5:
                     contratti_in_scadenza += 1
 
             summary_data.append({
@@ -568,7 +570,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 "Crediti Residui": crediti,
                 "Spesa Totale": spesa_totale,
                 "Tot. Giocatori": tot_giocatori,
-                "Scadenze (1 Anno)": contratti_in_scadenza,
+                "Scadenze (< 6 Mesi)": contratti_in_scadenza,
                 "Portieri (P)": p,
                 "Difensori (D)": d,
                 "Centrocampisti (C)": c,
