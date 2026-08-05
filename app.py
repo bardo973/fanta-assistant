@@ -786,107 +786,148 @@ with st.sidebar.expander("📋 Esplora Rose, Valori & Esportazione"):
         st.info("Rosa vuota.")
 
 # ---------------------------------------------------------
-# 5. DASHBOARD PRINCIPALE: ASTA LIVE & SELEZIONE RUOLO/SQUADRA
+# 5. DASHBOARD PRINCIPALE: LAYOUT A 2 COLONNE (ASTA + ROSA ATTIVA)
 # ---------------------------------------------------------
 st.title("⚡ Live Auction Intelligent Assistant (Advanced)")
 
-st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
+col_sinistra, col_destra = st.columns([1.25, 0.75])
 
-df_liberi_base = df[df["Stato"] == "LIBERO"]
+with col_sinistra:
+    st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
 
-if not df_liberi_base.empty:
-    col_filtro_a, col_filtro_b = st.columns(2)
-    with col_filtro_a:
-        ruoli_disponibili_asta = ["Tutti"] + sorted([str(r) for r in df_liberi_base["Ruolo"].dropna().unique().tolist()])
-        ruolo_filtro_scelta = st.selectbox("Filtra per Ruolo in Asta:", ruoli_disponibili_asta, key="filtro_ruolo_asta_call")
-    with col_filtro_b:
-        squadre_disponibili_asta = ["Tutte"] + sorted([str(s) for s in df_liberi_base["Squadra"].dropna().unique().tolist()])
-        squadra_filtro_scelta = st.selectbox("Filtra per Squadra Serie A in Asta:", squadre_disponibili_asta, key="filtro_squadra_asta_call")
+    df_liberi_base = df[df["Stato"] == "LIBERO"]
 
-    df_liberi_filtrati = df_liberi_base.copy()
-    if ruolo_filtro_scelta != "Tutti":
-        df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Ruolo"] == ruolo_filtro_scelta]
-    if squadra_filtro_scelta != "Tutte":
-        df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Squadra"] == squadra_filtro_scelta]
+    if not df_liberi_base.empty:
+        col_filtro_a, col_filtro_b = st.columns(2)
+        with col_filtro_a:
+            ruoli_disponibili_asta = ["Tutti"] + sorted([str(r) for r in df_liberi_base["Ruolo"].dropna().unique().tolist()])
+            ruolo_filtro_scelta = st.selectbox("Filtra per Ruolo in Asta:", ruoli_disponibili_asta, key="filtro_ruolo_asta_call")
+        with col_filtro_b:
+            squadre_disponibili_asta = ["Tutte"] + sorted([str(s) for s in df_liberi_base["Squadra"].dropna().unique().tolist()])
+            squadra_filtro_scelta = st.selectbox("Filtra per Squadra Serie A in Asta:", squadre_disponibili_asta, key="filtro_squadra_asta_call")
 
-    giocatori_liberi = df_liberi_filtrati["Nome"].tolist()
+        df_liberi_filtrati = df_liberi_base.copy()
+        if ruolo_filtro_scelta != "Tutti":
+            df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Ruolo"] == ruolo_filtro_scelta]
+        if squadra_filtro_scelta != "Tutte":
+            df_liberi_filtrati = df_liberi_filtrati[df_liberi_filtrati["Squadra"] == squadra_filtro_scelta]
 
-    if giocatori_liberi:
-        giocatore_sel = st.selectbox(
-            "Seleziona il giocatore chiamato in asta:",
-            giocatori_liberi,
-            key="seleziona_giocatore_asta",
-        )
-        g_data = df[df["Nome"] == giocatore_sel].iloc[0]
+        giocatori_liberi = df_liberi_filtrati["Nome"].tolist()
 
-        quotazione_listone = int(g_data["Quotazione"])
+        if giocatori_liberi:
+            giocatore_sel = st.selectbox(
+                "Seleziona il giocatore chiamato in asta:",
+                giocatori_liberi,
+                key="seleziona_giocatore_asta",
+            )
+            g_data = df[df["Nome"] == giocatore_sel].iloc[0]
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric(
-            "Ruolo & Squadra",
-            f"{g_data['Ruolo']} - {g_data['Squadra']}",
-            f"Tier: {g_data['Tier']}",
-        )
-        col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
-        col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
-        col4.metric(
-            "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
-        )
+            quotazione_listone = int(g_data["Quotazione"])
 
-        with st.expander("📊 Metriche Avanzate & Partite (Titolare / Subentrato)"):
-            p_titolare = safe_get(g_data, ['Partite_Titolare', 'Partite Titolare', 'Titolare'], 0)
-            p_subentrato = safe_get(g_data, ['Partite_Subentrato', 'Partite Subentrato', 'Subentrato'], 0)
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric(
+                "Ruolo & Squadra",
+                f"{g_data['Ruolo']} - {g_data['Squadra']}",
+                f"Tier: {g_data['Tier']}",
+            )
+            col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
+            col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
+            col4.metric(
+                "🏷️ Prezzo Partita (Quotazione Listone)", f"{quotazione_listone} cr"
+            )
+
+            with st.expander("📊 Metriche Avanzate & Partite (Titolare / Subentrato)"):
+                p_titolare = safe_get(g_data, ['Partite_Titolare', 'Partite Titolare', 'Titolare'], 0)
+                p_subentrato = safe_get(g_data, ['Partite_Subentrato', 'Partite Subentrato', 'Subentrato'], 0)
+                
+                c_m1, c_m2, c_m3 = st.columns(3)
+                c_m1.metric("Partite Titolare Attese", f"{p_titolare}")
+                c_m2.metric("Subentri Dalla Panchina", f"{p_subentrato}")
+                c_m3.metric("Indice di Continuità", f"{safe_get(g_data, ['Indice_Continuita', 'Continuita'], 'N/D')}")
+                
+                c_m4, c_m5, c_m6 = st.columns(3)
+                c_m4.metric("xG / 90 min", f"{safe_get(g_data, ['xG_90', 'xG'], 0.0)}")
+                c_m5.metric("xA / 90 min", f"{safe_get(g_data, ['xA_90', 'xA'], 0.0)}")
+                c_m6.metric("Rischio Infortunio", f"{safe_get(g_data, ['Rischio_Infortunio', 'Infortunio'], 'Basso')}")
+
+            st.markdown("### 💰 Gestione Offerta e Assegnazione")
             
-            c_m1, c_m2, c_m3 = st.columns(3)
-            c_m1.metric("Partite Titolare Attese", f"{p_titolare}")
-            c_m2.metric("Subentri Dalla Panchina", f"{p_subentrato}")
-            c_m3.metric("Indice di Continuità", f"{safe_get(g_data, ['Indice_Continuita', 'Continuita'], 'N/D')}")
-            
-            c_m4, c_m5, c_m6 = st.columns(3)
-            c_m4.metric("xG / 90 min", f"{safe_get(g_data, ['xG_90', 'xG'], 0.0)}")
-            c_m5.metric("xA / 90 min", f"{safe_get(g_data, ['xA_90', 'xA'], 0.0)}")
-            c_m6.metric("Rischio Infortunio", f"{safe_get(g_data, ['Rischio_Infortunio', 'Infortunio'], 'Basso')}")
+            prezzo_aggiudicazione = st.number_input(
+                "Prezzo di Aggiudicazione effettivo (crediti):",
+                min_value=1,
+                max_value=max(1, budget_rimanente_corrente),
+                value=int(quotazione_listone),
+                step=1,
+                key="input_prezzo_asta_aggiudicazione"
+            )
 
-        st.markdown("### 💰 Gestione Offerta e Assegnazione")
-        
-        prezzo_aggiudicazione = st.number_input(
-            "Prezzo di Aggiudicazione effettivo (crediti):",
-            min_value=1,
-            max_value=max(1, budget_rimanente_corrente),
-            value=int(quotazione_listone),
-            step=1,
-            key="input_prezzo_asta_aggiudicazione"
-        )
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button(f"✅ Assegna a {fanta_allenatore_attivo}", type="primary", key="btn_assegna_giocatore"):
+                    if prezzo_aggiudicazione > budget_rimanente_corrente:
+                        st.error(f"❌ Budget insufficiente! {fanta_allenatore_attivo} ha solo {budget_rimanente_corrente} crediti rimanenti.")
+                    else:
+                        scadenza_default_assegnazione = str(g_data.get("Scadenza_Contratto", "Giugno 2030"))
+                        
+                        st.session_state.rose_lega[fanta_allenatore_attivo].append({
+                            "Nome": str(g_data["Nome"]),
+                            "Ruolo": str(g_data["Ruolo"]),
+                            "Squadra": str(g_data["Squadra"]),
+                            "Prezzo_Acquisto": int(prezzo_aggiudicazione),
+                            "Valore_Attuale": int(quotazione_listone),
+                            "Scadenza": scadenza_default_assegnazione,
+                        })
+                        
+                        idx_g = df[df["Nome"] == giocatore_sel].index[0]
+                        df.at[idx_g, "Stato"] = fanta_allenatore_attivo
+                        st.session_state.df_giocatori = df
+                        
+                        st.success(f"🎉 {giocatore_sel} assegnato a **{fanta_allenatore_attivo}** per **{prezzo_aggiudicazione} cr**!")
+                        st.rerun()
 
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button(f"✅ Assegna a {fanta_allenatore_attivo}", type="primary", key="btn_assegna_giocatore"):
-                if prezzo_aggiudicazione > budget_rimanente_corrente:
-                    st.error(f"❌ Budget insufficiente! {fanta_allenatore_attivo} ha solo {budget_rimanente_corrente} crediti rimanenti.")
-                else:
-                    scadenza_default_assegnazione = str(g_data.get("Scadenza_Contratto", "Giugno 2030"))
-                    
-                    st.session_state.rose_lega[fanta_allenatore_attivo].append({
-                        "Nome": str(g_data["Nome"]),
-                        "Ruolo": str(g_data["Ruolo"]),
-                        "Squadra": str(g_data["Squadra"]),
-                        "Prezzo_Acquisto": int(prezzo_aggiudicazione),
-                        "Valore_Attuale": int(quotazione_listone),
-                        "Scadenza": scadenza_default_assegnazione,
-                    })
-                    
-                    idx_g = df[df["Nome"] == giocatore_sel].index[0]
-                    df.at[idx_g, "Stato"] = fanta_allenatore_attivo
-                    st.session_state.df_giocatori = df
-                    
-                    st.success(f"🎉 {giocatore_sel} assegnato a **{fanta_allenatore_attivo}** per **{prezzo_aggiudicazione} cr**!")
+            with col_btn2:
+                if st.button("🔄 Salva Svincolato / Passa", key="btn_salva_svincolato"):
+                    st.info(f"Giocatore {giocatore_sel} lasciato libero.")
                     st.rerun()
-
-        with col_btn2:
-            if st.button("🔄 Salva Svincolato / Passa", key="btn_salva_svincolato"):
-                st.info(f"Giocatore {giocatore_sel} lasciato libero.")
-                st.rerun()
+        else:
+            st.info("Nessun giocatore disponibile con i filtri selezionati.")
     else:
-        st.info("Nessun giocatore disponibile con i filtri selezionati.")
-else:
-    st.success("🎉 Tutti i giocatori del listone sono stati assegnati!")
+        st.success("🎉 Tutti i giocatori del listone sono stati assegnati!")
+
+with col_destra:
+    st.subheader(f"🛡️ Rosa Attiva: {fanta_allenatore_attivo}")
+    
+    rosa_attiva_destra = st.session_state.rose_lega.get(fanta_allenatore_attivo, [])
+    
+    if rosa_attiva_destra:
+        df_rosa_attiva = pd.DataFrame(rosa_attiva_destra)
+        
+        # Mostra tabella compatta
+        st.dataframe(
+            df_rosa_attiva[["Ruolo", "Nome", "Squadra", "Prezzo_Acquisto", "Scadenza"]],
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        st.markdown("#### 🗑️ Rimuovi Giocatore dalla Rosa")
+        giocatore_da_rimuovere = st.selectbox(
+            "Seleziona giocatore da svincolare:",
+            [g["Nome"] for g in rosa_attiva_destra],
+            key="select_giocatore_rimuovi"
+        )
+        
+        if st.button("❌ Svincola / Elimina Giocatore", key="btn_rimuovi_giocatore_rosa"):
+            # Rimuovi dalla rosa
+            st.session_state.rose_lega[fanta_allenatore_attivo] = [
+                g for g in rosa_attiva_destra if str(g["Nome"]).strip().lower() != str(giocatore_da_rimuovere).strip().lower()
+            ]
+            
+            # Rimetti lo stato del DataFrame a LIBERO
+            idx_m = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_rimuovere).strip().lower()].index
+            if not idx_m.empty:
+                st.session_state.df_giocatori.at[idx_m[0], "Stato"] = "LIBERO"
+                
+            st.success(f"✅ {giocatore_da_rimuovere} svincolato con successo!")
+            st.rerun()
+    else:
+        st.info(f"La rosa di {fanta_allenatore_attivo} è attualmente vuota.")
