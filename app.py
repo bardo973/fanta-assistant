@@ -517,9 +517,8 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
-                    # Calcolo automatico della stagione di scadenza in base all'anno corrente (2026) e agli anni di contratto
                     anno_corrente = 2026
-                    rosa_df["Scadenza_Contratto"] = rosa_df["Anni_Contratto"].apply(lambda x: f"Giugno {anno_corrente + int(x)}")
+                    rosa_df["Scadenza_Contratto"] = pd.to_numeric(rosa_df["Anni_Contratto"], errors="coerce").fillna(1).astype(int).apply(lambda x: f"Giugno {anno_corrente + x}")
 
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
