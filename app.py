@@ -73,7 +73,7 @@ if 'giocatori_db' not in st.session_state:
 st.sidebar.title("⚽ Fanta Manager Hub")
 
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
-    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel) con le FantaMedie degli ultimi 3 anni.")
+    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel) contenente le colonne per le FantaMedie degli ultimi anni (es. `FM_2025`, `FM_2024`, `FM_2023` oppure colonne con l'anno nel nome).")
     listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
     
     if listone_file is not None:
@@ -97,11 +97,11 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 elif 'quot' in c_low or 'valore' in c_low or 'fc' in c_low or 'qt' in c_low:
                     col_mappa[col] = 'Quotazione'
                 elif 'fm' in c_low or 'fantamedia' in c_low or 'media' in c_low:
-                    if '2025' in c_low:
+                    if '2025' in c_low or '25' in c_low:
                         col_mappa[col] = 'FM_2025'
-                    elif '2024' in c_low:
+                    elif '2024' in c_low or '24' in c_low:
                         col_mappa[col] = 'FM_2024'
-                    elif '2023' in c_low:
+                    elif '2023' in c_low or '23' in c_low:
                         col_mappa[col] = 'FM_2023'
                     else:
                         col_mappa[col] = 'FantaMedia'
@@ -136,7 +136,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita']]
-                st.sidebar.success("Listone importato con successo!")
+                st.sidebar.success("Listone e statistiche storiche importati con successo!")
             else:
                 st.sidebar.error("Impossibile trovare la colonna 'Nome' nel file.")
         except Exception as e:
@@ -381,54 +381,6 @@ if menu == "🔍 Scouting & Database":
             st.rerun()
     else:
         st.info("La tua watchlist è vuota. Aggiungi i tuoi obiettivi preferiti.")
-
-    st.markdown("---")
-    with st.expander("➕ Inserisci o Modifica Statistiche Ultimi 3 Anni per un Giocatore"):
-        col_ins1, col_ins2 = st.columns(2)
-        with col_ins1:
-            giocatore_edit = st.selectbox("Seleziona Giocatore dal Database", df["Nome"].values, key="edit_storico_nome")
-        
-        row_giocatore = df[df["Nome"] == giocatore_edit].iloc[0] if not df[df["Nome"] == giocatore_edit].empty else None
-        
-        if row_giocatore is not None:
-            c_ruolo = row_giocatore["Ruolo"]
-            c_sq = row_giocatore["Squadra_SerieA"]
-            c_quot = row_giocatore["Quotazione"]
-            c_fm = row_giocatore["FantaMedia"]
-            c_2025 = row_giocatore.get("FM_2025", c_fm)
-            c_2024 = row_giocatore.get("FM_2024", c_fm)
-            c_2023 = row_giocatore.get("FM_2023", c_fm)
-            
-            with col_ins2:
-                st.write(f"Ruolo: **{c_ruolo}** | Squadra: **{c_sq}** | Quotazione: **{c_quot}**")
-            
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            with col_f1:
-                nuova_fm = st.number_input("FantaMedia Corrente", min_value=0.0, max_value=15.0, value=float(c_fm), step=0.1, key="edit_fm")
-            with col_f2:
-                nuova_2025 = st.number_input("FM 2025", min_value=0.0, max_value=15.0, value=float(c_2025), step=0.1, key="edit_2025")
-            with col_f3:
-                nuova_2024 = st.number_input("FM 2024", min_value=0.0, max_value=15.0, value=float(c_2024), step=0.1, key="edit_2024")
-            with col_f4:
-                nuova_2023 = st.number_input("FM 2023", min_value=0.0, max_value=15.0, value=float(c_2023), step=0.1, key="edit_2023")
-                
-            if st.button("Salva Statistiche Storiche", key="btn_salva_storico"):
-                st.session_state.giocatori_db.loc[st.session_state.giocatori_db["Nome"] == giocatore_edit, "FantaMedia"] = nuova_fm
-                st.session_state.giocatori_db.loc[st.session_state.giocatori_db["Nome"] == giocatore_edit, "FM_2025"] = nuova_2025
-                st.session_state.giocatori_db.loc[st.session_state.giocatori_db["Nome"] == giocatore_edit, "FM_2024"] = nuova_2024
-                st.session_state.giocatori_db.loc[st.session_state.giocatori_db["Nome"] == giocatore_edit, "FM_2023"] = nuova_2023
-                
-                # Aggiorna anche nelle rose delle squadre se il giocatore è già presente
-                for sq_name in NOMI_SQUADRE:
-                    for g_item in st.session_state.squadre[sq_name]["rosa"]:
-                        if g_item["Nome"].lower() == giocatore_edit.lower():
-                            g_item["FantaMedia"] = nuova_fm
-                            g_item["FM_2025"] = nuova_2025
-                            g_item["FM_2024"] = nuova_2024
-                            g_item["FM_2023"] = nuova_2023
-                            
-                st.success(f"Statistiche e FantaMedie degli ultimi 3 anni aggiornate con successo per {giocatore_edit}!")
-                st.rerun()
 
 # ==========================================
 # 2. MERCATO (ACQUISTI E VENDITE)
