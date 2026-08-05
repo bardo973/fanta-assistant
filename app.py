@@ -162,11 +162,13 @@ with st.sidebar.expander("📁 Importa e Intreccia Più File"):
                     
                     df_temp = df_temp.rename(columns=col_mappa)
                     
+                    # Correzione sicura per evitare conflitti Series duplicate o ambigue
                     if 'Nome' in df_temp.columns:
-                        # Assicuriamoci che la colonna Nome sia pulita e priva di duplicati interni per file
-                        df_temp['Nome'] = df_temp['Nome'].astype(str).str.strip()
+                        s_nome = df_temp['Nome']
+                        if isinstance(s_nome, pd.DataFrame):
+                            s_nome = s_nome.iloc[:, 0]
+                        df_temp['Nome'] = s_nome.astype(str).str.strip()
                         df_temp['Nome_Key'] = df_temp['Nome'].str.lower()
-                        # Rimuoviamo eventuali righe duplicate basate sulla chiave
                         df_temp = df_temp.drop_duplicates(subset=['Nome_Key'], keep='first')
                         dfs.append(df_temp)
                     else:
