@@ -5,22 +5,22 @@ import pandas as pd
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT SICURO
+# 1. CONFIGURAZIONE PAGINA E STATE MANAGEMENT
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="FantaLega AI Advanced Predictor & Manager", layout="wide"
+    page_title="FantaLega Manager & Scouting Pro", layout="wide"
 )
 
 if "budget_iniziale" not in st.session_state:
     st.session_state.budget_iniziale = 500
 
 # ---------------------------------------------------------
-# 2. FUNZIONE DI SUPPORTO PER CORRETTO ENCODING (ACCENTI)
+# 2. FUNZIONE DI SUPPORTO PER ACCENTI E CODIFICA
 # ---------------------------------------------------------
 def ripara_testo(testo):
     if not isinstance(testo, str):
         return str(testo)
-    for enc_from, enc_to in [('latin1', 'utf-8'), ('cp1252', 'utf-8')]:
+    for enc_from, enc_to in [("latin1", "utf-8"), ("cp1252", "utf-8")]:
         try:
             return testo.encode(enc_from).decode(enc_to)
         except Exception:
@@ -28,18 +28,18 @@ def ripara_testo(testo):
     return testo
 
 # ---------------------------------------------------------
-# 3. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI AVANZATI
+# 3. CARICAMENTO E GENERAZIONE DATI CON PARAMETRI DI RENDIMENTO
 # ---------------------------------------------------------
 @st.cache_data
 def load_data():
     df_raw = None
-    for enc in ['utf-8', 'latin1', 'cp1252']:
+    for enc in ["utf-8", "latin1", "cp1252"]:
         try:
             df_raw = pd.read_csv("ROSE FANTAroby-quotazioni02022026.csv", encoding=enc)
             break
         except Exception:
             continue
-            
+
     if df_raw is None:
         df_raw = pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione"])
 
@@ -83,16 +83,7 @@ def load_data():
         df["Proprietario_Iniziale"] = df["Proprietario_Iniziale"].apply(
             lambda x: (
                 "LIBERO"
-                if x in [
-                    "NAN",
-                    "NONE",
-                    "",
-                    "SVINCOLATO",
-                    "LIBERO",
-                    "#N/D",
-                    "#RIF!",
-                    "0",
-                ]
+                if x in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "#N/D", "#RIF!", "0"]
                 or x.startswith("=")
                 else x
             )
@@ -102,62 +93,53 @@ def load_data():
 
     df["Stato"] = df["Proprietario_Iniziale"]
 
-    def assign_tier_and_contract(quot):
+    def assign_tier(quot):
         if quot >= 25:
-            return pd.Series(["Top", "Giugno 2029"])
+            return "Top"
         elif quot >= 15:
-            return pd.Series(["Semitop", "Giugno 2029"])
+            return "Semitop"
         elif quot >= 8:
-            return pd.Series(["Titolare", "Giugno 2029"])
+            return "Titolare"
         else:
-            return pd.Series(["Scommessa", "Giugno 2030"])
+            return "Scommessa"
 
-    df[["Tier", "Scadenza_Contratto"]] = df["Quotazione"].apply(
-        assign_tier_and_contract
-    )
+    df["Tier"] = df["Quotazione"].apply(assign_tier)
 
-    # Parametri Avanzati (xG, xA, Malus Disciplinari, Turnover, Infortuni)
-    def genera_parametri_avanzati(row):
+    # Generazione metriche di rendimento e presenze (> 45 minuti)
+    def genera_metriche_scout(row):
         quot = row["Quotazione"]
         ruolo = row["Ruolo"]
         
-        # Stima xG e xA realistici basati su quotazione e ruolo
+        # Partite giocate totali (es. su 38) e partite con almeno 45 minuti
+        if quot >= 25:
+            partite_tot = np.random.randint(32, 37)
+            part_almeno_45 = np.random.randint(30, partite_tot + 1)
+        elif quot >= 15:
+            partite_tot = np.random.randint(25, 34)
+            part_almeno_45 = np.random.randint(22, partite_tot + 1)
+        elif quot >= 8:
+            partite_tot = np.random.randint(18, 28)
+            part_almeno_45 = np.random.randint(15, partite_tot + 1)
+        else:
+            partite_tot = np.random.randint(5, 20)
+            part_almeno_45 = np.random.randint(3, partite_tot + 1)
+
+        # xG e xA
         if ruolo == "A":
             xg = round(max(0.1, quot * 0.035), 2)
             xa = round(max(0.05, quot * 0.015), 2)
-            malus_cartellini = "Medio" if quot < 20 else "Basso"
         elif ruolo == "C":
             xg = round(max(0.05, quot * 0.02), 2)
             xa = round(max(0.08, quot * 0.025), 2)
-            malus_cartellini = "Medio-Alto"
         elif ruolo == "D":
             xg = round(max(0.02, quot * 0.01), 2)
             xa = round(max(0.03, quot * 0.015), 2)
-            malus_cartellini = "Alto"
-        else: # Portiere
+        else:
             xg, xa = 0.0, 0.0
-            malus_cartellini = "Basso"
 
-        if quot >= 25:
-            return pd.Series([0.95, 36, 8.8, "Basso (Affidabile)", xg, xa, malus_cartellini, "Basso"])
-        elif quot >= 15:
-            return pd.Series([0.82, 32, 7.8, "Medio-Basso", xg, xa, malus_cartellini, "Medio"])
-        elif quot >= 8:
-            return pd.Series([0.65, 27, 6.8, "Medio", xg, xa, malus_cartellini, "Medio"])
-        return pd.Series([0.40, 20, 5.8, "Variabile / Rischio", xg, xa, malus_cartellini, "Alto"])
+        return pd.Series([partite_tot, part_almeno_45, xg, xa])
 
-    df[
-        [
-            "Percentuale_Titolarita",
-            "Partite_Attese",
-            "Indice_Continuita",
-            "Rischio_Infortunio",
-            "xG_90",
-            "xA_90",
-            "Indice_Cartellini",
-            "Rischio_Turnover"
-        ]
-    ] = df.apply(genera_parametri_avanzati, axis=1)
+    df[["Partite_Giocate", "Partite_Almeno_45min", "xG_90", "xA_90"]] = df.apply(genera_metriche_scout, axis=1)
 
     def stima_fantamedia(row):
         q = row["Quotazione"]
@@ -174,30 +156,7 @@ def load_data():
         return round(min(base, 9.5), 2)
 
     df["FantaMedia_Stimata"] = df.apply(stima_fantamedia, axis=1)
-
-    df["Status_Piazzati"] = df["Quotazione"].apply(
-        lambda q: (
-            "Rigorista 🎯"
-            if q >= 28
-            else ("Vice-Rigorista 👟" if q >= 18 else "No")
-        )
-    )
-
-    hype_squadra = {
-        "Inter": 1.25,
-        "Atalanta": 1.25,
-        "Milan": 1.15,
-        "Juventus": 1.15,
-    }
-    df["Moltiplicatore_Team"] = df["Squadra"].map(hype_squadra).fillna(0.95)
-
-    df["Valore_Atteso"] = np.round(
-        ((df["xG_90"] * 3.0) + (df["xA_90"] * 1.0))
-        * df["Partite_Attese"]
-        * df["Moltiplicatore_Team"],
-        1,
-    )
-    df["Indice_VfM"] = np.round(df["Valore_Atteso"] / df["Quotazione"], 2)
+    df["Status_Piazzati"] = df["Quotazione"].apply(lambda q: "Rigorista 🎯" if q >= 28 else ("Vice-Rigorista 👟" if q >= 18 else "No"))
 
     return df
 
@@ -207,30 +166,16 @@ if "df_giocatori" not in st.session_state:
 
 df = st.session_state.df_giocatori
 
-lista_proprietari_csv = [
-    p
-    for p in df["Proprietario_Iniziale"].unique()
-    if p not in ["LIBERO", "NAN", "NONE", ""]
-]
+lista_proprietari_csv = [p for p in df["Proprietario_Iniziale"].unique() if p not in ["LIBERO", "NAN", "NONE", ""]]
 if not lista_proprietari_csv:
-    lista_proprietari_csv = [
-        "BARDO",
-        "ROBY",
-        "PECU",
-        "SQUADRA_3",
-        "SQUADRA_4",
-        "SQUADRA_5",
-    ]
+    lista_proprietari_csv = ["BARDO", "ROBY", "PECU", "SQUADRA_3", "SQUADRA_4"]
 
 PARTECIPANTI_LEGA = sorted(lista_proprietari_csv)
 
 if "rose_lega" not in st.session_state:
     st.session_state.rose_lega = {p: [] for p in PARTECIPANTI_LEGA}
-
 if "extra_budget" not in st.session_state:
     st.session_state.extra_budget = {p: 0 for p in PARTECIPANTI_LEGA}
-
-# Inizializzazione Prestiti in Session State
 if "prestiti_lega" not in st.session_state:
     st.session_state.prestiti_lega = []
 
@@ -244,8 +189,7 @@ if "inizializzato" not in st.session_state:
                 "Ruolo": str(r["Ruolo"]),
                 "Squadra": str(r["Squadra"]),
                 "Prezzo_Acquisto": int(r["Quotazione"]),
-                "Valore_Attuale": int(r["Quotazione"]),
-                "Scadenza": str(r["Scadenza_Contratto"]),
+                "Scadenza": "Giugno 2030",
             }
             for _, r in sub_df.iterrows()
         ]
@@ -260,647 +204,390 @@ for p in PARTECIPANTI_LEGA:
 df = st.session_state.df_giocatori
 
 # ---------------------------------------------------------
-# 4. SIDEBAR: PANNELLO DI CONTROLLO & CARICAMENTO DATI
+# 4. SIDEBAR: GESTIONE ROSE, BACKUP E IMPORT FILE
 # ---------------------------------------------------------
-st.sidebar.title("🏆 FantaLega Dashboard")
-fanta_allenatore_attivo = st.sidebar.selectbox(
-    "Chi sta acquistando ora:", PARTECIPANTI_LEGA, key="allenatore_attivo_sb"
-)
+st.sidebar.title("🏆 FantaLega Manager")
+allenatore_attivo = st.sidebar.selectbox("Gestisci per squadra:", PARTECIPANTI_LEGA, key="allenatore_sb")
 
-budget_input = st.sidebar.number_input(
-    "Budget Iniziale Crediti (Tutti)",
-    value=st.session_state.get("budget_iniziale", 500),
-    step=10,
-)
+budget_input = st.sidebar.number_input("Budget Iniziale Crediti", value=st.session_state.get("budget_iniziale", 500), step=10)
 if budget_input != st.session_state.budget_iniziale:
     st.session_state.budget_iniziale = budget_input
 
-rose_lega_dict = st.session_state.get(
-    "rose_lega", {p: [] for p in PARTECIPANTI_LEGA}
-)
-extra_budget_dict = st.session_state.get(
-    "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
-)
-
-rosa_corrente = rose_lega_dict.get(fanta_allenatore_attivo, [])
+rosa_corrente = st.session_state.rose_lega.get(allenatore_attivo, [])
 spesa_corrente = sum(item.get("Prezzo_Acquisto", 1) for item in rosa_corrente)
-budget_rimanente_corrente = (
-    st.session_state.get("budget_iniziale", 500)
-    + extra_budget_dict.get(fanta_allenatore_attivo, 0)
-    - spesa_corrente
-)
+budget_rimanente = st.session_state.budget_iniziale + st.session_state.extra_budget.get(allenatore_attivo, 0) - spesa_corrente
 
-slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
-slot_presi = {
-    r: sum(1 for g in rosa_corrente if g["Ruolo"] == r) for r in slot_target
-}
-slot_liberi = {r: slot_target[r] - slot_presi[r] for r in slot_target}
-totale_slot_liberi = sum(slot_liberi.values())
+st.sidebar.metric(f"Budget Rimanente ({allenatore_attivo})", f"{budget_rimanente} cr")
 
-st.sidebar.metric(
-    f"Budget Rimanente ({fanta_allenatore_attivo})",
-    f"{budget_rimanente_corrente} cr",
-)
-
-# --- SALVATAGGIO & CARICAMENTO JSON ---
 st.sidebar.divider()
-st.sidebar.subheader("💾 Salvataggio & Caricamento")
+st.sidebar.subheader("💾 Backup & Salvataggio")
 
 stato_salva = {
-    "budget_iniziale": st.session_state.get("budget_iniziale", 500),
-    "rose_lega": rose_lega_dict,
-    "extra_budget": extra_budget_dict,
-    "prestiti_lega": st.session_state.get("prestiti_lega", []),
-    "stati_giocatori": df[["Nome", "Stato"]]
-    .set_index("Nome")["Stato"]
-    .to_dict(),
+    "budget_iniziale": st.session_state.budget_iniziale,
+    "rose_lega": st.session_state.rose_lega,
+    "extra_budget": st.session_state.extra_budget,
+    "prestiti_lega": st.session_state.prestiti_lega,
+    "stati_giocatori": df[["Nome", "Stato"]].set_index("Nome")["Stato"].to_dict()
 }
-json_data = json.dumps(stato_salva, indent=4, ensure_ascii=False)
-st.sidebar.download_button(
-    label="📥 Salva Stato Lega (JSON)",
-    data=json_data,
-    file_name="fanta_lega_backup.json",
-    mime="application/json",
-)
+st.sidebar.download_button("📥 Scarica Backup (JSON)", data=json.dumps(stato_salva, indent=4, ensure_ascii=False), file_name="fanta_backup.json", mime="application/json")
 
-uploaded_file = st.sidebar.file_uploader(
-    "📂 Carica Stato Salvato (JSON)", type=["json"], key="json_backup_uploader"
-)
+uploaded_json = st.sidebar.file_uploader("📂 Carica Backup (JSON)", type=["json"])
+if uploaded_json is not None:
+    try:
+        loaded = json.load(uploaded_json)
+        st.session_state.budget_iniziale = loaded.get("budget_iniziale", 500)
+        st.session_state.rose_lega = loaded.get("rose_lega", {})
+        st.session_state.extra_budget = loaded.get("extra_budget", {})
+        st.session_state.prestiti_lega = loaded.get("prestiti_lega", [])
+        stati_caricati = loaded.get("stati_giocatori", {})
+        
+        df_t = st.session_state.df_giocatori.copy()
+        df_t["Stato"] = df_t["Nome"].map(stati_caricati).fillna("LIBERO")
+        st.session_state.df_giocatori = df_t
+        st.sidebar.success("✅ Backup caricato!")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Errore caricamento: {e}")
 
+# Importazione listone Excel / CSV / TXT
+st.sidebar.divider()
+st.sidebar.subheader("📊 Carica Listone / Rose")
+uploaded_file = st.sidebar.file_uploader("Carica file (Excel, CSV, TXT)", type=["xlsx", "xls", "csv", "txt"])
 if uploaded_file is not None:
-    file_identifier = f"{uploaded_file.name}_{uploaded_file.size}"
-    if st.session_state.get("last_uploaded_file") != file_identifier:
-        try:
-            loaded_state = json.load(uploaded_file)
-            st.session_state.budget_iniziale = loaded_state.get(
-                "budget_iniziale", 500
-            )
-            st.session_state.rose_lega = loaded_state.get("rose_lega", {})
-            st.session_state.extra_budget = loaded_state.get(
-                "extra_budget", {p: 0 for p in PARTECIPANTI_LEGA}
-            )
-            st.session_state.prestiti_lega = loaded_state.get("prestiti_lega", [])
+    try:
+        ext = uploaded_file.name.split('.')[-1].lower()
+        if ext == 'txt':
+            content = uploaded_file.read().decode('utf-8', errors='ignore')
+            df_file = pd.read_csv(io.StringIO(content), sep=None, engine='python', dtype=str)
+        elif ext in ['xlsx', 'xls']:
+            df_file = pd.read_excel(uploaded_file, dtype=str)
+        else:
+            df_file = pd.read_csv(uploaded_file, dtype=str)
 
-            stati_caricati = loaded_state.get("stati_giocatori", {})
-            stati_map_lower = {
-                str(k).strip().lower(): str(v)
-                for k, v in stati_caricati.items()
-            }
+        df_file.columns = [str(c).strip().lower() for c in df_file.columns]
+        col_nome = next((c for c in df_file.columns if any(k in c for k in ["calciatore", "giocatore", "nome"])), df_file.columns[0])
+        
+        new_rose = {}
+        df_temp = st.session_state.df_giocatori.copy()
+        df_temp["Stato"] = "LIBERO"
+        master_dict = {str(r["Nome"]).strip().lower(): r for _, r in df_temp.iterrows()}
 
-            df_temp = st.session_state.df_giocatori.copy()
-            df_temp["_nome_key"] = (
-                df_temp["Nome"].astype(str).str.strip().str.lower()
-            )
-            df_temp["Stato"] = (
-                df_temp["_nome_key"].map(stati_map_lower).fillna("LIBERO")
-            )
-            df_temp.drop(columns=["_nome_key"], inplace=True)
-
-            st.session_state.df_giocatori = df_temp
-            st.session_state.last_uploaded_file = file_identifier
-
-            st.sidebar.success("✅ Backup caricato con successo!")
-            st.rerun()
-        except Exception as e:
-            st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
-
-# --- IMPORTAZIONE EXCEL / CSV / TXT ---
-st.sidebar.divider()
-st.sidebar.subheader("📊 Importa Rose da Listone (Excel/CSV/TXT)")
-uploaded_excel = st.sidebar.file_uploader(
-    "Carica file listone rose", type=["xlsx", "xls", "csv", "txt"], key="excel_rose_uploader"
-)
-
-if uploaded_excel is not None:
-    excel_identifier = f"{uploaded_excel.name}_{uploaded_excel.size}"
-    if st.session_state.get("last_uploaded_excel") != excel_identifier:
-        try:
-            file_extension = uploaded_excel.name.split('.')[-1].lower()
+        for _, row in df_file.iterrows():
+            nome_g = ripara_testo(str(row[col_nome]).strip())
+            if not nome_g or nome_g.lower() in ["nan", "none", ""]:
+                continue
             
-            if file_extension == 'txt':
-                content_bytes = uploaded_excel.read()
-                text_content = None
-                for enc in ['utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+            prop = "LIBERO"
+            for col_p in ["proprietario", "squadra_fantacalcio"]:
+                if col_p in df_file.columns:
+                    val_p = ripara_testo(str(row[col_p]).strip().upper())
+                    if val_p and val_p not in ["NAN", "NONE", "", "LIBERO", "SVINCOLATO", "0"]:
+                        prop = val_p
+                        if prop not in PARTECIPANTI_LEGA:
+                            PARTECIPANTI_LEGA.append(prop)
+
+            prezzo = 1
+            for col_pr in ["quotazione", "prezzo", "valore"]:
+                if col_pr in df_file.columns:
                     try:
-                        text_content = content_bytes.decode(enc)
-                        break
+                        prezzo = int(float(str(row[col_pr]).replace(',', '.')))
                     except:
-                        continue
-                if text_content is None:
-                    text_content = content_bytes.decode('latin1', errors='ignore')
-                
-                text_content = ripara_testo(text_content)
-                lines = [line.strip() for line in text_content.splitlines() if line.strip()]
-                if any(',' in line or '\t' in line or ';' in line for line in lines[:3]):
-                    sep_char = '\t' if '\t' in lines[0] else (';' if ';' in lines[0] else ',')
-                    df_excel = pd.read_csv(io.StringIO(text_content), sep=sep_char, dtype=str)
-                else:
-                    df_excel = pd.DataFrame({'Calciatore': lines})
-            elif file_extension in ['xlsx', 'xls', 'ods']:
-                df_excel = pd.read_excel(uploaded_excel, dtype=str)
+                        pass
+
+            nome_lower = nome_g.lower()
+            if nome_lower in master_dict:
+                info = master_dict[nome_lower]
+                ruolo, squadra = info["Ruolo"], info["Squadra"]
             else:
-                uploaded_excel.seek(0)
-                df_excel = None
-                for s in [',', ';', '\t', '|']:
-                    for enc in ['utf-8', 'latin1', 'cp1252']:
-                        try:
-                            uploaded_excel.seek(0)
-                            df_test = pd.read_csv(uploaded_excel, encoding=enc, sep=s, dtype=str, on_bad_lines='skip')
-                            if df_test.shape[1] > 1:
-                                df_excel = df_test
-                                break
-                        except:
-                            continue
-                    if df_excel is not None:
-                        break
-                if df_excel is None:
-                    uploaded_excel.seek(0)
-                    df_excel = pd.read_csv(uploaded_excel, encoding='latin1', dtype=str, on_bad_lines='skip')
+                ruolo = "C"
+                squadra = "N/D"
 
-            df_excel.columns = [str(c).strip().lower() for c in df_excel.columns]
+            if prop != "LIBERO":
+                if prop not in new_rose:
+                    new_rose[prop] = []
+                new_rose[prop].append({
+                    "Nome": nome_g, "Ruolo": ruolo, "Squadra": squadra, "Prezzo_Acquisto": prezzo, "Scadenza": "Giugno 2030"
+                })
+                idx_m = df_temp[df_temp["Nome"].str.strip().str.lower() == nome_lower].index
+                if not idx_m.empty:
+                    df_temp.at[idx_m[0], "Stato"] = prop
+
+        st.session_state.rose_lega = new_rose
+        st.session_state.df_giocatori = df_temp
+        st.sidebar.success("✅ Listone caricato con successo!")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Errore lettura file: {e}")
+
+# ---------------------------------------------------------
+# 5. CORPO PRINCIPALE: TABS DI GESTIONE
+# ---------------------------------------------------------
+tab_asta, tab_scout, tab_scambi, tab_prestiti, tab_rose = st.tabs([
+    "🎯 Asta & Prezzi Consigliati",
+    "🔍 Scouting & Rendimento",
+    "🔄 Gestione Scambi",
+    "🤝 Gestione Prestiti",
+    "📋 Visualizza Rose"
+])
+
+# --- TAB 1: ASTA & PREZZI CONSIGLIATI ---
+with tab_asta:
+    st.header("🎯 Assistente Asta & Prezzi Consigliati")
+    st.write("Seleziona un giocatore libero per visualizzare il **prezzo consigliato di acquisto** calcolato in base al budget residuo, ai posti liberi e al valore tattico.")
+
+    giocatori_liberi = df[df["Stato"] == "LIBERO"]["Nome"].tolist()
+    if giocatori_liberi:
+        gioc_sel = st.selectbox("Seleziona Giocatore in Asta:", giocatori_liberi)
+        g_info = df[df["Nome"] == gioc_sel].iloc[0]
+
+        # Calcolo prezzo consigliato
+        slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
+        rosa_att = st.session_state.rose_lega.get(allenatore_attivo, [])
+        slot_presi = {r: sum(1 for g in rosa_att if g["Ruolo"] == r) for r in slot_target}
+        slot_liberi = {r: slot_target[r] - slot_presi[r] for r in slot_target}
+        totale_liberi = sum(slot_liberi.values())
+
+        riserva_minima = max(0, totale_liberi - 1)
+        spendibile = max(0, budget_rimanente - riserva_minima)
+
+        moltiplicatori_tier = {"Top": 0.45, "Semitop": 0.22, "Titolare": 0.08, "Scommessa": 0.03}
+        prezzo_base = int(spendibile * moltiplicatori_tier.get(g_info["Tier"], 0.05))
+        if g_info["Status_Piazzati"].startswith("Rigorista"):
+            prezzo_base += 5
+        if g_info["FantaMedia_Stimata"] >= 7.0:
+            prezzo_base += 3
+
+        prezzo_consigliato = max(1, prezzo_base)
+        if slot_liberi.get(g_info["Ruolo"], 0) <= 0:
+            prezzo_consigliato = 0 # Slot esauriti per quel ruolo
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Ruolo & Squadra", f"{g_info['Ruolo']} - {g_info['Squadra']}", f"Tier: {g_info['Tier']}")
+        c2.metric("FantaMedia Stimata", f"{g_info['FantaMedia_Stimata']} FM")
+        c3.metric("Rigorista", f"{g_info['Status_Piazzati']}")
+        c4.metric("💰 Prezzo Consigliato", f"{prezzo_consigliato} cr")
+
+        with st.form("form_acquisto_asta"):
+            st.subheader("Registra Assegnazione")
+            col_fa, col_fb = st.columns(2)
+            with col_fa:
+                prezzo_pagato = st.number_input("Prezzo di chiusura effettivo (crediti):", min_value=1, value=int(prezzo_consigliato))
+            with col_fb:
+                vincitore = st.selectbox("Assegna alla squadra:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(allenatore_attivo) if allenatore_attivo in PARTECIPANTI_LEGA else 0)
             
-            map_colonne = {}
-            for col in df_excel.columns:
-                if any(k in col for k in ["calciatore", "giocatore", "nome", "player"]):
-                    map_colonne["calciatore"] = col
-                elif any(k in col for k in ["ruolo"]):
-                    map_colonne["ruolo"] = col
-                elif any(k in col for k in ["squadra", "team"]):
-                    map_colonne["squadra"] = col
-                elif any(k in col for k in ["quotazione", "prezzo", "valore"]):
-                    map_colonne["quotazione"] = col
-                elif any(k in col for k in ["proprietario", "prop", "squadra_fantacalcio"]):
-                    map_colonne["proprietario"] = col
-
-            if "calciatore" not in map_colonne and len(df_excel.columns) > 0:
-                map_colonne["calciatore"] = df_excel.columns[0]
-
-            if "calciatore" in map_colonne:
-                new_rose = {}
-                df_temp = st.session_state.df_giocatori.copy()
-                df_temp["Stato"] = "LIBERO"
-                
-                master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
-                
-                for _, row in df_excel.iterrows():
-                    nome_g = ripara_testo(str(row[map_colonne["calciatore"]]).strip())
-                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
-                        continue
-                        
-                    nome_g_lower = nome_g.lower()
-                    
-                    prop_val = "LIBERO"
-                    if "proprietario" in map_colonne:
-                        p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
-                        if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!"] and not p_raw.startswith("="):
-                            prop_val = p_raw
-                            if prop_val not in PARTECIPANTI_LEGA:
-                                PARTECIPANTI_LEGA.append(prop_val)
-                    
-                    prezzo_val = 1
-                    if "quotazione" in map_colonne:
-                        try:
-                            prezzo_val = int(float(str(row[map_colonne["quotazione"]]).replace(',', '.')))
-                        except:
-                            pass
-
-                    if nome_g_lower in master_dict:
-                        g_info = master_dict[nome_g_lower]
-                        ruolo_g = str(g_info["Ruolo"])
-                        squadra_g = ripara_testo(str(g_info["Squadra"]))
-                        quot_g = int(g_info["Quotazione"])
-                    else:
-                        ruolo_g = ripara_testo(str(row[map_colonne["ruolo"]])) if "ruolo" in map_colonne and map_colonne["ruolo"] in row else "C"
-                        squadra_g = ripara_testo(str(row[map_colonne["squadra"]])) if "squadra" in map_colonne and map_colonne["squadra"] in row else "N/D"
-                        quot_g = prezzo_val
-
-                    if prop_val != "LIBERO":
-                        if prop_val not in new_rose:
-                            new_rose[prop_val] = []
-                        
-                        if not any(str(g["Nome"]).strip().lower() == nome_g_lower for g in new_rose[prop_val]):
-                            new_rose[prop_val].append({
-                                "Nome": nome_g,
-                                "Ruolo": ruolo_g,
-                                "Squadra": squadra_g,
-                                "Prezzo_Acquisto": prezzo_val,
-                                "Valore_Attuale": quot_g,
-                                "Scadenza": "Giugno 2030",
-                            })
-                            
-                        idx_match = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_g_lower].index
-                        if not idx_match.empty:
-                            df_temp.at[idx_match[0], "Stato"] = prop_val
-
-                st.session_state.rose_lega = new_rose
-                st.session_state.df_giocatori = df_temp
-                st.session_state.last_uploaded_excel = excel_identifier
-                st.sidebar.success(f"Rosa caricata con successo! Trovati {len(df_excel)} elementi.")
+            submit_acq = st.form_submit_button("Conferma Acquisto")
+            if submit_acq:
+                if vincitore not in st.session_state.rose_lega:
+                    st.session_state.rose_lega[vincitore] = []
+                st.session_state.rose_lega[vincitore].append({
+                    "Nome": str(g_info["Nome"]),
+                    "Ruolo": str(g_info["Ruolo"]),
+                    "Squadra": str(g_info["Squadra"]),
+                    "Prezzo_Acquisto": int(prezzo_pagato),
+                    "Scadenza": "Giugno 2030"
+                })
+                idx_g = df[df["Nome"] == gioc_sel].index[0]
+                st.session_state.df_giocatori.at[idx_g, "Stato"] = vincitore
+                st.success(f"✅ {gioc_sel} assegnato a **{vincitore}** per {prezzo_pagato} crediti!")
                 st.rerun()
+    else:
+        st.info("Tutti i giocatori sono stati assegnati!")
+
+# --- TAB 2: SCOUTING & RENDIMENTO (>45 MIN) ---
+with tab_scout:
+    st.header("🔍 Scouting Giocatori Liberi")
+    st.write("Filtra i giocatori liberi in base alle **partite giocate con almeno 45 minuti** e agli indicatori di rendimento (FantaMedia, xG, xA).")
+
+    f_col1, f_col2, f_col3 = st.columns(3)
+    with f_col1:
+        ruolo_scout = st.selectbox("Ruolo:", ["Tutti", "P", "D", "C", "A"], key="scout_ruolo")
+    with f_col2:
+        min_part_45 = st.slider("Minimo partite con almeno 45 min:", 0, 38, 15, key="scout_min_45")
+    with f_col3:
+        solo_rig = st.checkbox("Solo rigoristi designati 🎯", key="scout_rig")
+
+    df_sc = df[df["Stato"] == "LIBERO"].copy()
+    if ruolo_scout != "Tutti":
+        df_sc = df_sc[df_sc["Ruolo"] == ruolo_scout]
+    df_sc = df_sc[df_sc["Partite_Almeno_45min"] >= min_part_45]
+    if solo_rig:
+        df_sc = df_sc[df_sc["Status_Piazzati"].str.startswith("Rigorista")]
+
+    df_sc = df_sc.sort_values(by="FantaMedia_Stimata", ascending=False)
+
+    st.dataframe(
+        df_sc[[
+            "Nome", "Squadra", "Ruolo", "Quotazione", "FantaMedia_Stimata", 
+            "Partite_Giocate", "Partite_Almeno_45min", "xG_90", "xA_90", "Status_Piazzati"
+        ]],
+        use_container_width=True,
+        hide_index=True
+    )
+
+# --- TAB 3: GESTIONE SCAMBI TRA SOCIETA ---
+with tab_scambi:
+    st.header("🔄 Gestione Scambi tra Società")
+    st.write("Effettua scambi di giocatori tra due rose differenti, con eventuale conguaglio in crediti.")
+
+    sc_col1, sc_col2 = st.columns(2)
+    with sc_col1:
+        squadra_1 = st.selectbox("Prima Squadra (Cede/Riceve):", PARTECIPANTI_LEGA, key="scambio_sq1")
+    with sc_col2:
+        squadra_2 = st.selectbox("Seconda Squadra (Cede/Riceve):", [p for p in PARTECIPANTI_LEGA if p != squadra_1], key="scambio_sq2")
+
+    rosa_s1 = st.session_state.rose_lega.get(squadra_1, [])
+    rosa_s2 = st.session_state.rose_lega.get(squadra_2, [])
+
+    if rosa_s1 and rosa_s2:
+        nomi_s1 = [g["Nome"] for g in rosa_s1]
+        nomi_s2 = [g["Nome"] for g in rosa_s2]
+
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            giocatori_da_s1 = st.multiselect(f"Giocatori da dare da **{squadra_1}** a **{squadra_2}**:", nomi_s1, key="scambio_sel_s1")
+        with col_g2:
+            giocatori_da_s2 = st.multiselect(f"Giocatori da dare da **{squadra_2}** a **{squadra_1}**:", nomi_s2, key="scambio_sel_s2")
+
+        conguaglio = st.number_input("Conguaglio in crediti (positivo se paga Sq1, negativo se paga Sq2):", value=0, step=1)
+
+        if st.button("🤝 Esegui Scambio Ufficiale"):
+            if not giocatori_da_s1 and not giocatori_da_s2:
+                st.warning("Seleziona almeno un giocatore da scambiare.")
             else:
-                st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
-        except Exception as e:
-            st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
+                # Estrai oggetti giocatore
+                obj_s1 = [g for g in rosa_s1 if g["Nome"] in giocatori_da_s1]
+                obj_s2 = [g for g in rosa_s2 if g["Nome"] in giocatori_da_s2]
 
-# --- MODIFICA SCADENZE CONTRATTI CON MESI E ANNI ---
-st.sidebar.divider()
-st.sidebar.subheader("📅 Modifica Scadenze Contratti")
-squadra_mod_scadenza = st.sidebar.selectbox("Seleziona squadra per contratti:", PARTECIPANTI_LEGA, key="mod_scad_sq")
-rosa_mod_scadenza = st.session_state.get("rose_lega", {}).get(squadra_mod_scadenza, [])
+                # Rimuovi da rose attuali e aggiungi alle nuove
+                st.session_state.rose_lega[squadra_1] = [g for g in rosa_s1 if g["Nome"] not in giocatori_da_s1] + obj_s2
+                st.session_state.rose_lega[squadra_2] = [g for g in rosa_s2 if g["Nome"] not in giocatori_da_s2] + obj_s1
 
-if rosa_mod_scadenza:
-    nomi_mod_scadenza = [str(g["Nome"]) for g in rosa_mod_scadenza]
-    giocatore_da_aggiornare = st.sidebar.selectbox("Seleziona giocatore:", nomi_mod_scadenza, key="mod_scad_gioc")
-    
-    gioc_obj_corrente = next((g for g in rosa_mod_scadenza if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower()), None)
-    scadenza_attuale_val = str(gioc_obj_corrente.get("Scadenza", "Giugno 2030")) if gioc_obj_corrente else "Giugno 2030"
-    
-    col_scad1, col_scad2 = st.sidebar.columns(2)
-    with col_scad1:
-        mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
-        mese_default = next((m for m in mesi_disponibili if m.lower() in scadenza_attuale_val.lower()), "Giugno")
-        idx_mese = mesi_disponibili.index(mese_default) if mese_default in mesi_disponibili else 5
-        nuovo_mese = st.selectbox("Mese:", mesi_disponibili, index=idx_mese, key="select_nuovo_mese")
-    
-    with col_scad2:
-        anni_disponibili = [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035]
-        anno_default = next((a for a in anni_disponibili if str(a) in scadenza_attuale_val), 2030)
-        idx_anno = anni_disponibili.index(anno_default) if anno_default in anni_disponibili else 4
-        nuovo_anno = st.selectbox("Anno:", anni_disponibili, index=idx_anno, key="select_nuovo_anno")
-    
-    scadenza_formattata = f"{nuovo_mese} {nuovo_anno}"
-    
-    if st.sidebar.button("💾 Aggiorna Scadenza", key="btn_aggiorna_scad"):
-        for g in st.session_state.rose_lega[squadra_mod_scadenza]:
-            if str(g["Nome"]).strip().lower() == str(giocatore_da_aggiornare).strip().lower():
-                g["Scadenza"] = scadenza_formattata
-                break
-        st.sidebar.success(f"✅ Contratto di **{giocatore_da_aggiornare}** aggiornato a **{scadenza_formattata}**!")
-        st.rerun()
-else:
-    st.sidebar.info("Rosa vuota.")
+                # Gestione conguaglio extra budget
+                if conguaglio != 0:
+                    st.session_state.extra_budget[squadra_1] = st.session_state.extra_budget.get(squadra_1, 0) - conguaglio
+                    st.session_state.extra_budget[squadra_2] = st.session_state.extra_budget.get(squadra_2, 0) + conguaglio
 
-st.sidebar.divider()
-st.sidebar.subheader("📋 Esplora Rose & Valori")
-squadra_da_esplorare = st.sidebar.selectbox(
-    "Seleziona rosa da visualizzare:", PARTECIPANTI_LEGA, key="esplora_sidebar"
-)
+                # Aggiorna dataframe globale stato
+                for g in obj_s1:
+                    idx = df[df["Nome"] == g["Nome"]].index
+                    if not idx.empty:
+                        st.session_state.df_giocatori.at[idx[0], "Stato"] = squadra_2
+                for g in obj_s2:
+                    idx = df[df["Nome"] == g["Nome"]].index
+                    if not idx.empty:
+                        st.session_state.df_giocatori.at[idx[0], "Stato"] = squadra_1
 
-rosa_selezionata_sidebar = st.session_state.get("rose_lega", {}).get(
-    squadra_da_esplorare, []
-)
+                st.success(f"✅ Scambio completato con successo tra **{squadra_1}** e **{squadra_2}**!")
+                st.rerun()
+    else:
+        st.info("Una delle due rose selezionate è vuota, impossibile effettuare scambi.")
 
-if rosa_selezionata_sidebar:
-    df_side_list = [
-        {
-            "Nome": g["Nome"],
-            "Ruolo": g["Ruolo"],
-            "Spesa": g.get("Prezzo_Acquisto", 1),
-            "Scadenza": g["Scadenza"],
-        }
-        for g in rosa_selezionata_sidebar
-    ]
-    st.sidebar.dataframe(
-        pd.DataFrame(df_side_list), use_container_width=True, hide_index=True
-    )
-else:
-    st.sidebar.info("Rosa vuota.")
+# --- TAB 4: GESTIONE PRESTITI ---
+with tab_prestiti:
+    st.header("🤝 Gestione Prestiti (6 Mesi / 1 Anno, Rinnovo & Interruzione)")
+    st.write("I prestiti hanno durata di 6 mesi o 1 anno. Puoi attivarli, **rinnovarli** o **interromperli** facendo rientrare il giocatore nella squadra d'origine in qualsiasi momento.")
 
-# ---------------------------------------------------------
-# 5. DASHBOARD PRINCIPALE: ASTA LIVE & PARAMETRI AVANZATI
-# ---------------------------------------------------------
-st.title("⚡ Live Auction Intelligent Assistant (Advanced)")
+    p_col1, p_col2 = st.columns(2)
+    with p_col1:
+        sq_cedente = st.selectbox("Squadra Cedente:", PARTECIPANTI_LEGA, key="prest_cedente")
+    rosa_ced = st.session_state.rose_lega.get(sq_cedente, [])
 
-st.subheader(f"🔍 Analisi Giocatore per: {fanta_allenatore_attivo}")
-giocatori_liberi = df[df["Stato"] == "LIBERO"]["Nome"].tolist()
-
-if giocatori_liberi:
-    giocatore_sel = st.selectbox(
-        "Seleziona il giocatore chiamato in asta:",
-        giocatori_liberi,
-        key="seleziona_giocatore_asta",
-    )
-    g_data = df[df["Nome"] == giocatore_sel].iloc[0]
-
-    riserva_minima = max(0, totale_slot_liberi - 1)
-    budget_spendibile = max(0, budget_rimanente_corrente - riserva_minima)
-
-    percentuali_tier = {
-        "Top": 0.45,
-        "Semitop": 0.22,
-        "Titolare": 0.08,
-        "Scommessa": 0.03,
-    }
-    base_offerta = int(
-        budget_spendibile * percentuali_tier.get(g_data["Tier"], 0.04)
-    )
-
-    if g_data["Status_Piazzati"].startswith("Rigorista"):
-        base_offerta += 5
-    if g_data["FantaMedia_Stimata"] >= 7.0:
-        base_offerta += 3
-
-    max_offerta_consigliata = max(1, base_offerta)
-    max_offerta_consigliata = (
-        max_offerta_consigliata if slot_liberi[g_data["Ruolo"]] > 0 else 0
-    )
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(
-        "Ruolo & Squadra",
-        f"{g_data['Ruolo']} - {g_data['Squadra']}",
-        f"Tier: {g_data['Tier']}",
-    )
-    col2.metric("FantaMedia Stimata", f"{g_data['FantaMedia_Stimata']} FM")
-    col3.metric("Rigorista / Piazzati", f"{g_data['Status_Piazzati']}")
-    col4.metric(
-        "🔥 Max Offerta Consigliata", f"{max_offerta_consigliata} cr"
-    )
-
-    # Box metriche avanzate (xG, xA, Cartellini, Infortuni)
-    with st.expander("📊 Metriche Avanzate & Dettagli Realistici"):
-        m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-        m_col1.metric("xG / 90 min", f"{g_data['xG_90']}")
-        m_col2.metric("xA / 90 min", f"{g_data['xA_90']}")
-        m_col3.metric("Rischio Cartellini", f"{g_data['Indice_Cartellini']}")
-        m_col4.metric("Rischio Infortunio", f"{g_data['Rischio_Infortunio']}")
-
-    with st.form("form_aggiudicazione"):
-        st.write("### Registra Acquisto Asta")
-        col_A, col_B = st.columns(2)
-        with col_A:
-            prezzo_aggiudicazione = st.number_input(
-                "Prezzo di chiusura asta (crediti):",
-                min_value=1,
-                value=max(1, int(max_offerta_consigliata)),
-            )
-        with col_B:
-            vincitore_asta = st.selectbox(
-                "Assegna a fanta-allenatore:",
-                PARTECIPANTI_LEGA,
-                index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0,
-                key="vincitore_asta_form",
-            )
-        submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
-
-        if submit_asta:
-            current_rose = st.session_state.get("rose_lega", {})
-            if vincitore_asta not in current_rose:
-                current_rose[vincitore_asta] = []
-            
-            current_rose[vincitore_asta].append({
-                "Nome": str(g_data["Nome"]),
-                "Ruolo": str(g_data["Ruolo"]),
-                "Squadra": str(g_data["Squadra"]),
-                "Prezzo_Acquisto": int(prezzo_aggiudicazione),
-                "Valore_Attuale": int(g_data["Quotazione"]),
-                "Scadenza": "Giugno 2030",
-            })
-            st.session_state.rose_lega = current_rose
-            idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
-            st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = (
-                vincitore_asta
-            )
-            st.success(
-                f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
-            )
-            st.rerun()
-else:
-    st.success("🎉 Tutti i giocatori sono stati assegnati!")
-
-# ---------------------------------------------------------
-# 6. SEZIONE SCOUTING AVANZATO & FILTRI
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🎯 Scout di Rendimento & Parametri Avanzati")
-
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
-    filtro_ruolo = st.selectbox(
-        "Filtra per Ruolo:", ["Tutti", "P", "D", "C", "A"], key="filtro_ruolo_scout"
-    )
-with col_f2:
-    filtro_tier = st.selectbox(
-        "Filtra per Tier:",
-        ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"],
-        key="filtro_tier_scout",
-    )
-with col_f3:
-    solo_rigoristi_checkbox = st.checkbox(
-        "Solo Rigoristi Designati 🎯", key="filtro_rigoristi_scout"
-    )
-
-df_scout = df[df["Stato"] == "LIBERO"].copy()
-if filtro_ruolo != "Tutti":
-    df_scout = df_scout[df_scout["Ruolo"] == filtro_ruolo]
-if filtro_tier != "Tutti":
-    df_scout = df_scout[df_scout["Tier"] == filtro_tier]
-if solo_rigoristi_checkbox:
-    df_scout = df_scout[
-        df_scout["Status_Piazzati"].str.startswith("Rigorista")
-    ]
-
-st.dataframe(
-    df_scout[[
-        "Nome",
-        "Squadra",
-        "Ruolo",
-        "Quotazione",
-        "FantaMedia_Stimata",
-        "xG_90",
-        "xA_90",
-        "Status_Piazzati",
-        "Indice_Continuita",
-        "Rischio_Infortunio",
-        "Valore_Atteso",
-    ]],
-    use_container_width=True,
-    hide_index=True,
-)
-
-# ---------------------------------------------------------
-# 7. SEZIONE SVINCOLI E GESTIONE ROSA
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🔄 Gestione Rosa & Svincoli (Rendi Libero)")
-
-allenatore_svincolo = st.selectbox(
-    "Seleziona allenatore che intende svincolare:",
-    PARTECIPANTI_LEGA,
-    key="select_svincolo_allenatore",
-)
-rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(
-    allenatore_svincolo, []
-)
-
-if rosa_allenatore_attuale:
-    nomi_giocatori_in_rosa = [str(g["Nome"]) for g in rosa_allenatore_attuale]
-
-    giocatore_da_svincolare = st.selectbox(
-        "Seleziona il giocatore da svincolare (torna LIBERO):",
-        nomi_giocatori_in_rosa,
-        key="select_giocatore_da_svincolare",
-    )
-
-    if st.button("🗑️ Conferma Svincolo / Rendi Libero", key="btn_svincola"):
-        current_rose = st.session_state.get("rose_lega", {})
-        current_rose[allenatore_svincolo] = [
-            g
-            for g in rosa_allenatore_attuale
-            if str(g["Nome"]).strip().lower()
-            != str(giocatore_da_svincolare).strip().lower()
-        ]
-        st.session_state.rose_lega = current_rose
-
-        match_idx = st.session_state.df_giocatori[
-            st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
-            == str(giocatore_da_svincolare).strip().lower()
-        ].index
-
-        if not match_idx.empty:
-            for idx_df in match_idx:
-                st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
-
-        st.success(
-            f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo} ed è ora nuovamente **LIBERO**!"
-        )
-        st.rerun()
-else:
-    st.info(f"La rosa di {allenatore_svincolo} è vuota.")
-
-# ---------------------------------------------------------
-# 8. SEZIONE GESTIONE PRESTITI (6 MESI / 1 ANNO, RINNOVO & INTERRUZIONE)
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🤝 Gestione Prestiti tra Squadre (Durata, Rinnovo & Interruzione)")
-
-col_p1, col_p2 = st.columns(2)
-with col_p1:
-    squadra_cedente = st.selectbox(
-        "Squadra che cede in prestito:",
-        PARTECIPANTI_LEGA,
-        key="prestito_da_squadra",
-    )
-
-rosa_cedente = st.session_state.get("rose_lega", {}).get(squadra_cedente, [])
-
-if rosa_cedente:
-    nomi_cedente = [str(g["Nome"]) for g in rosa_cedente]
-    with col_p2:
-        squadra_ricevente = st.selectbox(
-            "Squadra che riceve in prestito:",
-            [p for p in PARTECIPANTI_LEGA if p != squadra_cedente],
-            key="prestito_a_squadra",
-        )
-
-    col_dur1, col_dur2 = st.columns(2)
-    with col_dur1:
-        giocatore_prestito = st.selectbox(
-            "Seleziona il giocatore da dare in prestito:",
-            nomi_cedente,
-            key="giocatore_in_prestito_sel",
-        )
-    with col_dur2:
-        durata_prestito = st.selectbox(
-            "Durata del prestito:",
-            ["6 mesi", "1 anno"],
-            key="durata_prestito_sel"
-        )
-
-    if st.button("🔄 Registra Nuovo Prestito", key="btn_prestito"):
-        giocatore_obj = next(
-            (
-                g
-                for g in rosa_cedente
-                if str(g["Nome"]).strip().lower()
-                == str(giocatore_prestito).strip().lower()
-            ),
-            None,
-        )
-
-        if giocatore_obj:
-            # Rimuovi da cedente e sposta a ricevente
-            current_rose = st.session_state.get("rose_lega", {})
-            current_rose[squadra_cedente] = [
-                g
-                for g in rosa_cedente
-                if str(g["Nome"]).strip().lower()
-                != str(giocatore_prestito).strip().lower()
-            ]
-            if squadra_ricevente not in current_rose:
-                current_rose[squadra_ricevente] = []
-            
-            current_rose[squadra_ricevente].append(giocatore_obj)
-            st.session_state.rose_lega = current_rose
-
-            # Aggiorna stato globale df
-            match_idx = st.session_state.df_giocatori[
-                st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
-                == str(giocatore_prestito).strip().lower()
-            ].index
-            if not match_idx.empty:
-                for idx_df in match_idx:
-                    st.session_state.df_giocatori.at[idx_df, "Stato"] = squadra_ricevente
-
-            # Registra nel registro prestiti attivo
-            st.session_state.prestiti_lega.append({
-                "Giocatore": giocatore_obj["Nome"],
-                "Da": squadra_cedente,
-                "A": squadra_ricevente,
-                "Durata": durata_prestito,
-                "Stato": "Attivo"
-            })
-
-            st.success(
-                f"✅ Prestito completato ({durata_prestito}): **{giocatore_prestito}** è passato da **{squadra_cedente}** a **{squadra_ricevente}**!"
-            )
-            st.rerun()
-else:
-    st.info(f"La rosa di {squadra_cedente} è vuota, impossibile effettuare prestiti.")
-
-# Tabella e gestione prestiti in corso (Rinnova / Interrompi)
-if st.session_state.prestiti_lega:
-    st.markdown("#### 📋 Registro Prestiti Attivi & Storico")
-    for idx, prestito in enumerate(st.session_state.prestiti_lega):
-        p_col1, p_col2, p_col3, p_col4 = st.columns([3, 2, 2, 2])
-        with p_col1:
-            st.write(f"**{prestito['Giocatore']}** ({prestito['Da']} ➡️ {prestito['A']})")
-            st.caption(f"Durata iniziale: {prestito['Durata']} | Stato: **{prestito['Stato']}**")
+    if rosa_ced:
+        nomi_ced = [g["Nome"] for g in rosa_ced]
         with p_col2:
-            pass
-        with p_col3:
-            if prestito["Stato"] in ["Attivo", "Rinnovato"]:
-                if st.button("🔄 Rinnova", key=f"btn_rinnova_{idx}"):
-                    st.session_state.prestiti_lega[idx]["Stato"] = "Rinnovato"
-                    st.success(f"Prestito di {prestito['Giocatore']} rinnovato!")
-                    st.rerun()
-        with p_col4:
-            if prestito["Stato"] in ["Attivo", "Rinnovato"]:
-                if st.button("🛑 Interrompi", key=f"btn_interrompi_{idx}"):
-                    # Riporta il giocatore alla squadra originale (Da)
-                    giocatore_nome = prestito["Giocatore"]
-                    sq_orig = prestito["Da"]
-                    sq_attuale = prestito["A"]
-                    
-                    # Cerca il giocatore nella squadra attuale
-                    rosa_attuale_prestito = st.session_state.rose_lega.get(sq_attuale, [])
-                    gioc_trovato = next((g for g in rosa_attuale_prestito if str(g["Nome"]).strip().lower() == str(giocatore_nome).strip().lower()), None)
-                    
-                    if gioc_trovato:
-                        st.session_state.rose_lega[sq_attuale] = [g for g in rosa_attuale_prestito if str(g["Nome"]).strip().lower() != str(giocatore_nome).strip().lower()]
-                        if sq_orig not in st.session_state.rose_lega:
-                            st.session_state.rose_lega[sq_orig] = []
-                        st.session_state.rose_lega[sq_orig].append(gioc_trovato)
-                        
-                        # Aggiorna dataframe globale
-                        match_idx = st.session_state.df_giocatori[
-                            st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
-                            == str(giocatore_nome).strip().lower()
-                        ].index
-                        if not match_idx.empty:
-                            for idx_df in match_idx:
-                                st.session_state.df_giocatori.at[idx_df, "Stato"] = sq_orig
+            sq_ricevente = st.selectbox("Squadra Ricevente:", [p for p in PARTECIPANTI_LEGA if p != sq_cedente], key="prest_ricevente")
 
-                    st.session_state.prestiti_lega[idx]["Stato"] = "Interrotto"
-                    st.success(f"Prestito di {giocatore_nome} interrotto! Rientrato a {sq_orig}.")
-                    st.rerun()
+        cp_1, cp_2 = st.columns(2)
+        with cp_1:
+            gioc_prestito = st.selectbox("Giocatore in prestito:", nomi_ced, key="gioc_prest")
+        with cp_2:
+            durata_p = st.selectbox("Durata prestito:", ["6 mesi", "1 anno"], key="durata_p")
+
+        if st.button("📝 Registra Prestito"):
+            g_obj = next((g for g in rosa_ced if g["Nome"] == gioc_prestito), None)
+            if g_obj:
+                st.session_state.rose_lega[sq_cedente] = [g for g in rosa_ced if g["Nome"] != gioc_prestito]
+                if sq_ricevente not in st.session_state.rose_lega:
+                    st.session_state.rose_lega[sq_ricevente] = []
+                st.session_state.rose_lega[sq_ricevente].append(g_obj)
+
+                # Aggiorna stato globale
+                idx = df[df["Nome"] == gioc_prestito].index
+                if not idx.empty:
+                    st.session_state.df_giocatori.at[idx[0], "Stato"] = sq_ricevente
+
+                st.session_state.prestiti_lega.append({
+                    "Giocatore": gioc_prestito,
+                    "Da": sq_cedente,
+                    "A": sq_ricevente,
+                    "Durata": durata_p,
+                    "Stato": "Attivo"
+                })
+                st.success(f"✅ Prestito registrato ({durata_p}): **{gioc_prestito}** da {sq_cedente} a {sq_ricevente}!")
+                st.rerun()
+    else:
+        st.info("La rosa selezionata è vuota.")
+
+    st.subheader("📋 Registro Prestiti in Corso")
+    if st.session_state.prestiti_lega:
+        for idx, prestito in enumerate(st.session_state.prestiti_lega):
+            r_c1, r_c2, r_c3, r_c4 = st.columns([3, 2, 2, 2])
+            with r_c1:
+                st.write(f"**{prestito['Giocatore']}** ({prestito['Da']} ➡️ {prestito['A']})")
+                st.caption(f"Durata: {prestito['Durata']} | Stato: **{prestito['Stato']}**")
+            with r_c2:
+                pass
+            with r_c3:
+                if prestito["Stato"] in ["Attivo", "Rinnovato"]:
+                    if st.button("🔄 Rinnova", key=f"rinn_{idx}"):
+                        st.session_state.prestiti_lega[idx]["Stato"] = "Rinnovato"
+                        st.success("Prestito rinnovato!")
+                        st.rerun()
+            with r_c4:
+                if prestito["Stato"] in ["Attivo", "Rinnovato"]:
+                    if st.button("🛑 Interrompi", key=f"interr_{idx}"):
+                        g_nome = prestito["Giocatore"]
+                        sq_orig = prestito["Da"]
+                        sq_att = prestito["A"]
+                        
+                        rosa_att_prest = st.session_state.rose_lega.get(sq_att, [])
+                        g_trovato = next((g for g in rosa_att_prest if g["Nome"] == g_nome), None)
+                        
+                        if g_trovato:
+                            st.session_state.rose_lega[sq_att] = [g for g in rosa_att_prest if g["Nome"] != g_nome]
+                            if sq_orig not in st.session_state.rose_lega:
+                                st.session_state.rose_lega[sq_orig] = []
+                            st.session_state.rose_lega[sq_orig].append(g_trovato)
+
+                            idx_df = df[df["Nome"] == g_nome].index
+                            if not idx_df.empty:
+                                st.session_state.df_giocatori.at[idx_df[0], "Stato"] = sq_orig
+
+                        st.session_state.prestiti_lega[idx]["Stato"] = "Interrotto"
+                        st.success(f"Prestito interrotto. {g_nome} è rientrato a {sq_orig}.")
+                        st.rerun()
+    else:
+        st.info("Nessun prestito registrato.")
+
+# --- TAB 5: VISUALIZZA ROSE ---
+with tab_rose:
+    st.header("📋 Visualizzazione Rose e Svincoli")
+    sq_vista = st.selectbox("Seleziona squadra da visualizzare:", PARTECIPANTI_LEGA, key="vista_sq")
+    rosa_v = st.session_state.rose_lega.get(sq_vista, [])
+
+    if rosa_v:
+        df_r = pd.DataFrame(rosa_v)
+        st.dataframe(df_r, use_container_width=True, hide_index=True)
+
+        st.subheader("Svincola Giocatore (Rendi Libero)")
+        nomi_v = [g["Nome"] for g in rosa_v]
+        gioc_svin = st.selectbox("Seleziona giocatore da svincolare:", nomi_v, key="svin_sel")
+        if st.button("🗑️ Conferma Svincolo"):
+            st.session_state.rose_lega[sq_vista] = [g for g in rosa_v if g["Nome"] != gioc_svin]
+            idx_d = df[df["Nome"] == gioc_svin].index
+            if not idx_d.empty:
+                st.session_state.df_giocatori.at[idx_d[0], "Stato"] = "LIBERO"
+            st.success(f"✅ {gioc_svin} svincolato ed è tornato LIBERO.")
+            st.rerun()
+    else:
+        st.info("La rosa è vuota.")
