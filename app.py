@@ -682,7 +682,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             crediti_res = dati["crediti"]
             
             p = len(r_df[r_df["Ruolo"] == "P"]) if not r_df.empty else 0
-            d = len(r_df[r_df["Ruolo"] == "D"]) if not r_df.media_esiste if not r_df.empty else 0
+            d = len(r_df[r_df["Ruolo"] == "D"]) if not r_df.empty else 0
             c = len(r_df[r_df["Ruolo"] == "C"]) if not r_df.empty else 0
             a = len(r_df[r_df["Ruolo"] == "A"]) if not r_df.empty else 0
             
