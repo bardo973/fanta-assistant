@@ -4,14 +4,20 @@ import io
 
 st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
 
-# --- LISTA DELLE 10 SQUADRE ---
+# --- LISTA DELLE 10 SQUADRE UFFICIALI ---
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 
-# --- INIZIALIZZAZIONE DELLO STATO DELLA SESSIONE ---
-if 'squadre' not in st.session_state:
-    st.session_state.squadre = {sq: {"crediti": 500, "rosa": []} for sq in NOMI_SQUADRE}
-    
-    # Rosa precaricata di esempio per PECU presa dai tuoi dati storici
+# --- INIZIALIZZAZIONE SICURA DELLO STATO DELLA SESSIONE ---
+if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
+    st.session_state.squadre = {}
+
+# Assicuriamoci che tutte le 10 squadre esistano e abbiano crediti e rosa inizializzati
+for sq in NOMI_SQUADRE:
+    if sq not in st.session_state.squadre:
+        st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+
+# Rosa precaricata di esempio per PECU (se la sua rosa è vuota)
+if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
         {"Nome": "Skorupski", "Ruolo": "P", "Costo_Acquisto": 14},
         {"Nome": "Paleari", "Ruolo": "P", "Costo_Acquisto": 8},
@@ -42,7 +48,6 @@ if 'squadre' not in st.session_state:
     ]
 
 if 'giocatori_db' not in st.session_state:
-    # Database di scouting iniziale di fallback
     data_iniziale = [
         {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 27, "FantaMedia": 7.8, "Potenziale": 4, "Titolarita": 5},
         {"Nome": "Vardy", "Ruolo": "A", "Squadra_SerieA": "Cremonese", "Quotazione": 16, "FantaMedia": 7.2, "Potenziale": 3, "Titolarita": 4},
@@ -62,7 +67,6 @@ st.sidebar.title("⚽ Fanta Manager Hub")
 
 with st.sidebar.expander("📁 Importazione Dati & Listone"):
     st.markdown("### 1. Carica Listone Fantagazzetta")
-    st.markdown("Carica il file ufficiale (CSV o Excel) scaricato da Fantagazzetta/FantaMaster.")
     listone_file = st.file_uploader("File Listone (csv, xlsx)", type=["csv", "xlsx"], key="upload_listone")
     
     if listone_file is not None:
@@ -72,14 +76,11 @@ with st.sidebar.expander("📁 Importazione Dati & Listone"):
             else:
                 df_load = pd.read_excel(listone_file)
             
-            # Tentativo di normalizzazione colonne comuni di Fantagazzetta (Nome, R, Rm, Squadra, Quotazione, ecc.)
-            # Adattiamo i nomi se necessario o mappiamo
-            st.success("Listone caricato con successo! Controlla e mappa le colonne se richiesto.")
+            st.success("Listone caricato con successo!")
             if st.button("Salva Listone nel Database"):
-                # Rinomina flessibile se esistono le colonne tipiche
                 col_mappa = {}
                 for col in df_load.columns:
-                    c_low = col.lower()
+                    c_low = str(col).lower()
                     if 'nome' in c_low or 'giocatore' in c_low: col_mappa[col] = 'Nome'
                     elif c_low in ['r', 'ruolo']: col_mappa[col] = 'Ruolo'
                     elif 'squadra' in c_low: col_mappa[col] = 'Squadra_SerieA'
@@ -87,13 +88,11 @@ with st.sidebar.expander("📁 Importazione Dati & Listone"):
                 
                 df_load = df_load.rename(columns=col_mappa)
                 
-                # Campi obbligatori minimi
                 if 'Nome' in df_load.columns:
                     if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
                     if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                     if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                     
-                    # Aggiungi metriche di scouting di default se mancanti
                     df_load['FantaMedia'] = 6.0
                     df_load['Potenziale'] = 3
                     df_load['Titolarita'] = 3
@@ -105,13 +104,6 @@ with st.sidebar.expander("📁 Importazione Dati & Listone"):
                     st.error("Impossibile trovare la colonna del Nome nel file caricato.")
         except Exception as e:
             st.error(f"Errore nella lettura del file: {e}")
-
-    st.markdown("---")
-    st.markdown("### 2. Carica Rose Iniziali")
-    st.markdown("Carica un file con le rose delle 10 squadre.")
-    rose_file = st.file_uploader("File Rose (csv, xlsx)", type=["csv", "xlsx"], key="upload_rose")
-    if rose_file is not None:
-        st.info("Funzionalità di import massivo rose pronta (richiede colonne: Squadra, Nome, Ruolo, Costo).")
 
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database", 
@@ -125,8 +117,6 @@ menu = st.sidebar.selectbox("Navigazione", [
 # ==========================================
 if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting & Parametri Giocatori")
-    st.markdown("Filtra e analizza i giocatori del listone in base a parametri avanzati di scouting (FantaMedia, Potenziale, Titolarità).")
-
     df = st.session_state.giocatori_db
 
     col1, col2, col3 = st.columns(3)
@@ -147,30 +137,6 @@ if menu == "🔍 Scouting & Database":
 
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
     st.dataframe(df_filtrato, use_container_width=True)
-
-    with st.expander("➕ Aggiungi Nuovo Giocatore al Database"):
-        with st.form("form_nuovo_giocatore"):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                n_nome = st.text_input("Nome Giocatore")
-                n_ruolo = st.selectbox("Ruolo", ["P", "D", "C", "A"])
-            with c2:
-                n_squadra = st.text_input("Squadra di Serie A")
-                n_quot = st.number_input("Quotazione / Valore", min_value=1, value=10)
-            with c3:
-                n_fm = st.number_input("FantaMedia Prevista", min_value=4.0, max_value=10.0, value=6.0, step=0.1)
-                n_pot = st.slider("Potenziale (1-5)", 1, 5, 3)
-                n_tit = st.slider("Titolarità (1-5)", 1, 5, 3)
-            
-            submit_giocatore = st.form_submit_button("Inserisci nel Database")
-            if submit_giocatore and n_nome:
-                nuova_riga = pd.DataFrame([{
-                    "Nome": n_nome, "Ruolo": n_ruolo, "Squadra_SerieA": n_squadra,
-                    "Quotazione": n_quot, "FantaMedia": n_fm, "Potenziale": n_pot, "Titolarita": n_tit
-                }])
-                st.session_state.giocatori_db = pd.concat([st.session_state.giocatori_db, nuova_riga], ignore_index=True)
-                st.success(f"Giocatore {n_nome} aggiunto correttamente!")
-                st.rerun()
 
 # ==========================================
 # 2. MERCATO (ACQUISTI E VENDITE)
@@ -245,8 +211,6 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
 # ==========================================
 elif menu == "🤝 Scambi tra Proprietà":
     st.header("🤝 Negoziazione Scambi & Prestiti")
-    st.markdown("Gestisci scambi diretti o prestiti tra le 10 squadre, con conguagli in denaro opzionali.")
-
     c_off, c_ricev = st.columns(2)
 
     with c_off:
@@ -308,7 +272,6 @@ elif menu == "🤝 Scambi tra Proprietà":
 elif menu == "📋 Rose e Crediti (10 Squadre)":
     st.header("📋 Riepilogo Rose e Situazione Finanziaria delle 10 Squadre")
 
-    # Selettore o visualizzazione a tab per le 10 squadre
     tabs_squadre = st.tabs(NOMI_SQUADRE)
 
     for i, nome_sq in enumerate(NOMI_SQUADRE):
@@ -323,6 +286,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             rosa_df = pd.DataFrame(dati["rosa"])
             if not rosa_df.empty:
                 st.dataframe(rosa_df, use_container_width=True)
-                st.write(l := f"Totale giocatori in rosa: **{len(rosa_df)}**")
+                st.markdown(f"Totale giocatori in rosa: **{len(rosa_df)}**")
             else:
                 st.info("La rosa è attualmente vuota.")
