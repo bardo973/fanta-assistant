@@ -9,6 +9,33 @@ st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_ico
 # --- LISTA DELLE 10 SQUADRE UFFICIALI ---
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 
+# --- FUNZIONI DI CALCOLO AVANZATE ---
+def calcola_prezzo_consigliato(row):
+    quot = row.get('Quotazione', 10)
+    fm = row.get('FantaMedia', 6.0)
+    fm_25 = row.get('FM_2025', fm)
+    fm_24 = row.get('FM_2024', fm)
+    
+    media_storica = (fm + fm_25 + fm_24) / 3
+    bonus_rendimento = max(0, (media_storica - 6.0) * 5)
+    
+    ruolo = row.get('Ruolo', 'C')
+    moltiplicatore_ruolo = {'A': 1.3, 'C': 1.1, 'D': 1.0, 'P': 0.9}.get(ruolo, 1.0)
+    
+    prezzo_stimato = (quot + bonus_rendimento) * moltiplicatore_ruolo
+    return max(1, int(round(prezzo_stimato)))
+
+def calcola_trend(row):
+    fm_attuale = row.get('FantaMedia', 6.0)
+    fm_passata = row.get('FM_2025', fm_attuale)
+    diff = fm_attuale - fm_passata
+    if diff > 0.1:
+        return "📈 In Crescita"
+    elif diff < -0.1:
+        return "📉 In Calo"
+    else:
+        return "➡️ Stabile"
+
 # --- INIZIALIZZAZIONE SICURA DELLO STATO DELLA SESSIONE ---
 if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
     st.session_state.squadre = {}
@@ -115,28 +142,30 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
-                if 'Prezzo_Consigliato' not in df_load.columns: df_load['Prezzo_Consigliato'] = df_load['Quotazione'] + 2
                 if 'FM_2025' not in df_load.columns: df_load['FM_2025'] = df_load['FantaMedia']
                 if 'FM_2024' not in df_load.columns: df_load['FM_2024'] = df_load['FantaMedia']
                 if 'FM_2023' not in df_load.columns: df_load['FM_2023'] = df_load['FantaMedia']
                 
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                df_load['Prezzo_Consigliato'] = pd.to_numeric(df_load['Prezzo_Consigliato'], errors='coerce').fillna(10).astype(int)
                 
                 for col_name in ['FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']:
-                    col_data = df_load[col_name]
-                    if isinstance(col_data, pd.DataFrame):
-                        col_data = col_data.iloc[:, 0]
-                    df_load[col_name] = pd.to_numeric(
-                        col_data.astype(str).str.replace(',', '.', regex=False), 
-                        errors='coerce'
-                    ).fillna(6.0)
+                    if col_name in df_load.columns:
+                        col_data = df_load[col_name]
+                        if isinstance(col_data, pd.DataFrame):
+                            col_data = col_data.iloc[:, 0]
+                        df_load[col_name] = pd.to_numeric(
+                            col_data.astype(str).str.replace(',', '.', regex=False), 
+                            errors='coerce'
+                        ).fillna(6.0)
+                
+                # Calcolo avanzato Prezzo Consigliato e Trend
+                df_load['Prezzo_Consigliato'] = df_load.apply(calcola_prezzo_consigliato, axis=1)
                 
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita']]
-                st.sidebar.success("Listone e statistiche storiche importati con successo!")
+                st.sidebar.success("Listone, statistiche storiche e prezzi intelligenti importati con successo!")
             else:
                 st.sidebar.error("Impossibile trovare la colonna 'Nome' nel file.")
         except Exception as e:
@@ -324,6 +353,7 @@ if menu == "🔍 Scouting & Database":
     df = st.session_state.giocatori_db.copy()
 
     df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
+    df["Trend"] = df.apply(calcola_trend, axis=1)
 
     giocatori_assegnati = {}
     for sq, dati in st.session_state.squadre.items():
@@ -358,7 +388,7 @@ if menu == "🔍 Scouting & Database":
         if scelta_confronto_scout:
             st.markdown("##### ⚖️ Confronto rapido obiettivi di scouting")
             df_scout_comp = df_filtrato[df_filtrato["Nome"].isin(scelta_confronto_scout)]
-            st.dataframe(df_scout_comp[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Indice_Affare", "Proprietario"]], use_container_width=True)
+            st.dataframe(df_scout_comp[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Trend", "Indice_Affare", "Proprietario"]], use_container_width=True)
 
     st.dataframe(df_filtrato, use_container_width=True)
 
@@ -375,7 +405,7 @@ if menu == "🔍 Scouting & Database":
 
     if len(st.session_state.watchlist) > 0:
         df_watch = df[df["Nome"].isin(st.session_state.watchlist)]
-        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Indice_Affare", "Proprietario"]], use_container_width=True)
+        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Trend", "Indice_Affare", "Proprietario"]], use_container_width=True)
         if st.button("Svuota Watchlist"):
             st.session_state.watchlist = []
             st.rerun()
