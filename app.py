@@ -223,7 +223,6 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 g_nome = str(row[col_nome]).strip()
                                 g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
                                 
-                                # Conversione sicura per evitare errori di tipo (Timestamp, stringhe, NaN)
                                 raw_costo = row[col_costo] if col_costo and pd.notna(row[col_costo]) else 1
                                 try:
                                     g_costo = int(pd.to_numeric(raw_costo, errors='coerce'))
@@ -518,11 +517,17 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
+                    # Calcolo automatico della stagione di scadenza in base all'anno corrente (2026) e agli anni di contratto
+                    anno_corrente = 2026
+                    rosa_df["Scadenza_Contratto"] = rosa_df["Anni_Contratto"].apply(lambda x: f"Giugno {anno_corrente + int(x)}")
+
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
                     d = conti_ruoli.get("D", 0)
                     c = conti_ruoli.get("C", 0)
                     a = conti_ruoli.get("A", 0)
+                    
+                    st.caption(f"Composizione Rosa: 🟢 Portieri: **{p}** | 🟡 Difensori: **{d}** | 🔵 Centrocampisti: **{c}** | 🔴 Attaccanti: **{a}** (Totale: {len(rosa_df)})")
                     
                     with st.expander("⚙️ Gestisci / Modifica Anni Contratto Rosa"):
                         g_sel_contratto = st.selectbox("Seleziona Giocatore", rosa_df["Nome"].values, key=f"sel_c_{nome_sq}")
@@ -534,46 +539,33 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                             st.success(f"Contratto di {g_sel_contratto} aggiornato a {nuovi_anni} anni!")
                             st.rerun()
 
-                    st.caption(f"Composizione reparto ➔ Portieri: {p} | Difensori: {d} | Centrocampisti: {c} | Attaccanti: {a} (Tot: {len(rosa_df)})")
-                    
                     st.dataframe(rosa_df, use_container_width=True)
                 else:
-                    st.info("La rosa è attualmente vuota.")
+                    st.info(f"La rosa di {nome_sq} è attualmente vuota.")
 
     with tab_matrice:
-        st.subheader("📊 Quadro Generale delle 10 Proprietà & Contratti")
-        summary_data = []
-        for sq in NOMI_SQUADRE:
-            dati = st.session_state.squadre[sq]
-            rosa = dati["rosa"]
-            tot_giocatori = len(rosa)
-            crediti = dati["crediti"]
+        st.subheader("📊 Panoramica Generale delle 10 Squadre")
+        riepilogo_data = []
+        for nome_sq in NOMI_SQUADRE:
+            dati = st.session_state.squadre[nome_sq]
+            r_df = pd.DataFrame(dati["rosa"])
+            tot_giocatori = len(r_df)
+            crediti_res = dati["crediti"]
             
-            p, d, c, a = 0, 0, 0, 0
-            spesa_totale = 0
-            contratti_in_scadenza = 0
+            p = len(r_df[r_df["Ruolo"] == "P"]) if not r_df.empty else 0
+            d = len(r_df[r_df["Ruolo"] == "D"]) if not r_df.empty else 0
+            c = len(r_df[r_df["Ruolo"] == "C"]) if not r_df.empty else 0
+            a = len(r_df[r_df["Ruolo"] == "A"]) if not r_df.empty else 0
             
-            for g in rosa:
-                r = g.get("Ruolo", "C")
-                if r == "P": p += 1
-                elif r == "D": d += 1
-                elif r == "C": c += 1
-                elif r == "A": a += 1
-                spesa_totale += g.get("Costo_Acquisto", 0)
-                if g.get("Anni_Contratto", 1) == 1:
-                    contratti_in_scadenza += 1
-
-            summary_data.append({
-                "Squadra": sq,
-                "Crediti Residui": crediti,
-                "Spesa Totale": spesa_totale,
-                "Tot. Giocatori": tot_giocatori,
-                "Scadenze (1 Anno)": contratti_in_scadenza,
+            riepilogo_data.append({
+                "Squadra": nome_sq,
+                "Crediti Residui": crediti_res,
+                "Tot Giocatori": tot_giocatori,
                 "Portieri (P)": p,
                 "Difensori (D)": d,
                 "Centrocampisti (C)": c,
                 "Attaccanti (A)": a
             })
-        
-        df_summary = pd.DataFrame(summary_data)
-        st.dataframe(df_summary, use_container_width=True)
+            
+        df_riepilogo = pd.DataFrame(riepilogo_data)
+        st.dataframe(df_riepilogo, use_container_width=True)
