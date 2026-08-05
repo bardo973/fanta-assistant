@@ -378,9 +378,8 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 df_rosa_sq = pd.DataFrame(rosa_sq_corrente)
                 df_rosa_stesso_ruolo = df_rosa_sq[df_rosa_sq["Ruolo"] == info_g["Ruolo"]]
                 
-                # Aggiungiamo dati di confronto uniti dal DB se disponibili
                 if not df_rosa_stesso_ruolo.empty:
-                    st.caption(Giocatori nel ruolo di {info_g['Ruolo']} attualmente nella rosa di {squadra_selezionata}:)
+                    st.caption(f"Giocatori nel ruolo di {info_g['Ruolo']} attualmente nella rosa di {squadra_selezionata}:")
                     st.dataframe(df_rosa_stesso_ruolo[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
                 else:
                     st.info(f"Non hai altri giocatori di ruolo {info_g['Ruolo']} in rosa.")
@@ -593,7 +592,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         if st.button("Aggiorna Scadenza Contratto", key=f"btn_c_{nome_sq}"):
                             for g_item in st.session_state.squadre[nome_sq]["rosa"]:
                                 if g_item["Nome"] == g_sel_contratto:
-                                    g_item["Scadenza_Contratto"] = nuova_scadenza
+                                    g_item["Scadenza_Contratto"] = nueva_scadenza if 'nueva_scadenza' in locals() else nuova_scadenza
                                     if "Anni_Contratto" in g_item:
                                         del g_item["Anni_Contratto"]
                             st.success(f"Scadenza contratto di {g_sel_contratto} aggiornata a {nuova_scadenza}!")
