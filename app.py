@@ -91,7 +91,7 @@ elif scelta_menu == "Carica Rosa da PDF":
             # Elaborazione delle righe
             righe = [r.strip() for r in testo_pdf.split("\n") if r.strip()]
             
-            st.write(Trovate **{len(righe)}** righe di testo potenziali nel documento.)
+            st.write(f"Trovate **{len(righe)}** righe di testo potenziali nel documento.")
             
             # Opzione per importare
             if st.button(f"Conferma e Importa in {squadra_destinazione}"):
