@@ -9,7 +9,7 @@ st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_ico
 # --- LISTA DELLE 10 SQUADRE UFFICIALI ---
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 
-# --- FUNZIONI DI CALCOLO AVANZATE ---
+# --- FUNZIONI DI CALCOLO E MERGE AVANZATE ---
 def calcola_prezzo_consigliato(row):
     quot = row.get('Quotazione', 10)
     fm = row.get('FantaMedia', 6.0)
@@ -35,6 +35,14 @@ def calcola_trend(row):
         return "📉 In Calo"
     else:
         return "➡️ Stabile"
+
+def pulisci_colonna_numerica(serie):
+    if isinstance(serie, pd.DataFrame):
+        serie = serie.iloc[:, 0]
+    return pd.to_numeric(
+        serie.astype(str).str.replace(',', '.', regex=False), 
+        errors='coerce'
+    )
 
 # --- INIZIALIZZAZIONE SICURA DELLO STATO DELLA SESSIONE ---
 if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
@@ -96,80 +104,100 @@ if 'giocatori_db' not in st.session_state:
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
-# --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
+# --- BARRA LATERALE: GESTIONE FILE E MERGE MULTIPLO ---
 st.sidebar.title("⚽ Fanta Manager Hub")
 
-with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
-    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel) contenente le colonne per le FantaMedie degli ultimi anni (es. `FM_2025`, `FM_2024`, `FM_2023` oppure colonne con l'anno nel nome).")
-    listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
+with st.sidebar.expander("📁 Importa e Intreccia Più File"):
+    st.markdown("Carica più file (es. Listone Quotazioni + Statistiche Anno X + Statistiche Anno Y). L'app li unirà automaticamente basandosi sul **Nome** del giocatore.")
     
-    if listone_file is not None:
-        try:
-            if listone_file.name.endswith('.csv'):
-                df_load = pd.read_csv(listone_file, encoding='utf-8', on_bad_lines='skip')
-            else:
-                df_load = pd.read_excel(listone_file)
-            
-            df_load.columns = [str(c).strip() for c in df_load.columns]
-            
-            col_mappa = {}
-            for col in df_load.columns:
-                c_low = str(col).lower()
-                if 'nome' in c_low or 'giocatore' in c_low:
-                    col_mappa[col] = 'Nome'
-                elif c_low in ['r', 'ruolo']:
-                    col_mappa[col] = 'Ruolo'
-                elif 'squadra' in c_low or 'team' in c_low:
-                    col_mappa[col] = 'Squadra_SerieA'
-                elif 'quot' in c_low or 'valore' in c_low or 'fc' in c_low or 'qt' in c_low:
-                    col_mappa[col] = 'Quotazione'
-                elif 'fm' in c_low or 'fantamedia' in c_low or 'media' in c_low:
-                    if '2025' in c_low or '25' in c_low:
-                        col_mappa[col] = 'FM_2025'
-                    elif '2024' in c_low or '24' in c_low:
-                        col_mappa[col] = 'FM_2024'
-                    elif '2023' in c_low or '23' in c_low:
-                        col_mappa[col] = 'FM_2023'
+    files_caricati = st.file_uploader("Seleziona File Statistici (CSV o Excel)", type=["csv", "xlsx"], accept_multiple_files=True, key="upload_multi")
+    
+    if files_caricati:
+        if st.button("🔄 Elabora e Intreccia File"):
+            try:
+                dfs = []
+                for f in files_caricati:
+                    if f.name.endswith('.csv'):
+                        df_temp = pd.read_csv(f, encoding='utf-8', on_bad_lines='skip')
                     else:
-                        col_mappa[col] = 'FantaMedia'
+                        df_temp = pd.read_excel(f)
                     
-            df_load = df_load.rename(columns=col_mappa)
-            
-            if 'Nome' in df_load.columns:
-                df_load = df_load.loc[:, ~df_load.columns.duplicated()]
+                    df_temp.columns = [str(c).strip() for c in df_temp.columns]
+                    
+                    # Mappatura intelligente delle colonne per ciascun file
+                    col_mappa = {}
+                    for col in df_temp.columns:
+                        c_low = str(col).lower()
+                        if 'nome' in c_low or 'giocatore' in c_low:
+                            col_mappa[col] = 'Nome'
+                        elif c_low in ['r', 'ruolo']:
+                            col_mappa[col] = 'Ruolo'
+                        elif 'squadra' in c_low or 'team' in c_low:
+                            col_mappa[col] = 'Squadra_SerieA'
+                        elif 'quot' in c_low or 'valore' in c_low or 'fc' in c_low or 'qt' in c_low:
+                            col_mappa[col] = 'Quotazione'
+                        elif 'fm' in c_low or 'fantamedia' in c_low or 'media' in c_low:
+                            if '2025' in c_low or '25' in c_low:
+                                col_mappa[col] = 'FM_2025'
+                            elif '2024' in c_low or '24' in c_low:
+                                col_mappa[col] = 'FM_2024'
+                            elif '2023' in c_low or '23' in c_low:
+                                col_mappa[col] = 'FM_2023'
+                            else:
+                                col_mappa[col] = 'FantaMedia'
+                    
+                    df_temp = df_temp.rename(columns=col_mappa)
+                    
+                    # Pulizia stringa Nome per fare un merge pulito (minuscoli senza spazi extra)
+                    if 'Nome' in df_temp.columns:
+                        df_temp['Nome_Key'] = df_temp['Nome'].astype(str).str.strip().str.lower()
+                        dfs.append(df_temp)
+                    else:
+                        st.sidebar.error(f"Il file {f.name} non contiene una colonna Nome/Giocatore riconoscibile.")
                 
-                if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
-                if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
-                if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
-                if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
-                if 'FM_2025' not in df_load.columns: df_load['FM_2025'] = df_load['FantaMedia']
-                if 'FM_2024' not in df_load.columns: df_load['FM_2024'] = df_load['FantaMedia']
-                if 'FM_2023' not in df_load.columns: df_load['FM_2023'] = df_load['FantaMedia']
-                
-                df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                
-                for col_name in ['FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']:
-                    if col_name in df_load.columns:
-                        col_data = df_load[col_name]
-                        if isinstance(col_data, pd.DataFrame):
-                            col_data = col_data.iloc[:, 0]
-                        df_load[col_name] = pd.to_numeric(
-                            col_data.astype(str).str.replace(',', '.', regex=False), 
-                            errors='coerce'
-                        ).fillna(6.0)
-                
-                # Calcolo avanzato Prezzo Consigliato e Trend
-                df_load['Prezzo_Consigliato'] = df_load.apply(calcola_prezzo_consigliato, axis=1)
-                
-                if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
-                if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
-                
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita']]
-                st.sidebar.success("Listone, statistiche storiche e prezzi intelligenti importati con successo!")
-            else:
-                st.sidebar.error("Impossibile trovare la colonna 'Nome' nel file.")
-        except Exception as e:
-            st.sidebar.error(f"Errore nella lettura: {e}")
+                if dfs:
+                    # Partiamo dal primo file come base
+                    df_base = dfs[0]
+                    
+                    # Intrecciamo progressivamente gli altri file se presenti
+                    for i in range(1, len(dfs)):
+                        df_successivo = dfs[i]
+                        # Colonne da prendere dal file successivo (evitando di sovrascrivere 'Nome' e 'Nome_Key')
+                        colonne_da_prendere = [c for c in df_successivo.columns if c not in ['Nome', 'Ruolo', 'Squadra_SerieA'] and c in ['Nome_Key', 'Quotazione', 'FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']]
+                        
+                        df_base = pd.merge(df_base, df_successivo[colonne_da_prendere], on='Nome_Key', how='outer', suffixes=('', f'_file{i}'))
+                    
+                    # Pulizia finale e standardizzazione colonne
+                    if 'Nome_Key' in df_base.columns:
+                        df_base = df_base.drop(columns=['Nome_Key'])
+                        
+                    if 'Ruolo' not in df_base.columns: df_base['Ruolo'] = 'C'
+                    if 'Squadra_SerieA' not in df_base.columns: df_base['Squadra_SerieA'] = 'N/D'
+                    if 'Quotazione' not in df_base.columns: df_base['Quotazione'] = 10
+                    if 'FantaMedia' not in df_base.columns: df_base['FantaMedia'] = 6.0
+                    if 'FM_2025' not in df_base.columns: df_base['FM_2025'] = df_base['FantaMedia']
+                    if 'FM_2024' not in df_base.columns: df_base['FM_2024'] = df_base['FantaMedia']
+                    if 'FM_2023' not in df_base.columns: df_base['FM_2023'] = df_base['FantaMedia']
+                    
+                    df_base['Quotazione'] = pd.to_numeric(df_base['Quotazione'], errors='coerce').fillna(10).astype(int)
+                    
+                    for col_name in ['FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']:
+                        if col_name in df_base.columns:
+                            df_base[col_name] = pulisci_colonna_numerica(df_base[col_name]).fillna(6.0)
+                    
+                    # Ricalcolo automatico Prezzo Consigliato intelligente
+                    df_base['Prezzo_Consigliato'] = df_base.apply(calcola_prezzo_consigliato, axis=1)
+                    
+                    if 'Potenziale' not in df_base.columns: df_base['Potenziale'] = 3
+                    if 'Titolarita' not in df_base.columns: df_base['Titolarita'] = 3
+                    
+                    # Selezioniamo le colonne chiave
+                    colonne_finali = [c for c in ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita'] if c in df_base.columns]
+                    st.session_state.giocatori_db = df_base[colonne_finali]
+                    
+                    st.sidebar.success(f"🎉 {len(files_caricati)} file intrecciati con successo! Totale giocatori: {len(st.session_state.giocatori_db)}")
+            except Exception as e:
+                st.sidebar.error(fuga := f"Errore durante l'intreccio dei file: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
     st.markdown("Carica un file CSV, Excel o PDF con le rose. Colonne richieste: **Squadra**, **Nome**, **Ruolo**, **Costo**, **Contratto/Scadenza**.")
