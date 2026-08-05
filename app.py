@@ -127,6 +127,69 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura: {e}")
 
+with st.sidebar.expander("📋 Importa Rose Esistenti"):
+    st.markdown("Carica un file CSV/Excel con le rose. Colonne richieste: **Squadra**, **Nome**, **Ruolo**, **Costo** (o Quotazione).")
+    rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx"], key="upload_rose")
+    
+    if rose_file is not None:
+        try:
+            if rose_file.name.endswith('.csv'):
+                df_rose = pd.read_csv(rose_file, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_rose = pd.read_excel(rose_file)
+            
+            df_rose.columns = [str(c).strip().lower() for c in df_rose.columns]
+            
+            # Mappatura colonne flessibile
+            col_squadra = next((c for c in df_rose.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
+            col_nome = next((c for c in df_rose.columns if 'nome' in c or 'giocatore' in c), None)
+            col_ruolo = next((c for c in df_rose.columns if 'ruolo' in c or 'r' == c), None)
+            col_costo = next((c for c in df_rose.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
+            
+            if col_squadra and col_nome:
+                # Resetta o popola le rose
+                count_importati = 0
+                for _, row in df_rose.iterrows():
+                    sq_nome = str(row[col_squadra]).strip().upper()
+                    # Cerca corrispondenza esatta o parziale con le 10 squadre
+                    sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
+                    
+                    if sq_match:
+                        g_nome = str(row[col_nome]).strip()
+                        g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
+                        g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1.0
+                        
+                        # Cerca info nel db generale se presenti
+                        db_g = st.session_state.giocatori_db
+                        match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                        
+                        squadra_sa = "N/D"
+                        quot = 10
+                        fm = 6.0
+                        if not match_db.empty:
+                            squadra_sa = match_db.iloc[0]['Squadra_SerieA']
+                            quot = int(match_db.iloc[0]['Quotazione'])
+                            fm = float(match_db.iloc[0]['FantaMedia'])
+                            g_ruolo = str(match_db.iloc[0]['Ruolo'])
+
+                        # Aggiungi alla rosa se non già presente
+                        if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
+                            st.session_state.squadre[sq_match]["rosa"].append({
+                                "Nome": g_nome,
+                                "Ruolo": g_ruolo,
+                                "Squadra_SerieA": squadra_sa,
+                                "Quotazione": quot,
+                                "FantaMedia": fm,
+                                "Costo_Acquisto": int(g_costo)
+                            })
+                            count_importati += 1
+                
+                st.sidebar.success(f"Importati {count_importati} giocatori nelle rose con successo!")
+            else:
+                st.sidebar.error("Colonne essenziali mancanti ('Squadra' o 'Nome').")
+        except Exception as e:
+            st.sidebar.error(f"Errore caricamento rose: {e}")
+
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database", 
     "🛒 Mercato (Acquisti/Vendite)", 
@@ -148,9 +211,9 @@ if menu == "🔍 Scouting & Database":
     giocatori_assegnati = {}
     for sq, dati in st.session_state.squadre.items():
         for g in dati["rosa"]:
-            giocatori_assegnati[g["Nome"]] = sq
+            giocatori_assegnati[g["Nome"].lower()] = sq
             
-    df["Proprietario"] = df["Nome"].map(giocatori_assegnati).fillna("Svincolato 🟢")
+    df["Proprietario"] = df["Nome"].apply(lambda x: giocatori_assegnati.get(x.lower(), "Svincolato 🟢"))
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -197,7 +260,7 @@ if menu == "🔍 Scouting & Database":
         st.info("La tua watchlist è vuota. Aggiungi i tuoi obiettivi preferiti.")
 
 # ==========================================
-# 2. MERCATO (ACQUISTI E VENDITE)
+# 2. MERCATO (ACQUISTI E VENDITE) - CON ESCLUSIONE VINCOLATI
 # ==========================================
 elif menu == "🛒 Mercato (Acquisti/Vendite)":
     st.header("🛒 Gestione Mercato: Acquisti, Svincoli e Registro")
@@ -214,9 +277,12 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         col_m1.metric("Crediti Residui", f"{crediti_disponibili} 🪙")
         col_m2.metric("Giocatori in Rosa", f"{rosa_attuale_len} / 25")
 
-        giocatori_in_rosa = [g["Nome"] for sq_data in st.session_state.squadre.values() for g in sq_data["rosa"]]
+        # Raccoglie tutti i nomi dei giocatori già vincolati nelle rose di tutte le 10 squadre (case-insensitive)
+        giocatori_in_rosa = [g["Nome"].lower() for sq_data in st.session_state.squadre.values() for g in sq_data["rosa"]]
         db_g = st.session_state.giocatori_db
-        svincolati = db_g[~db_g["Nome"].isin(giocatori_in_rosa)]
+        
+        # Filtra via dal mercato i giocatori già vincolati
+        svincolati = db_g[~db_g["Nome"].str.lower().isin(giocatori_in_rosa)]
 
         if len(svincolati) > 0:
             giocatore_scelto = st.selectbox("Seleziona Giocatore Svincolato", svincolati["Nome"].values)
@@ -249,7 +315,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 else:
                     st.error("Crediti insufficienti per completare l'acquisto!")
         else:
-            st.warning("Non ci sono giocatori svincolati disponibili.")
+            st.warning("Non ci sono giocatori svincolati disponibili nel database.")
 
     with tab_vend:
         st.subheader("Vendi o Svincola un giocatore della tua rosa")
