@@ -110,7 +110,6 @@ def load_data():
         quot = row["Quotazione"]
         ruolo = row["Ruolo"]
         
-        # Partite giocate totali (es. su 38) e partite con almeno 45 minuti
         if quot >= 25:
             partite_tot = np.random.randint(32, 37)
             part_almeno_45 = np.random.randint(30, partite_tot + 1)
@@ -124,7 +123,6 @@ def load_data():
             partite_tot = np.random.randint(5, 20)
             part_almeno_45 = np.random.randint(3, partite_tot + 1)
 
-        # xG e xA
         if ruolo == "A":
             xg = round(max(0.1, quot * 0.035), 2)
             xa = round(max(0.05, quot * 0.015), 2)
@@ -163,6 +161,11 @@ def load_data():
 
 if "df_giocatori" not in st.session_state:
     st.session_state.df_giocatori = load_data()
+else:
+    # Controllo di sicurezza: se per qualsiasi motivo le colonne mancano nel session_state, ricarica i dati
+    cols_necessarie = ["Partite_Giocate", "Partite_Almeno_45min", "xG_90", "xA_90", "FantaMedia_Stimata"]
+    if not all(col in st.session_state.df_giocatori.columns for col in cols_necessarie):
+        st.session_state.df_giocatori = load_data()
 
 df = st.session_state.df_giocatori
 
@@ -241,7 +244,7 @@ if uploaded_json is not None:
         st.session_state.prestiti_lega = loaded.get("prestiti_lega", [])
         stati_caricati = loaded.get("stati_giocatori", {})
         
-        df_t = st.session_state.df_giocatori.copy()
+        df_t = load_data()
         df_t["Stato"] = df_t["Nome"].map(stati_caricati).fillna("LIBERO")
         st.session_state.df_giocatori = df_t
         st.sidebar.success("✅ Backup caricato!")
@@ -268,7 +271,7 @@ if uploaded_file is not None:
         col_nome = next((c for c in df_file.columns if any(k in c for k in ["calciatore", "giocatore", "nome"])), df_file.columns[0])
         
         new_rose = {}
-        df_temp = st.session_state.df_giocatori.copy()
+        df_temp = load_data()
         df_temp["Stato"] = "LIBERO"
         master_dict = {str(r["Nome"]).strip().lower(): r for _, r in df_temp.iterrows()}
 
@@ -340,7 +343,6 @@ with tab_asta:
         gioc_sel = st.selectbox("Seleziona Giocatore in Asta:", giocatori_liberi)
         g_info = df[df["Nome"] == gioc_sel].iloc[0]
 
-        # Calcolo prezzo consigliato
         slot_target = {"P": 3, "D": 8, "C": 8, "A": 6}
         rosa_att = st.session_state.rose_lega.get(allenatore_attivo, [])
         slot_presi = {r: sum(1 for g in rosa_att if g["Ruolo"] == r) for r in slot_target}
@@ -359,7 +361,7 @@ with tab_asta:
 
         prezzo_consigliato = max(1, prezzo_base)
         if slot_liberi.get(g_info["Ruolo"], 0) <= 0:
-            prezzo_consigliato = 0 # Slot esauriti per quel ruolo
+            prezzo_consigliato = 0
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Ruolo & Squadra", f"{g_info['Ruolo']} - {g_info['Squadra']}", f"Tier: {g_info['Tier']}")
@@ -454,20 +456,16 @@ with tab_scambi:
             if not giocatori_da_s1 and not giocatori_da_s2:
                 st.warning("Seleziona almeno un giocatore da scambiare.")
             else:
-                # Estrai oggetti giocatore
                 obj_s1 = [g for g in rosa_s1 if g["Nome"] in giocatori_da_s1]
                 obj_s2 = [g for g in rosa_s2 if g["Nome"] in giocatori_da_s2]
 
-                # Rimuovi da rose attuali e aggiungi alle nuove
                 st.session_state.rose_lega[squadra_1] = [g for g in rosa_s1 if g["Nome"] not in giocatori_da_s1] + obj_s2
                 st.session_state.rose_lega[squadra_2] = [g for g in rosa_s2 if g["Nome"] not in giocatori_da_s2] + obj_s1
 
-                # Gestione conguaglio extra budget
                 if conguaglio != 0:
                     st.session_state.extra_budget[squadra_1] = st.session_state.extra_budget.get(squadra_1, 0) - conguaglio
                     st.session_state.extra_budget[squadra_2] = st.session_state.extra_budget.get(squadra_2, 0) + conguaglio
 
-                # Aggiorna dataframe globale stato
                 for g in obj_s1:
                     idx = df[df["Nome"] == g["Nome"]].index
                     if not idx.empty:
@@ -511,7 +509,6 @@ with tab_prestiti:
                     st.session_state.rose_lega[sq_ricevente] = []
                 st.session_state.rose_lega[sq_ricevente].append(g_obj)
 
-                # Aggiorna stato globale
                 idx = df[df["Nome"] == gioc_prestito].index
                 if not idx.empty:
                     st.session_state.df_giocatori.at[idx[0], "Stato"] = sq_ricevente
