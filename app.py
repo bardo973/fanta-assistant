@@ -69,14 +69,18 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
     
     if listone_file is not None:
         try:
+            # Rileva automaticamente se CSV o Excel
             if listone_file.name.endswith('.csv'):
-                df_load = pd.read_csv(listone_file)
+                df_load = pd.read_csv(listone_file, encoding='utf-8', on_bad_lines='skip')
             else:
                 df_load = pd.read_excel(listone_file)
             
+            # Pulisci i nomi delle colonne da eventuali spazi vuoti iniziali/finali
+            df_load.columns = [str(c).strip() for c in df_load.columns]
+            
             col_mappa = {}
             for col in df_load.columns:
-                c_low = str(col).lower().strip()
+                c_low = str(col).lower()
                 if 'nome' in c_low or 'giocatore' in c_low:
                     col_mappa[col] = 'Nome'
                 elif c_low in ['r', 'ruolo']:
@@ -91,13 +95,25 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             df_load = df_load.rename(columns=col_mappa)
             
             if 'Nome' in df_load.columns:
+                # Seleziona solo le colonne univoche nel caso ci siano duplicati
+                df_load = df_load.loc[:, ~df_load.columns.duplicated()]
+                
                 if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
                 
+                # Conversione sicura per evitare errori di tipo
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                df_load['FantaMedia'] = pd.to_numeric(df_load['FantaMedia'].astype(str).str.replace(',', '.'), errors='coerce').fillna(6.0)
+                
+                # Pulisci FantaMedia sostituendo eventuali virgole con punti prima della conversione
+                fm_serie = df_load['FantaMedia']
+                if isinstance(fm_serie, pd.DataFrame):
+                    fm_serie = fm_serie.iloc[:, 0] # Prendi la prima se per errore è un DataFrame
+                df_load['FantaMedia'] = pd.to_numeric(
+                    fm_serie.astype(str).str.replace(',', '.', regex=False), 
+                    errors='coerce'
+                ).fillna(6.0)
                 
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
@@ -105,7 +121,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
                 st.sidebar.success("Listone importato con successo!")
             else:
-                st.sidebar.error("Colonna 'Nome' non trovata nel file.")
+                st.sidebar.error("Impossibile trovare la colonna 'Nome' o 'Giocatore' nel file caricato.")
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura: {e}")
 
