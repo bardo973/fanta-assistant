@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
 
@@ -13,6 +14,12 @@ if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre,
 for sq in NOMI_SQUADRE:
     if sq not in st.session_state.squadre:
         st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+
+if 'storico_mercato' not in st.session_state:
+    st.session_state.storico_mercato = []
+
+if 'watchlist' not in st.session_state:
+    st.session_state.watchlist = []
 
 # Rosa precaricata di esempio per PECU (se vuota)
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
@@ -69,13 +76,11 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
     
     if listone_file is not None:
         try:
-            # Rileva automaticamente se CSV o Excel
             if listone_file.name.endswith('.csv'):
                 df_load = pd.read_csv(listone_file, encoding='utf-8', on_bad_lines='skip')
             else:
                 df_load = pd.read_excel(listone_file)
             
-            # Pulisci i nomi delle colonne da eventuali spazi vuoti iniziali/finali
             df_load.columns = [str(c).strip() for c in df_load.columns]
             
             col_mappa = {}
@@ -95,7 +100,6 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             df_load = df_load.rename(columns=col_mappa)
             
             if 'Nome' in df_load.columns:
-                # Seleziona solo le colonne univoche nel caso ci siano duplicati
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
                 
                 if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
@@ -103,13 +107,11 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
                 
-                # Conversione sicura per evitare errori di tipo
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
                 
-                # Pulisci FantaMedia sostituendo eventuali virgole con punti prima della conversione
                 fm_serie = df_load['FantaMedia']
                 if isinstance(fm_serie, pd.DataFrame):
-                    fm_serie = fm_serie.iloc[:, 0] # Prendi la prima se per errore è un DataFrame
+                    fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(
                     fm_serie.astype(str).str.replace(',', '.', regex=False), 
                     errors='coerce'
@@ -121,7 +123,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
                 st.sidebar.success("Listone importato con successo!")
             else:
-                st.sidebar.error("Impossibile trovare la colonna 'Nome' o 'Giocatore' nel file caricato.")
+                st.sidebar.error("Impossibile trovare la colonna 'Nome' nel file.")
         except Exception as e:
             st.sidebar.error(f"Errore nella lettura: {e}")
 
@@ -133,50 +135,86 @@ menu = st.sidebar.selectbox("Navigazione", [
 ])
 
 # ==========================================
-# 1. SCOUTING & DATABASE
+# 1. SCOUTING & DATABASE (CON INDICE DI EFFICIENZA E WATCHLIST)
 # ==========================================
 if menu == "🔍 Scouting & Database":
-    st.header("🔍 Hub Scouting, Quotazioni & FantaMedie")
-    df = st.session_state.giocatori_db
+    st.header("🔍 Hub Scouting, Quotazioni & FantaMedie Avanzate")
+    df = st.session_state.giocatori_db.copy()
 
-    col1, col2, col3 = st.columns(3)
+    # Calcolo Indice Efficienza (Value for Money)
+    df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
+
+    # Verifica stato di svincolato o già preso
+    giocatori_assegnati = {}
+    for sq, dati in st.session_state.squadre.items():
+        for g in dati["rosa"]:
+            giocatori_assegnati[g["Nome"]] = sq
+            
+    df["Proprietario"] = df["Nome"].map(giocatori_assegnati).fillna("Svincolato 🟢")
+
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         ruoli_disponibili = df["Ruolo"].unique() if "Ruolo" in df.columns else ["P", "D", "C", "A"]
         filtro_ruolo = st.multiselect("Filtra per Ruolo", options=ruoli_disponibili, default=ruoli_disponibili)
     with col2:
         min_fm = st.slider("FantaMedia Minima", 4.0, 10.0, 5.0, 0.1)
     with col3:
+        solo_svincolati = st.checkbox("Mostra solo Svincolati", value=False)
+    with col4:
         search_nome = st.text_input("Cerca per Nome Giocatore")
 
-    df_filtrato = df[
-        (df["Ruolo"].isin(filtro_ruolo)) & 
-        (df["FantaMedia"] >= min_fm)
-    ]
+    df_filtrato = df[(df["Ruolo"].isin(filtro_ruolo)) & (df["FantaMedia"] >= min_fm)]
+    if solo_svincolati:
+        df_filtrato = df_filtrato[df_filtrato["Proprietario"] == "Svincolato 🟢"]
     if search_nome:
         df_filtrato = df_filtrato[df_filtrato["Nome"].str.contains(search_nome, case=False, na=False)]
 
+    # Ordinamento per Indice Affare
+    df_filtrato = df_filtrato.sort_values(by="Indice_Affare", ascending=False)
+
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
     st.dataframe(df_filtrato, use_container_width=True)
+
+    # Sezione Watchlist Rapida
+    st.markdown("---")
+    st.subheader("⭐ Watchlist (Lista dei Desideri Personale)")
+    g_watchlist = st.selectbox("Aggiungi giocatore alla Watchlist", df["Nome"].values, key="sel_watchlist")
+    if st.button("Aggiungi alla Watchlist"):
+        if g_watchlist not in st.session_state.watchlist:
+            st.session_state.watchlist.append(g_watchlist)
+            st.success(f"{g_watchlist} aggiunto alla tua Watchlist!")
+            st.rerun()
+        else:
+            st.warning("Il giocatore è già nella tua Watchlist.")
+
+    if len(st.session_state.watchlist) > 0:
+        df_watch = df[df["Nome"].isin(st.session_state.watchlist)]
+        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "Proprietario"]], use_container_width=True)
+        if st.button("Svuota Watchlist"):
+            st.session_state.watchlist = []
+            st.rerun()
+    else:
+        st.info("La tua watchlist è vuota. Aggiungi i tuoi obiettivi preferiti.")
 
 # ==========================================
 # 2. MERCATO (ACQUISTI E VENDITE)
 # ==========================================
 elif menu == "🛒 Mercato (Acquisti/Vendite)":
-    st.header("🛒 Gestione Mercato: Acquisti e Svincoli")
+    st.header("🛒 Gestione Mercato: Acquisti, Svincoli e Registro")
     
-    tab_acq, tab_vend = st.tabs(["📥 Acquista da Svincolati", "📤 Vendi / Svincola"])
+    tab_acq, tab_vend, tab_reg = st.tabs(["📥 Acquista da Svincolati", "📤 Vendi / Svincola", "📜 Registro Operazioni"])
 
     with tab_acq:
         st.subheader("Acquista un giocatore svincolato")
         squadra_selezionata = st.selectbox("Seleziona la tua Squadra", NOMI_SQUADRE, key="mercato_sq")
         crediti_disponibili = st.session_state.squadre[squadra_selezionata]["crediti"]
-        st.info(f"Crediti residui per **{squadra_selezionata}**: **{crediti_disponibili} crediti**")
-
-        giocatori_in_rosa = []
-        for sq_data in st.session_state.squadre.values():
-            for g in sq_data["rosa"]:
-                giocatori_in_rosa.append(g["Nome"])
+        rosa_attuale_len = len(st.session_state.squadre[squadra_selezionata]["rosa"])
         
+        col_m1, col_m2 = st.columns(2)
+        col_m1.metric("Crediti Residui", f"{crediti_disponibili} 🪙")
+        col_m2.metric("Giocatori in Rosa", f"{rosa_attuale_len} / 25")
+
+        giocatori_in_rosa = [g["Nome"] for sq_data in st.session_state.squadre.values() for g in sq_data["rosa"]]
         db_g = st.session_state.giocatori_db
         svincolati = db_g[~db_g["Nome"].isin(giocatori_in_rosa)]
 
@@ -199,6 +237,12 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "Quotazione": info_g["Quotazione"],
                         "FantaMedia": info_g["FantaMedia"],
                         "Costo_Acquisto": prezzo_acquisto
+                    })
+                    # Registra nel log
+                    st.session_state.storico_mercato.insert(0, {
+                        "Orario": datetime.now().strftime("%H:%M:%S"),
+                        "Operazione": "ACQUISTO",
+                        "Dettagli": f"{squadra_selezionata} acquista {giocatore_scelto} ({info_g['Ruolo']}) per {prezzo_acquisto} crediti."
                     })
                     st.success(f"Acquisto completato! {giocatore_scelto} è ora in rosa a {squadra_selezionata}.")
                     st.rerun()
@@ -224,10 +268,23 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if st.button("Conferma Vendita / Svincolo"):
                 st.session_state.squadre[sq_vendi]["rosa"] = [g for g in rosa_sq if g["Nome"] != giocatore_da_vendere]
                 st.session_state.squadre[sq_vendi]["crediti"] += prezzo_vendita
+                st.session_state.storico_mercato.insert(0, {
+                    "Orario": datetime.now().strftime("%H:%M:%S"),
+                    "Operazione": "SVINCOLO/CESSIONE",
+                    "Dettagli": f"{sq_vendi} svincola {giocatore_da_vendere}, incassando {prezzo_vendita} crediti."
+                })
                 st.success(f"Cessione avvenuta con successo! Incassati {prezzo_vendita} crediti.")
                 st.rerun()
         else:
             st.info("La rosa selezionata è vuota.")
+
+    with tab_reg:
+        st.subheader("📜 Storico Ufficiale Operazioni di Mercato")
+        if len(st.session_state.storico_mercato) > 0:
+            df_storico = pd.DataFrame(st.session_state.storico_mercato)
+            st.dataframe(df_storico, use_container_width=True)
+        else:
+            st.info("Nessuna operazione registrata in questa sessione.")
 
 # ==========================================
 # 3. SCAMBI TRA PROPRIETARI
@@ -275,7 +332,8 @@ elif menu == "🤝 Scambi tra Proprietà":
                 if tipo_operazione == "Scambio Definitivo":
                     st.session_state.squadre[sq1]["rosa"].extend(oggetti_sq2)
                     st.session_state.squadre[sq2]["rosa"].extend(oggetti_sq1)
-                    st.success(f"🎉 Scambio definitivo completato con successo tra {sq1} e {sq2}!")
+                    msg_log = f"Scambio definitivo tra {sq1} e {sq2}."
+                    st.success(f"🎉 {msg_log}")
                 else:
                     for g in oggetti_sq2:
                         g_prestito = g.copy()
@@ -285,30 +343,79 @@ elif menu == "🤝 Scambi tra Proprietà":
                         g_prestito = g.copy()
                         g_prestito["Nome"] = f"{g_prestito['Nome']} (in prestito da {sq1})"
                         st.session_state.squadre[sq2]["rosa"].append(g_prestito)
-                    st.success(f"🤝 Prestito registrato con successo tra {sq1} e {sq2}!")
+                    msg_log = f"Prestito registrato tra {sq1} e {sq2}."
+                    st.success(f"🤝 {msg_log}")
                 
+                st.session_state.storico_mercato.insert(0, {
+                    "Orario": datetime.now().strftime("%H:%M:%S"),
+                    "Operazione": "SCAMBIO",
+                    "Dettagli": msg_log
+                })
                 st.rerun()
 
 # ==========================================
-# 4. ROSE E CREDITI (10 SQUADRE)
+# 4. ROSE E CREDITI (10 SQUADRE) + RIEPILOGO GENERALE
 # ==========================================
 elif menu == "📋 Rose e Crediti (10 Squadre)":
-    st.header("📋 Riepilogo Rose, Quotazioni, FantaMedie e Crediti")
+    st.header("📋 Riepilogo Rose, Crediti & Matrice delle 10 Squadre")
 
-    tabs_squadre = st.tabs(NOMI_SQUADRE)
+    tab_singole, tab_matrice = st.tabs(["🛡️ Viste Singole Squadre", "📊 Tabella Riassuntiva Generale"])
 
-    for i, nome_sq in enumerate(NOMI_SQUADRE):
-        with tabs_squadre[i]:
-            dati = st.session_state.squadre[nome_sq]
-            col_a, col_b = st.columns([3, 1])
-            with col_a:
-                st.subheader(f"🛡️ {nome_sq}")
-            with col_b:
-                st.metric("Crediti Residui", f"{dati['crediti']} 🪙")
+    with tab_singole:
+        tabs_squadre = st.tabs(NOMI_SQUADRE)
+
+        for i, nome_sq in enumerate(NOMI_SQUADRE):
+            with tabs_squadre[i]:
+                dati = st.session_state.squadre[nome_sq]
+                col_a, col_b = st.columns([3, 1])
+                with col_a:
+                    st.subheader(f"🛡️ {nome_sq}")
+                with col_b:
+                    st.metric("Crediti Residui", f"{dati['crediti']} 🪙")
+                
+                rosa_df = pd.DataFrame(dati["rosa"])
+                if not rosa_df.empty:
+                    # Conteggio reparti
+                    conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
+                    p = conti_ruoli.get("P", 0)
+                    d = conti_ruoli.get("D", 0)
+                    c = conti_ruoli.get("C", 0)
+                    a = conti_ruoli.get("A", 0)
+                    st.caption(f"Composizione reparto ➔ Portieri: {p} | Difensori: {d} | Centrocampisti: {c} | Attaccanti: {a} (Tot: {len(rosa_df)})")
+                    
+                    st.dataframe(rosa_df, use_container_width=True)
+                else:
+                    st.info("La rosa è attualmente vuota.")
+
+    with tab_matrice:
+        st.subheader("📊 Quadro Generale delle 10 Proprietà")
+        summary_data = []
+        for sq in NOMI_SQUADRE:
+            dati = st.session_state.squadre[sq]
+            rosa = dati["rosa"]
+            tot_giocatori = len(rosa)
+            crediti = dati["crediti"]
             
-            rosa_df = pd.DataFrame(dati["rosa"])
-            if not rosa_df.empty:
-                st.dataframe(rosa_df, use_container_width=True)
-                st.markdown(f"Totale giocatori in rosa: **{len(rosa_df)}**")
-            else:
-                st.info("La rosa è attualmente vuota.")
+            p, d, c, a = 0, 0, 0, 0
+            spesa_totale = 0
+            for g in rosa:
+                r = g.get("Ruolo", "C")
+                if r == "P": p += 1
+                elif r == "D": d += 1
+                elif r == "C": c += 1
+                elif r == "A": a += 1
+                spesa_totale += g.get("Costo_Acquisto", 0)
+
+            summary_data.append({
+                "Squadra": sq,
+                "Crediti Residui": crediti,
+                "Spesa Totale": spesa_totale,
+                "Tot. Giocatori": tot_giocatori,
+                "Portieri (P)": p,
+                "Difensori (D)": d,
+                "Centrocampisti (C)": c,
+                "Attaccanti (A)": a
+            })
+        
+        df_summary = pd.DataFrame(summary_data)
+        st.dataframe(df_summary, use_container_width=True)
