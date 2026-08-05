@@ -626,7 +626,6 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
     st.markdown("---")
     st.markdown("### ✍️ 2. Inserimento o Modifica Manuale Singolo Giocatore")
     
-    # Selettore o input nome
     input_nome_manuale = st.text_input("Nome Giocatore:", key="man_nome_gioc")
     input_ruolo_manuale = st.selectbox("Ruolo:", ["P", "D", "C", "A"], key="man_ruolo_gioc")
     input_squadra_manuale = st.text_input("Squadra Serie A:", value="Juventus", key="man_squadra_gioc")
@@ -635,10 +634,10 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
     lista_prop_form = ["LIBERO"] + PARTECIPANTI_LEGA
     input_proprietario_manuale = st.selectbox("Proprietario (Rosa):", lista_prop_form, key="man_prop_gioc")
     
-    col_sc1, col_sc2 = st.columns(2)
-    with col_sc1:
+    col_man1, col_man2 = st.columns(2)
+    with col_man1:
         input_mese_scad = st.selectbox("Mese Scadenza:", ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"], index=5, key="man_mese_scad")
-    with col_scad2:
+    with col_man2:
         input_anno_scad = st.selectbox("Anno Scadenza:", [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035], index=4, key="man_anno_scad")
     
     scadenza_manuale_finale = f"{input_mese_scad} {input_anno_scad}"
@@ -650,7 +649,6 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
             nome_clean = input_nome_manuale.strip()
             nome_clean_lower = nome_clean.lower()
             
-            # Cerca se esiste già nel master df
             df_temp = st.session_state.df_giocatori.copy()
             match_idx = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_clean_lower].index
             
@@ -662,7 +660,6 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
                 df_temp.at[idx, "Stato"] = input_proprietario_manuale
                 df_temp.at[idx, "Scadenza_Contratto"] = scadenza_manuale_finale
             else:
-                # Aggiunge nuovo record nel master df
                 nuova_riga = {
                     "Nome": nome_clean,
                     "Squadra": input_squadra_manuale,
@@ -692,7 +689,6 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
             
             st.session_state.df_giocatori = df_temp
             
-            # Aggiorna le rose dei partecipanti rimuovendolo ovunque prima e reinserendolo se necessario
             for p_key in st.session_state.rose_lega:
                 st.session_state.rose_lega[p_key] = [g for g in st.session_state.rose_lega[p_key] if str(g["Nome"]).strip().lower() != nome_clean_lower]
             
