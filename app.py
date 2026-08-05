@@ -36,13 +36,27 @@ def calcola_trend(row):
     else:
         return "➡️ Stabile"
 
-def pulisci_colonna_numerica(serie):
-    if isinstance(serie, pd.DataFrame):
-        serie = serie.iloc[:, 0]
-    return pd.to_numeric(
-        serie.astype(str).str.replace(',', '.', regex=False), 
-        errors='coerce'
-    )
+def pulisci_colonna_numerica(valore):
+    if pd.isna(valore):
+        return 6.0
+    if isinstance(valore, (int, float)):
+        return float(valore)
+    s = str(valore).strip().replace(',', '.')
+    try:
+        return float(s)
+    except:
+        return 6.0
+
+def pulisci_colonna_intera(valore):
+    if pd.isna(valore):
+        return 10
+    if isinstance(valore, (int, float)):
+        return int(valore)
+    s = str(valore).strip().replace(',', '.')
+    try:
+        return int(float(s))
+    except:
+        return 10
 
 # --- INIZIALIZZAZIONE SICURA DELLO STATO DELLA SESSIONE ---
 if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
@@ -148,26 +162,25 @@ with st.sidebar.expander("📁 Importa e Intreccia Più File"):
                     
                     df_temp = df_temp.rename(columns=col_mappa)
                     
-                    # Pulizia stringa Nome per fare un merge pulito (minuscoli senza spazi extra)
                     if 'Nome' in df_temp.columns:
-                        df_temp['Nome_Key'] = df_temp['Nome'].astype(str).str.strip().str.lower()
+                        # Assicuriamoci che la colonna Nome sia pulita e priva di duplicati interni per file
+                        df_temp['Nome'] = df_temp['Nome'].astype(str).str.strip()
+                        df_temp['Nome_Key'] = df_temp['Nome'].str.lower()
+                        # Rimuoviamo eventuali righe duplicate basate sulla chiave
+                        df_temp = df_temp.drop_duplicates(subset=['Nome_Key'], keep='first')
                         dfs.append(df_temp)
                     else:
                         st.sidebar.error(f"Il file {f.name} non contiene una colonna Nome/Giocatore riconoscibile.")
                 
                 if dfs:
-                    # Partiamo dal primo file come base
                     df_base = dfs[0]
                     
-                    # Intrecciamo progressivamente gli altri file se presenti
                     for i in range(1, len(dfs)):
                         df_successivo = dfs[i]
-                        # Colonne da prendere dal file successivo (evitando di sovrascrivere 'Nome' e 'Nome_Key')
                         colonne_da_prendere = [c for c in df_successivo.columns if c not in ['Nome', 'Ruolo', 'Squadra_SerieA'] and c in ['Nome_Key', 'Quotazione', 'FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']]
                         
                         df_base = pd.merge(df_base, df_successivo[colonne_da_prendere], on='Nome_Key', how='outer', suffixes=('', f'_file{i}'))
                     
-                    # Pulizia finale e standardizzazione colonne
                     if 'Nome_Key' in df_base.columns:
                         df_base = df_base.drop(columns=['Nome_Key'])
                         
@@ -179,25 +192,23 @@ with st.sidebar.expander("📁 Importa e Intreccia Più File"):
                     if 'FM_2024' not in df_base.columns: df_base['FM_2024'] = df_base['FantaMedia']
                     if 'FM_2023' not in df_base.columns: df_base['FM_2023'] = df_base['FantaMedia']
                     
-                    df_base['Quotazione'] = pd.to_numeric(df_base['Quotazione'], errors='coerce').fillna(10).astype(int)
+                    df_base['Quotazione'] = df_base['Quotazione'].apply(pulisci_colonna_intera)
                     
                     for col_name in ['FantaMedia', 'FM_2025', 'FM_2024', 'FM_2023']:
                         if col_name in df_base.columns:
-                            df_base[col_name] = pulisci_colonna_numerica(df_base[col_name]).fillna(6.0)
+                            df_base[col_name] = df_base[col_name].apply(pulisci_colonna_numerica)
                     
-                    # Ricalcolo automatico Prezzo Consigliato intelligente
                     df_base['Prezzo_Consigliato'] = df_base.apply(calcola_prezzo_consigliato, axis=1)
                     
                     if 'Potenziale' not in df_base.columns: df_base['Potenziale'] = 3
                     if 'Titolarita' not in df_base.columns: df_base['Titolarita'] = 3
                     
-                    # Selezioniamo le colonne chiave
                     colonne_finali = [c for c in ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita'] if c in df_base.columns]
                     st.session_state.giocatori_db = df_base[colonne_finali]
                     
                     st.sidebar.success(f"🎉 {len(files_caricati)} file intrecciati con successo! Totale giocatori: {len(st.session_state.giocatori_db)}")
             except Exception as e:
-                st.sidebar.error(fuga := f"Errore durante l'intreccio dei file: {e}")
+                st.sidebar.error(f"Errore durante l'intreccio dei file: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
     st.markdown("Carica un file CSV, Excel o PDF con le rose. Colonne richieste: **Squadra**, **Nome**, **Ruolo**, **Costo**, **Contratto/Scadenza**.")
