@@ -26,46 +26,46 @@ if 'watchlist' not in st.session_state:
 # Rosa precaricata di esempio per PECU (se vuota)
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"},
-        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Costo_Acquisto": 10, "Scadenza_Contratto": "01/06/2030"},
-        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 1, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2027"},
-        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Costo_Acquisto": 4, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2030"},
-        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 5, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Costo_Acquisto": 18, "Scadenza_Contratto": "01/06/2027"},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Costo_Acquisto": 18, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2029"},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Costo_Acquisto": 11, "Scadenza_Contratto": "01/06/2028"},
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Costo_Acquisto": 27, "Scadenza_Contratto": "01/06/2030"},
-        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 3, "Scadenza_Contratto": "01/06/2031"},
-        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"}
+        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Prezzo_Consigliato": 12, "FM_2025": 5.1, "FM_2024": 5.0, "FM_2023": 5.3, "Costo_Acquisto": 14, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Prezzo_Consigliato": 7, "FM_2025": 4.9, "FM_2024": 5.1, "FM_2023": 4.8, "Costo_Acquisto": 8, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Prezzo_Consigliato": 8, "FM_2025": 6.2, "FM_2024": 6.0, "FM_2023": 5.9, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"},
+        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Prezzo_Consigliato": 7, "FM_2025": 6.0, "FM_2024": 5.9, "FM_2023": 6.1, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Prezzo_Consigliato": 14, "FM_2025": 6.7, "FM_2024": 6.5, "FM_2023": 6.4, "Costo_Acquisto": 10, "Scadenza_Contratto": "01/06/2030"},
+        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Prezzo_Consigliato": 9, "FM_2025": 6.1, "FM_2024": 6.3, "FM_2023": 6.2, "Costo_Acquisto": 1, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Prezzo_Consigliato": 8, "FM_2025": 6.1, "FM_2024": 6.0, "FM_2023": 5.8, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Prezzo_Consigliato": 10, "FM_2025": 6.2, "FM_2024": 6.1, "FM_2023": 6.0, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Prezzo_Consigliato": 8, "FM_2025": 6.0, "FM_2024": 6.2, "FM_2023": 5.9, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2027"},
+        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Prezzo_Consigliato": 6, "FM_2025": 5.8, "FM_2024": 6.0, "FM_2023": 5.7, "Costo_Acquisto": 4, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Prezzo_Consigliato": 11, "FM_2025": 6.4, "FM_2024": 6.2, "FM_2023": 6.0, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Prezzo_Consigliato": 9, "FM_2025": 6.2, "FM_2024": 6.1, "FM_2023": 6.0, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Prezzo_Consigliato": 15, "FM_2025": 6.5, "FM_2024": 6.4, "FM_2023": 6.6, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Prezzo_Consigliato": 10, "FM_2025": 6.3, "FM_2024": 6.2, "FM_2023": 6.3, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"},
+        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Prezzo_Consigliato": 22, "FM_2025": 7.4, "FM_2024": 7.6, "FM_2023": 7.3, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2030"},
+        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Prezzo_Consigliato": 7, "FM_2025": 6.0, "FM_2024": 5.8, "FM_2023": 5.5, "Costo_Acquisto": 5, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Prezzo_Consigliato": 12, "FM_2025": 6.4, "FM_2024": 6.3, "FM_2023": 6.5, "Costo_Acquisto": 9, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Prezzo_Consigliato": 18, "FM_2025": 6.6, "FM_2024": 6.8, "FM_2023": 6.5, "Costo_Acquisto": 13, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Prezzo_Consigliato": 13, "FM_2025": 6.3, "FM_2024": 6.2, "FM_2023": 6.1, "Costo_Acquisto": 18, "Scadenza_Contratto": "01/06/2027"},
+        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Prezzo_Consigliato": 20, "FM_2025": 6.8, "FM_2024": 7.0, "FM_2023": 6.6, "Costo_Acquisto": 18, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Prezzo_Consigliato": 11, "FM_2025": 6.4, "FM_2024": 6.2, "FM_2023": 6.0, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Prezzo_Consigliato": 15, "FM_2025": 6.5, "FM_2024": 6.7, "FM_2023": 6.4, "Costo_Acquisto": 7, "Scadenza_Contratto": "01/06/2029"},
+        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Prezzo_Consigliato": 16, "FM_2025": 6.7, "FM_2024": 6.9, "FM_2023": 6.6, "Costo_Acquisto": 11, "Scadenza_Contratto": "01/06/2028"},
+        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Prezzo_Consigliato": 35, "FM_2025": 7.7, "FM_2024": 7.9, "FM_2023": 7.5, "Costo_Acquisto": 27, "Scadenza_Contratto": "01/06/2030"},
+        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Prezzo_Consigliato": 10, "FM_2025": 6.1, "FM_2024": 5.9, "FM_2023": 5.5, "Costo_Acquisto": 3, "Scadenza_Contratto": "01/06/2031"},
+        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Prezzo_Consigliato": 8, "FM_2025": 5.9, "FM_2024": 5.8, "FM_2023": 5.6, "Costo_Acquisto": 6, "Scadenza_Contratto": "01/06/2027"}
     ]
 
 if 'giocatori_db' not in st.session_state:
     data_iniziale = [
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 27, "FantaMedia": 7.8, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "Vardy", "Ruolo": "A", "Squadra_SerieA": "Cremonese", "Quotazione": 16, "FantaMedia": 7.2, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Juventus", "Quotazione": 11, "FantaMedia": 6.8, "Potenziale": 4, "Titolarita": 3},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 13, "FantaMedia": 7.5, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 18, "FantaMedia": 6.9, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 13, "FantaMedia": 6.7, "Potenziale": 4, "Titolarita": 4},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Potenziale": 5, "Titolarita": 5},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Potenziale": 3, "Titolarita": 5},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Potenziale": 2, "Titolarita": 3}
+        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 27, "FantaMedia": 7.8, "Prezzo_Consigliato": 38, "FM_2025": 7.7, "FM_2024": 7.9, "FM_2023": 7.5, "Potenziale": 4, "Titolarita": 5},
+        {"Nome": "Vardy", "Ruolo": "A", "Squadra_SerieA": "Cremonese", "Quotazione": 16, "FantaMedia": 7.2, "Prezzo_Consigliato": 22, "FM_2025": 7.1, "FM_2024": 7.3, "FM_2023": 7.0, "Potenziale": 3, "Titolarita": 4},
+        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Juventus", "Quotazione": 11, "FantaMedia": 6.8, "Prezzo_Consigliato": 15, "FM_2025": 6.7, "FM_2024": 6.9, "FM_2023": 6.6, "Potenziale": 4, "Titolarita": 3},
+        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 13, "FantaMedia": 7.5, "Prezzo_Consigliato": 20, "FM_2025": 7.4, "FM_2024": 7.6, "FM_2023": 7.3, "Potenziale": 4, "Titolarita": 5},
+        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 18, "FantaMedia": 6.9, "Prezzo_Consigliato": 25, "FM_2025": 6.8, "FM_2024": 7.0, "FM_2023": 6.6, "Potenziale": 3, "Titolarita": 4},
+        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 13, "FantaMedia": 6.7, "Prezzo_Consigliato": 17, "FM_2025": 6.6, "FM_2024": 6.8, "FM_2023": 6.5, "Potenziale": 4, "Titolarita": 4},
+        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Prezzo_Consigliato": 14, "FM_2025": 6.7, "FM_2024": 6.5, "FM_2023": 6.4, "Potenziale": 5, "Titolarita": 5},
+        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Prezzo_Consigliato": 12, "FM_2025": 6.4, "FM_2024": 6.2, "FM_2023": 6.0, "Potenziale": 3, "Titolarita": 4},
+        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Prezzo_Consigliato": 12, "FM_2025": 5.1, "FM_2024": 5.0, "FM_2023": 5.3, "Potenziale": 3, "Titolarita": 5},
+        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Prezzo_Consigliato": 7, "FM_2025": 4.9, "FM_2024": 5.1, "FM_2023": 4.8, "Potenziale": 2, "Titolarita": 3}
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
@@ -108,8 +108,13 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
+                if 'Prezzo_Consigliato' not in df_load.columns: df_load['Prezzo_Consigliato'] = df_load['Quotazione'] + 2
+                if 'FM_2025' not in df_load.columns: df_load['FM_2025'] = df_load['FantaMedia']
+                if 'FM_2024' not in df_load.columns: df_load['FM_2024'] = df_load['FantaMedia']
+                if 'FM_2023' not in df_load.columns: df_load['FM_2023'] = df_load['FantaMedia']
                 
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
+                df_load['Prezzo_Consigliato'] = pd.to_numeric(df_load['Prezzo_Consigliato'], errors='coerce').fillna(10).astype(int)
                 
                 fm_serie = df_load['FantaMedia']
                 if isinstance(fm_serie, pd.DataFrame):
@@ -119,10 +124,19 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     errors='coerce'
                 ).fillna(6.0)
                 
+                for anno_col in ['FM_2025', 'FM_2024', 'FM_2023']:
+                    col_data = df_load[anno_col]
+                    if isinstance(col_data, pd.DataFrame):
+                        col_data = col_data.iloc[:, 0]
+                    df_load[anno_col] = pd.to_numeric(
+                        col_data.astype(str).str.replace(',', '.', regex=False),
+                        errors='coerce'
+                    ).fillna(6.0)
+                
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
+                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Prezzo_Consigliato', 'FM_2025', 'FM_2024', 'FM_2023', 'Potenziale', 'Titolarita']]
                 st.sidebar.success("Listone importato con successo!")
             else:
                 st.sidebar.error("Impossibile trovare la colonna 'Nome' nel file.")
@@ -188,10 +202,16 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             squadra_sa = "N/D"
                             quot = 10
                             fm = 6.0
+                            p_cons = 12
+                            fm25, fm24, fm23 = 6.0, 6.0, 6.0
                             if not match_db.empty:
                                 squadra_sa = match_db.iloc[0]['Squadra_SerieA']
                                 quot = int(match_db.iloc[0]['Quotazione'])
                                 fm = float(match_db.iloc[0]['FantaMedia'])
+                                p_cons = int(match_db.iloc[0].get('Prezzo_Consigliato', quot + 2))
+                                fm25 = float(match_db.iloc[0].get('FM_2025', fm))
+                                fm24 = float(match_db.iloc[0].get('FM_2024', fm))
+                                fm23 = float(match_db.iloc[0].get('FM_2023', fm))
                                 g_ruolo = str(match_db.iloc[0]['Ruolo'])
 
                             if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_corrente]["rosa"]):
@@ -201,6 +221,10 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                     "Squadra_SerieA": squadra_sa,
                                     "Quotazione": quot,
                                     "FantaMedia": fm,
+                                    "Prezzo_Consigliato": p_cons,
+                                    "FM_2025": fm25,
+                                    "FM_2024": fm24,
+                                    "FM_2023": fm23,
                                     "Costo_Acquisto": g_costo,
                                     "Scadenza_Contratto": g_scadenza
                                 })
@@ -251,10 +275,16 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 squadra_sa = "N/D"
                                 quot = 10
                                 fm = 6.0
+                                p_cons = 12
+                                fm25, fm24, fm23 = 6.0, 6.0, 6.0
                                 if not match_db.empty:
                                     squadra_sa = match_db.iloc[0]['Squadra_SerieA']
                                     quot = int(match_db.iloc[0]['Quotazione'])
                                     fm = float(match_db.iloc[0]['FantaMedia'])
+                                    p_cons = int(match_db.iloc[0].get('Prezzo_Consigliato', quot + 2))
+                                    fm25 = float(match_db.iloc[0].get('FM_2025', fm))
+                                    fm24 = float(match_db.iloc[0].get('FM_2024', fm))
+                                    fm23 = float(match_db.iloc[0].get('FM_2023', fm))
                                     g_ruolo = str(match_db.iloc[0]['Ruolo'])
 
                                 if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
@@ -264,6 +294,10 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                         "Squadra_SerieA": squadra_sa,
                                         "Quotazione": quot,
                                         "FantaMedia": fm,
+                                        "Prezzo_Consigliato": p_cons,
+                                        "FM_2025": fm25,
+                                        "FM_2024": fm24,
+                                        "FM_2023": fm23,
                                         "Costo_Acquisto": g_costo,
                                         "Scadenza_Contratto": g_scadenza
                                     })
@@ -320,13 +354,12 @@ if menu == "🔍 Scouting & Database":
 
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
     
-    # --- MIGLIORAMENTO 2: SELEZIONE MULTIPLA E CONFRONTO MULTIPLO NELLO SCOUTING ---
     if not df_filtrato.empty:
         scelta_confronto_scout = st.multiselect("Confronta giocatori selezionati dal listone", df_filtrato["Nome"].values)
         if scelta_confronto_scout:
             st.markdown("##### ⚖️ Confronto rapido obiettivi di scouting")
             df_scout_comp = df_filtrato[df_filtrato["Nome"].isin(scelta_confronto_scout)]
-            st.dataframe(df_scout_comp[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "Proprietario"]], use_container_width=True)
+            st.dataframe(df_scout_comp[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Indice_Affare", "Proprietario"]], use_container_width=True)
 
     st.dataframe(df_filtrato, use_container_width=True)
 
@@ -343,7 +376,7 @@ if menu == "🔍 Scouting & Database":
 
     if len(st.session_state.watchlist) > 0:
         df_watch = df[df["Nome"].isin(st.session_state.watchlist)]
-        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "Proprietario"]], use_container_width=True)
+        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Indice_Affare", "Proprietario"]], use_container_width=True)
         if st.button("Svuota Watchlist"):
             st.session_state.watchlist = []
             st.rerun()
@@ -377,10 +410,10 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             giocatore_scelto = st.selectbox("Seleziona Giocatore Svincolato", svincolati["Nome"].values)
             info_g = svincolati[svincolati["Nome"] == giocatore_scelto].iloc[0]
             
-            prezzo_consigliato = int(info_g["Quotazione"])
-            st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
+            prezzo_consigliato = int(info_g.get("Prezzo_Consigliato", info_g["Quotazione"]))
+            st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{info_g['Quotazione']}** | 💡 **Prezzo Consigliato: {prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
+            st.caption(f"FantaMedie storiche: 2025: **{info_g.get('FM_2025', info_g['FantaMedia'])}** | 2024: **{info_g.get('FM_2024', info_g['FantaMedia'])}** | 2023: **{info_g.get('FM_2023', info_g['FantaMedia'])}**")
 
-            # --- CONFRONTO TRA IL GIOCATORE IN ACQUISTO E QUELLI ATTUALMENTE IN ROSA ---
             st.markdown("#### ⚖️ Confronto con i giocatori della tua rosa (stesso ruolo)")
             rosa_sq_corrente = st.session_state.squadre[squadra_selezionata]["rosa"]
             if len(rosa_sq_corrente) > 0:
@@ -389,7 +422,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 
                 if not df_rosa_stesso_ruolo.empty:
                     st.caption(f"Giocatori nel ruolo di {info_g['Ruolo']} attualmente nella rosa di {squadra_selezionata}:")
-                    st.dataframe(df_rosa_stesso_ruolo[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+                    st.dataframe(df_rosa_stesso_ruolo[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
                 else:
                     st.info(f"Non hai altri giocatori di ruolo {info_g['Ruolo']} in rosa.")
             else:
@@ -410,6 +443,10 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "Squadra_SerieA": info_g["Squadra_SerieA"],
                         "Quotazione": info_g["Quotazione"],
                         "FantaMedia": info_g["FantaMedia"],
+                        "Prezzo_Consigliato": prezzo_consigliato,
+                        "FM_2025": info_g.get("FM_2025", info_g["FantaMedia"]),
+                        "FM_2024": info_g.get("FM_2024", info_g["FantaMedia"]),
+                        "FM_2023": info_g.get("FM_2023", info_g["FantaMedia"]),
                         "Costo_Acquisto": prezzo_acquisto,
                         "Scadenza_Contratto": scadenza_contratto
                     })
@@ -455,7 +492,6 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
     with tab_reg:
         st.subheader("📜 Storico Ufficiale Operazioni di Mercato")
         
-        # --- MIGLIORAMENTO 4: ESPORTAZIONE DATI (REGISTRO) ---
         if len(st.session_state.storico_mercato) > 0:
             df_storico = pd.DataFrame(st.session_state.storico_mercato)
             csv_storico = df_storico.to_csv(index=False).encode('utf-8')
@@ -491,7 +527,6 @@ elif menu == "🤝 Scambi tra Proprietà":
         giocatori_sq2_scelti = st.multiselect("Giocatori ceduti da Squadra 2", [g["Nome"] for g in rosa_sq2], key="g_sq2")
         denaro_sq2 = st.number_input(f"Crediti offerti da {sq2} (Conguaglio)", min_value=0, max_value=st.session_state.squadre[sq2]["crediti"], value=0, key="d_sq2")
 
-    # --- CONFRONTO DIRETTO TRA I GIOCATORI SELEZIONATI PER LO SCAMBIO ---
     if len(giocatori_sq1_scelti) > 0 or len(giocatori_sq2_scelti) > 0:
         st.markdown("---")
         st.subheader("⚖️ Tabella di Confronto Scambio")
@@ -504,7 +539,8 @@ elif menu == "🤝 Scambi tra Proprietà":
             st.markdown(f"**Giocatori in uscita da {sq1}**")
             if oggetti_s1_preview:
                 df_prev1 = pd.DataFrame(oggetti_s1_preview)
-                st.dataframe(df_prev1[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+                cols_mostrare = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Costo_Acquisto", "Scadenza_Contratto"] if c in df_prev1.columns]
+                st.dataframe(df_prev1[cols_mostrare], use_container_width=True)
             else:
                 st.caption("Nessun giocatore selezionato da questa squadra.")
                 
@@ -512,7 +548,8 @@ elif menu == "🤝 Scambi tra Proprietà":
             st.markdown(f"**Giocatori in uscita da {sq2}**")
             if oggetti_s2_preview:
                 df_prev2 = pd.DataFrame(oggetti_s2_preview)
-                st.dataframe(df_prev2[["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto"]], use_container_width=True)
+                cols_mostrare2 = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "FantaMedia", "FM_2025", "FM_2024", "FM_2023", "Costo_Acquisto", "Scadenza_Contratto"] if c in df_prev2.columns]
+                st.dataframe(df_prev2[cols_mostrare2], use_container_width=True)
             else:
                 st.caption("Nessun giocatore selezionato da questa squadra.")
 
@@ -583,14 +620,12 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
-                    # Uniforma o aggiunge la colonna Scadenza_Contratto se non presente
                     if "Scadenza_Contratto" not in rosa_df.columns:
                         if "Anni_Contratto" in rosa_df.columns:
                             rosa_df["Scadenza_Contratto"] = pd.to_numeric(rosa_df["Anni_Contratto"], errors="coerce").fillna(1).astype(int).apply(lambda x: f"01/06/{2026 + x}")
                         else:
                             rosa_df["Scadenza_Contratto"] = "01/06/2028"
 
-                    # --- MIGLIORAMENTO 1 & 3: KPI ANALITICI E AVVISO SCADENZE VICINE ---
                     tot_crediti_spesi = rosa_df["Costo_Acquisto"].sum() if "Costo_Acquisto" in rosa_df.columns else 0
                     fanta_media_ponderata = round(rosa_df["FantaMedia"].mean(), 2) if "FantaMedia" in rosa_df.columns else 0.0
 
@@ -598,7 +633,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     kpi1.metric("Totale Crediti Spesi", f"{tot_crediti_spesi} 🪙")
                     kpi2.metric("FantaMedia Media Rosa", f"{fanta_media_ponderata}")
                     
-                    # Calcolo contratti in scadenza ravvicinata (es. entro metà 2027)
                     scadenze_urgenti = 0
                     for sc in rosa_df["Scadenza_Contratto"]:
                         try:
@@ -648,7 +682,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             crediti_res = dati["crediti"]
             
             p = len(r_df[r_df["Ruolo"] == "P"]) if not r_df.empty else 0
-            d = len(r_df[r_df["Ruolo"] == "D"]) if not r_df.empty else 0
+            d = len(r_df[r_df["Ruolo"] == "D"]) if not r_df.media_esiste if not r_df.empty else 0
             c = len(r_df[r_df["Ruolo"] == "C"]) if not r_df.empty else 0
             a = len(r_df[r_df["Ruolo"] == "A"]) if not r_df.empty else 0
             
@@ -664,7 +698,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             
         df_riepilogo = pd.DataFrame(riepilogo_data)
         
-        # --- MIGLIORAMENTO 4: DOWNLOAD MATRICE GENERALE ---
         csv_riepilogo = df_riepilogo.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Esporta Riepilogo Generale in CSV",
