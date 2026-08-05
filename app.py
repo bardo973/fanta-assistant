@@ -130,7 +130,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             st.sidebar.error(f"Errore nella lettura: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
-    st.markdown("Carica un file CSV, Excel o PDF con le rose. Colonne/righe richieste: **Squadra**, **Nome**, **Ruolo**, **Costo**, **Contratto** (opzionale).")
+    st.markdown("Carica un file CSV, Excel o PDF con le rose. Colonne richieste: **Squadra**, **Nome**, **Ruolo**, **Costo**, **Contratto**.")
     rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx", "pdf"], key="upload_rose")
     
     if rose_file is not None:
@@ -175,9 +175,9 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                     g_ruolo = p
                                 elif p.isdigit():
                                     val_num = int(p)
-                                    if val_num <= 5: # Presunto anno di contratto
+                                    if val_num <= 5:
                                         g_contratto = val_num
-                                    else: # Presunto costo
+                                    else:
                                         g_costo = val_num
                             
                             db_g = st.session_state.giocatori_db
@@ -222,8 +222,21 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             if sq_match:
                                 g_nome = str(row[col_nome]).strip()
                                 g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
-                                g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1
-                                g_contratto = int(row[col_contratto]) if col_contratto and pd.notna(row[col_contratto]) else 1
+                                
+                                # Conversione sicura per evitare errori di tipo (Timestamp, stringhe, NaN)
+                                raw_costo = row[col_costo] if col_costo and pd.notna(row[col_costo]) else 1
+                                try:
+                                    g_costo = int(pd.to_numeric(raw_costo, errors='coerce'))
+                                    if pd.isna(g_costo): g_costo = 1
+                                except:
+                                    g_costo = 1
+
+                                raw_contratto = row[col_contratto] if col_contratto and pd.notna(row[col_contratto]) else 1
+                                try:
+                                    g_contratto = int(pd.to_numeric(raw_contratto, errors='coerce'))
+                                    if pd.isna(g_contratto): g_contratto = 1
+                                except:
+                                    g_contratto = 1
                                 
                                 db_g = st.session_state.giocatori_db
                                 match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
@@ -244,8 +257,8 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                         "Squadra_SerieA": squadra_sa,
                                         "Quotazione": quot,
                                         "FantaMedia": fm,
-                                        "Costo_Acquisto": int(g_costo),
-                                        "Anni_Contratto": int(g_contratto)
+                                        "Costo_Acquisto": g_costo,
+                                        "Anni_Contratto": g_contratto
                                     })
                                     count_importati += 1
                         st.sidebar.success(f"Importati {count_importati} giocatori nelle rose con successo!")
@@ -511,7 +524,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     c = conti_ruoli.get("C", 0)
                     a = conti_ruoli.get("A", 0)
                     
-                    # Sezione Gestione / Modifica Rapida Contratti
                     with st.expander("⚙️ Gestisci / Modifica Anni Contratto Rosa"):
                         g_sel_contratto = st.selectbox("Seleziona Giocatore", rosa_df["Nome"].values, key=f"sel_c_{nome_sq}")
                         nuovi_anni = st.slider("Anni di Contratto", 1, 5, 2, key=f"slide_c_{nome_sq}")
@@ -539,7 +551,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             
             p, d, c, a = 0, 0, 0, 0
             spesa_totale = 0
-            contratti_in_scadenza = 0 # Anni_Contratto == 1
+            contratti_in_scadenza = 0
             
             for g in rosa:
                 r = g.get("Ruolo", "C")
