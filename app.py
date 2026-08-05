@@ -171,7 +171,6 @@ def load_data():
     if df_raw is None:
         df_raw = pd.DataFrame(columns=["Calciatore", "Squadra", "Ruolo", "Quotazione"])
 
-    # Normalizza i nomi delle colonne originali per facilitare la ricerca
     df_raw.columns = [str(c).strip() for c in df_raw.columns]
     df_raw_cols_lower = {str(c).strip().lower(): c for c in df_raw.columns}
 
@@ -189,7 +188,6 @@ def load_data():
     col_quot = next((df_raw_cols_lower[k] for k in ["quotazione", "prezzo", "valore"] if k in df_raw_cols_lower), None)
     df["Quotazione"] = pd.to_numeric(df_raw[col_quot], errors="coerce").fillna(1) if col_quot else 1
 
-    # Cerca colonna proprietario / vincolato in modo esteso
     possibili_colonne_prop = [
         "proprietario", "prop", "squadra_fantacalcio", "vincolato", 
         "titolare_cartellino", "rosa", "proprietario_iniziale"
@@ -198,7 +196,6 @@ def load_data():
         (df_raw_cols_lower[k] for k in possibili_colonne_prop if k in df_raw_cols_lower), None
     )
     
-    # Se non trovata per nome esatto, cerchiamo per sottostringa
     if not colonna_trovata:
         for col_l, col_orig in df_raw_cols_lower.items():
             if any(term in col_l for term in ["prop", "vincol", "rosa", "squadra_fanta", "titolare"]):
@@ -224,7 +221,6 @@ def load_data():
 
     df["Stato"] = df["Proprietario_Iniziale"]
 
-    # Cerca colonna scadenza contratto
     possibili_colonne_scad = ["scad", "scadenza", "contratto", "scadenza_contratto"]
     col_scad_trovata = next((df_raw_cols_lower[k] for k in possibili_colonne_scad if k in df_raw_cols_lower), None)
     if not col_scad_trovata:
@@ -550,9 +546,8 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                 df_excel, map_colonne = elabora_file_caricato(uploaded_excel)
 
                 if "calciatore" in map_colonne:
-                    new_rose = {p: [] for p in PARTECIPANTI_LEGA}
+                    new_rose = st.session_state.get("rose_lega", {p: [] for p in PARTECIPANTI_LEGA})
                     df_temp = st.session_state.df_giocatori.copy()
-                    df_temp["Stato"] = "LIBERO"
                     
                     master_dict = {str(row["Nome"]).strip().lower(): row for _, row in df_temp.iterrows()}
                     
@@ -564,7 +559,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                         nome_g_lower = nome_g.lower()
                         
                         prop_val = "LIBERO"
-                        if "proprietario" in map_colonne:
+                        if "proprietario" in map_colonne and map_colonne["proprietario"] in row:
                             p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
                             if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!", "NAT", "INF"] and not p_raw.startswith("="):
                                 prop_val = p_raw
@@ -574,7 +569,7 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                                         new_rose[prop_val] = []
                         
                         prezzo_val = 1
-                        if "quotazione" in map_colonne:
+                        if "quotazione" in map_colonne and map_colonne["quotazione"] in row:
                             try:
                                 prezzo_val = int(float(str(row[map_colonne["quotazione"]]).replace(',', '.')))
                             except:
@@ -601,7 +596,13 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                             if prop_val not in new_rose:
                                 new_rose[prop_val] = []
                             
-                            if not any(str(g["Nome"]).strip().lower() == nome_g_lower for g in new_rose[prop_val]):
+                            esistente = next((g for g in new_rose[prop_val] if str(g["Nome"]).strip().lower() == nome_g_lower), None)
+                            if esistente:
+                                esistente["Ruolo"] = ruolo_g
+                                esistente["Squadra"] = squadra_g
+                                esistente["Prezzo_Acquisto"] = prezzo_val
+                                esistente["Scadenza"] = scad_val
+                            else:
                                 new_rose[prop_val].append({
                                     "Nome": nome_g,
                                     "Ruolo": ruolo_g,
@@ -619,12 +620,174 @@ with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"Rose, vincolati e scadenze estratti con successo!")
+                    st.sidebar.success(f"Rose, vincolati e scadenze aggiornati con successo!")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
             except Exception as e:
                 st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
+
+with st.sidebar.expander("📋 Importa Listone Quotazioni (es. 2026/2027)"):
+    st.info("Carica il nuovo listone per aggiungere i nuovi giocatori o aggiornare le quotazioni senza perdere le rose esistenti.")
+    uploaded_listone = st.file_uploader(
+        "Carica listone (es. quotazioni_fantacalcio_2026/2027)", type=["xlsx", "xls", "csv", "txt"], key="excel_listone_uploader"
+    )
+
+    if uploaded_listone is not None:
+        listone_identifier = f"{uploaded_listone.name}_{uploaded_listone.size}"
+        if st.session_state.get("last_uploaded_listone") != listone_identifier:
+            try:
+                df_listone_raw, map_col_listone = elabora_file_caricato(uploaded_listone)
+
+                if "calciatore" in map_col_listone:
+                    df_master = st.session_state.df_giocatori.copy()
+                    
+                    stati_attuali_map = {}
+                    for p_squadra, lista_gioc in st.session_state.rose_lega.items():
+                        for g in lista_gioc:
+                            stati_attuali_map[str(g["Nome"]).strip().lower()] = {
+                                "proprietario": p_squadra,
+                                "prezzo": g.get("Prezzo_Acquisto", 1),
+                                "scadenza": g.get("Scadenza", "Giugno 2030")
+                            }
+                    
+                    for _, row in df_master.iterrows():
+                        n_low = str(row["Nome"]).strip().lower()
+                        if n_low not in stati_attuali_map and row["Stato"] != "LIBERO":
+                            stati_attuali_map[n_low] = {
+                                "proprietario": row["Stato"],
+                                "prezzo": int(row["Quotazione"]),
+                                "scadenza": str(row.get("Scadenza_Contratto", "Giugno 2030"))
+                            }
+
+                    nuovi_righe_master = []
+                    nuove_rose = {p: list(st.session_state.rose_lega.get(p, [])) for p in PARTECIPANTI_LEGA}
+                    
+                    for _, row in df_listone_raw.iterrows():
+                        nome_g = ripara_testo(str(row[map_col_listone["calciatore"]]).strip())
+                        if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
+                            continue
+                        
+                        nome_g_lower = nome_g.lower()
+                        
+                        ruolo_g = ripara_testo(str(row[map_col_listone["ruolo"]])) if "ruolo" in map_col_listone and map_col_listone["ruolo"] in row else "C"
+                        squadra_g = ripara_testo(str(row[map_col_listone["squadra"]])) if "squadra" in map_col_listone and map_col_listone["squadra"] in row else "N/D"
+                        
+                        quot_val = 1
+                        if "quotazione" in map_col_listone and map_col_listone["quotazione"] in row:
+                            try:
+                                quot_val = int(float(str(row[map_col_listone["quotazione"]]).replace(',', '.')))
+                            except:
+                                pass
+
+                        proprietario_finale = "LIBERO"
+                        scadenza_finale = "Giugno 2030"
+                        
+                        if nome_g_lower in stati_attuali_map:
+                            proprietario_finale = stati_attuali_map[nome_g_lower]["proprietario"]
+                            scadenza_finale = stati_attuali_map[nome_g_lower]["scadenza"]
+                        
+                        tier_g = "Top" if quot_val >= 25 else ("Semitop" if quot_val >= 15 else ("Titolare" if quot_val >= 8 else "Scommessa"))
+                        
+                        if ruolo_g == "A":
+                            xg = round(max(0.1, quot_val * 0.035), 2)
+                            xa = round(max(0.05, quot_val * 0.015), 2)
+                        elif ruolo_g == "C":
+                            xg = round(max(0.05, quot_val * 0.02), 2)
+                            xa = round(max(0.08, quot_val * 0.025), 2)
+                        elif ruolo_g == "D":
+                            xg = round(max(0.02, quot_val * 0.01), 2)
+                            xa = round(max(0.03, quot_val * 0.015), 2)
+                        else:
+                            xg, xa = 0.0, 0.0
+
+                        if quot_val >= 25:
+                            p_tit, part_att = 0.95, 36
+                        elif quot_val >= 15:
+                            p_tit, part_att = 0.82, 32
+                        elif quot_val >= 8:
+                            p_tit, part_att = 0.65, 27
+                        else:
+                            p_tit, part_att = 0.40, 20
+
+                        partite_titolare = int(round(part_att * p_tit))
+                        partite_subentrato = max(0, int(part_att - partite_titolare))
+                        
+                        base_fm = 6.00
+                        if ruolo_g == "A":
+                            base_fm += 0.35 + (quot_val * 0.04)
+                        elif ruolo_g == "C":
+                            base_fm += 0.20 + (quot_val * 0.03)
+                        elif ruolo_g == "D":
+                            base_fm += 0.10 + (quot_val * 0.02)
+                        else:
+                            base_fm = 5.50 + (quot_val * 0.01)
+                        fanta_media = round(min(base_fm, 9.5), 2)
+                        
+                        status_piaz = "Rigorista 🎯" if quot_val >= 28 else ("Vice-Rigorista 👟" if quot_val >= 18 else "No")
+                        
+                        hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
+                        mult_team = hype_squadra.get(squadra_g, 0.95)
+                        val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * mult_team, 1)
+                        indice_vfm = round(val_atteso / quot_val, 2) if quot_val > 0 else 0.0
+
+                        nuovi_righe_master.append({
+                            "Nome": nome_g,
+                            "Squadra": squadra_g,
+                            "Ruolo": ruolo_g,
+                            "Quotazione": quot_val,
+                            "Proprietario_Iniziale": proprietario_finale,
+                            "Stato": proprietario_finale,
+                            "Scadenza_Contratto": scadenza_finale,
+                            "Tier": tier_g,
+                            "Percentuale_Titolarita": p_tit,
+                            "Partite_Attese": part_att,
+                            "Indice_Continuita": 7.8 if quot_val >= 15 else 6.8,
+                            "Rischio_Infortunio": "Basso" if quot_val >= 15 else "Medio",
+                            "xG_90": xg,
+                            "xA_90": xa,
+                            "Indice_Cartellini": "Medio",
+                            "Rischio_Turnover": "Basso" if quot_val >= 15 else "Medio",
+                            "Partite_Titolare": partite_titolare,
+                            "Partite_Subentrato": partite_subentrato,
+                            "FantaMedia_Stimata": fanta_media,
+                            "Status_Piazzati": status_piaz,
+                            "Moltiplicatore_Team": mult_team,
+                            "Valore_Atteso": val_atteso,
+                            "Indice_VfM": indice_vfm
+                        })
+
+                        if proprietario_finale != "LIBERO":
+                            if proprietario_finale not in nuove_rose:
+                                nuove_rose[proprietario_finale] = []
+                            
+                            esistente_rosa = next((g for g in nuove_rose[proprietario_finale] if str(g["Nome"]).strip().lower() == nome_g_lower), None)
+                            if esistente_rosa:
+                                esistente_rosa["Ruolo"] = ruolo_g
+                                esistente_rosa["Squadra"] = squadra_g
+                                esistente_rosa["Valore_Attuale"] = quot_val
+                            else:
+                                prezzo_acq = stati_attuali_map[nome_g_lower]["prezzo"]
+                                nuove_rose[proprietario_finale].append({
+                                    "Nome": nome_g,
+                                    "Ruolo": ruolo_g,
+                                    "Squadra": squadra_g,
+                                    "Prezzo_Acquisto": prezzo_acq,
+                                    "Valore_Attuale": quot_val,
+                                    "Scadenza": scadenza_finale
+                                })
+
+                    df_nuovo_master = pd.DataFrame(nuovi_righe_master)
+                    st.session_state.df_giocatori = df_nuovo_master
+                    st.session_state.rose_lega = nuove_rose
+                    st.session_state.last_uploaded_listone = listone_identifier
+
+                    st.sidebar.success(f"✅ Listone aggiornato con successo! Nuovi giocatori integrati e rose preservate.")
+                    st.rerun()
+                else:
+                    st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel listone.")
+            except Exception as e:
+                st.sidebar.error(f"Errore durante l'importazione del listone: {e}")
 
 with st.sidebar.expander("📅 Modifica Scadenze Contratti"):
     squadra_mod_scadenza = st.selectbox("Seleziona squadra:", PARTECIPANTI_LEGA, key="mod_scad_sq")
@@ -755,827 +918,78 @@ if not df_liberi_base.empty:
         with st.expander("📊 Metriche Avanzate & Partite (Titolare / Subentrato)"):
             p_titolare = safe_get(g_data, ['Partite_Titolare', 'Partite Titolare', 'Titolare'], 0)
             p_subentrato = safe_get(g_data, ['Partite_Subentrato', 'Partite Subentrato', 'Subentrato'], 0)
-            xg_val = safe_get(g_data, ['xG_90', 'xG'], 0.0)
-            xa_val = safe_get(g_data, ['xA_90', 'xA'], 0.0)
-            cartellini_val = safe_get(g_data, ['Indice_Cartellini', 'Cartellini'], 'Basso')
+            
+            c_m1, c_m2, c_m3 = st.columns(3)
+            c_m1.metric("Partite da Titolare Attese", f"{p_titolare}")
+            c_m2.metric("Partite da Subentrato", f"{p_subentrato}")
+            c_m3.metric("Indice di Continuità", f"{safe_get(g_data, ['Indice_Continuita', 'Continuita'], 'N/D')}")
 
-            m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
-            m_col1.metric("Partite Titolare 🟢", f"{p_titolare}")
-            m_col2.metric("Partite Subentrato 🟡", f"{p_subentrato}")
-            m_col3.metric("xG / 90 min", f"{xg_val}")
-            m_col4.metric("xA / 90 min", f"{xa_val}")
-            m_col5.metric("Rischio Cartellini", f"{cartellini_val}")
+            c_m4, c_m5, c_m6 = st.columns(3)
+            c_m4.metric("xG / 90min", f"{safe_get(g_data, ['xG_90', 'xg'], 0.0)}")
+            c_m5.metric("xA / 90min", f"{safe_get(g_data, ['xA_90', 'xa'], 0.0)}")
+            c_m6.metric("Rischio Infortunio", f"{safe_get(g_data, ['Rischio_Infortunio'], 'Basso')}")
 
-        with st.expander("⚖️ Confronta con la tua Rosa (Consiglio per alzare la media)", expanded=True):
-            rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(fanta_allenatore_attivo, [])
-            if rosa_allenatore_attuale:
-                st.write(f"Confronto di **{g_data['Nome']}** ({g_data['Ruolo']} - FM: **{g_data['FantaMedia_Stimata']}**) con i tuoi giocatori in rosa dello stesso ruolo:")
-                
-                giocatori_stesso_ruolo = [g for g in rosa_allenatore_attuale if g["Ruolo"] == g_data["Ruolo"]]
-                
-                if giocatori_stesso_ruolo:
-                    nomi_stesso_ruolo = [str(g["Nome"]) for g in giocatori_stesso_ruolo]
-                    giocatore_confronto_sel = st.selectbox("Seleziono specifico giocatore in rosa da confrontare:", nomi_stesso_ruolo, key="select_confronto_rosa")
-                    
-                    g_rosa_obj = next((g for g in giocatori_stesso_ruolo if str(g["Nome"]).strip().lower() == str(giocatore_confronto_sel).strip().lower()), None)
-                    if g_rosa_obj:
-                        df_rosa_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_confronto_sel).strip().lower()]
-                        fm_rosa = df_rosa_match["FantaMedia_Stimata"].values[0] if not df_rosa_match.empty else 6.0
-                        scadenza_rosa_val = g_rosa_obj.get("Scadenza", "N/D")
-                        
-                        c_col1, c_col2 = st.columns(2)
-                        c_col1.metric(f"In Asta: {g_data['Nome']}", f"{g_data['FantaMedia_Stimata']} FM", f"Scad: {g_data['Scadenza_Contratto']}")
-                        c_col2.metric(f"In Rosa: {giocatore_confronto_sel}", f"{fm_rosa} FM", f"Scad: {scadenza_rosa_val}")
-                        
-                        diff_fm = round(g_data['FantaMedia_Stimata'] - fm_rosa, 2)
-                        if diff_fm > 0:
-                            st.success(f"📈 **Consiglio:** Acquistare **{g_data['Nome']}** e sostituirlo/alternarlo a **{giocatore_confronto_sel}** **alzerà la media** della tua rosa di **+{diff_fm} FM** in questo ruolo!")
-                        elif diff_fm < 0:
-                            st.warning(f"📉 **Attenzione:** **{g_data['Nome']}** ha una FantaMedia stimata inferiore rispetto a **{giocatore_confronto_sel}** ({diff_fm} FM). Prenderlo non alzerà la media in questo slot.")
-                        else:
-                            st.info(f"⚖️ **Neutro:** I due giocatori hanno esattamente la stessa FantaMedia stimata ({fm_rosa} FM).")
-                else:
-                    st.info(f"Non hai ancora giocatori nel ruolo **{g_data['Ruolo']}** nella tua rosa. Acquistare questo giocatore completerà lo slot!")
+        st.markdown("---")
+        st.subheader("🛒 Registra Acquisto in Asta")
+
+        col_acq1, col_acq2, col_acq3 = st.columns(3)
+        with col_acq1:
+            prezzo_aggiudicazione = st.number_input(
+                "Prezzo di Aggiudicazione (crediti):",
+                min_value=1,
+                max_value=max(1000, budget_rimanente_corrente + 500),
+                value=max(1, quotazione_listone),
+                step=1,
+                key="input_prezzo_asta",
+            )
+        with col_acq2:
+            mesi_contratto_default = ["Giugno 2029", "Giugno 2030", "Giugno 2031", "Giugno 2032"]
+            scadenza_scelta = st.selectbox(
+                "Scadenza Contratto:",
+                mesi_contratto_default,
+                index=0 if quotazione_listone >= 15 else 1,
+                key="select_scadenza_asta",
+            )
+        with col_acq3:
+            st.markdown("<br>", unsafe_allow_html=True)
+            registra_acquisto_btn = st.button(
+                "✅ Conferma e Assegna Giocatore",
+                type="primary",
+                key="btn_conferma_acquisto",
+            )
+
+        if registra_acquisto_btn:
+            if prezzo_aggiudicazione > budget_rimanente_corrente:
+                st.error(
+                    f"❌ Crediti insufficienti! Budget rimanente per {fanta_allenatore_attivo}: {budget_rimanente_corrente} cr."
+                )
             else:
-                st.info("La tua rosa è attualmente vuota, questo sarà il tuo primo acquisto per il ruolo!")
-
-        with st.form("form_aggiudicazione"):
-            st.write("Registra Acquisto Asta")
-            col_A, col_B = st.columns(2)
-            with col_A:
-                prezzo_aggiudicazione = st.number_input(
-                    "Prezzo di chiusura asta (crediti):",
-                    min_value=1,
-                    value=max(1, quotazione_listone),
-                )
-            with col_B:
-                vincitore_asta = st.selectbox(
-                    "Assegna a fanta-allenatore:",
-                    PARTECIPANTI_LEGA,
-                    index=PARTECIPANTI_LEGA.index(fanta_allenatore_attivo) if fanta_allenatore_attivo in PARTECIPANTI_LEGA else 0,
-                    key="vincitore_asta_form",
-                )
-            submit_asta = st.form_submit_button("Conferma Acquisto Giocatore")
-
-            if submit_asta:
-                current_rose = st.session_state.get("rose_lega", {})
-                if vincitore_asta not in current_rose:
-                    current_rose[vincitore_asta] = []
-                
-                current_rose[vincitore_asta].append({
+                nuovo_elemento_rosa = {
                     "Nome": str(g_data["Nome"]),
                     "Ruolo": str(g_data["Ruolo"]),
                     "Squadra": str(g_data["Squadra"]),
                     "Prezzo_Acquisto": int(prezzo_aggiudicazione),
-                    "Valore_Attuale": int(g_data["Quotazione"]),
-                    "Scadenza": str(g_data["Scadenza_Contratto"]),
-                })
-                st.session_state.rose_lega = current_rose
-                idx_giocatore = df[df["Nome"] == giocatore_sel].index[0]
-                st.session_state.df_giocatori.at[idx_giocatore, "Stato"] = (
-                    vincitore_asta
+                    "Valore_Attuale": int(quotazione_listone),
+                    "Scadenza": str(scadenza_scelta),
+                }
+
+                if fanta_allenatore_attivo not in st.session_state.rose_lega:
+                    st.session_state.rose_lega[fanta_allenatore_attivo] = []
+
+                st.session_state.rose_lega[fanta_allenatore_attivo].append(
+                    nuovo_elemento_rosa
                 )
+
+                idx_g = df[df["Nome"] == giocatore_sel].index[0]
+                df.at[idx_g, "Stato"] = fanta_allenatore_attivo
+                df.at[idx_g, "Scadenza_Contratto"] = str(scadenza_scelta)
+                st.session_state.df_giocatori = df
+
                 st.success(
-                    f"✅ {giocatore_sel} assegnato a **{vincitore_asta}** per {prezzo_aggiudicazione} crediti!"
+                    f"🎉 **{giocatore_sel}** assegnato a **{fanta_allenatore_attivo}** per **{prezzo_aggiudicazione} crediti** (Contratto: {scadenza_scelta})!"
                 )
                 st.rerun()
     else:
-        st.warning("Nessun giocatore libero corrisponde ai filtri di ruolo e squadra selezionati.")
+        st.info("Nessun giocatore disponibile con i filtri selezionati.")
 else:
-    st.success("🎉 Tutti i giocatori sono stati assegnati!")
-
-# ---------------------------------------------------------
-# 6. SEZIONE SCOUTING AVANZATO & FILTRI
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🎯 Scout di Rendimento & Consigli Consigliati (Top 2 per Ruolo)")
-
-st.markdown("### 🌟 Giocatori Consigliati (Liberi)")
-col_cons_d, col_cons_c, col_cons_a = st.columns(3)
-
-with col_cons_d:
-    st.markdown("#### 🛡️ Difensori Top")
-    df_cons_d = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "D")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
-    if not df_cons_d.empty:
-        for _, row_g in df_cons_d.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {safe_get(row_g, ['Partite_Titolare'], 0)}/{safe_get(row_g, ['Partite_Subentrato'], 0)}\n- Quotazione: {row_g['Quotazione']} cr")
-    else:
-        st.write("Nessun difensore libero disponibile.")
-
-with col_cons_c:
-    st.markdown("#### ⚙️ Centrocampisti Top")
-    df_cons_c = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "C")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
-    if not df_cons_c.empty:
-        for _, row_g in df_cons_c.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {safe_get(row_g, ['Partite_Titolare'], 0)}/{safe_get(row_g, ['Partite_Subentrato'], 0)}\n- Quotazione: {row_g['Quotazione']} cr")
-    else:
-        st.write("Nessun centrocampista libero disponibile.")
-
-with col_cons_a:
-    st.markdown("#### ⚽ Attaccanti Top")
-    df_cons_a = df[(df["Stato"] == "LIBERO") & (df["Ruolo"] == "A")].sort_values(by="FantaMedia_Stimata", ascending=False).head(2)
-    if not df_cons_a.empty:
-        for _, row_g in df_cons_a.iterrows():
-            st.info(f"**{row_g['Nome']}** ({row_g['Squadra']})\n- FM Stimata: **{row_g['FantaMedia_Stimata']}**\n- Titolare/Sub: {safe_get(row_g, ['Partite_Titolare'], 0)}/{safe_get(row_g, ['Partite_Subentrato'], 0)}\n- Quotazione: {row_g['Quotazione']} cr")
-    else:
-        st.write("Nessun attaccante libero disponibile.")
-
-st.divider()
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
-    filtro_ruolo = st.selectbox(
-        "Filtra per Ruolo:", ["Tutti", "P", "D", "C", "A"], key="filtro_ruolo_scout"
-    )
-with col_f2:
-    filtro_tier = st.selectbox(
-        "Filtra per Tier:",
-        ["Tutti", "Top", "Semitop", "Titolare", "Scommessa"],
-        key="filtro_tier_scout",
-    )
-with col_f3:
-    solo_rigoristi_checkbox = st.checkbox(
-        "Solo Rigoristi Designati 🎯", key="filtro_rigoristi_scout"
-    )
-
-df_scout = df[df["Stato"] == "LIBERO"].copy()
-if filtro_ruolo != "Tutti":
-    df_scout = df_scout[df_scout["Ruolo"] == filtro_ruolo]
-if filtro_tier != "Tutti":
-    df_scout = df_scout[df_scout["Tier"] == filtro_tier]
-if solo_rigoristi_checkbox:
-    df_scout = df_scout[
-        df_scout["Status_Piazzati"].str.startswith("Rigorista")
-    ]
-
-st.dataframe(
-    df_scout[[
-        "Nome",
-        "Squadra",
-        "Ruolo",
-        "Quotazione",
-        "FantaMedia_Stimata",
-        "Partite_Titolare",
-        "Partite_Subentrato",
-        "Status_Piazzati",
-        "Rischio_Infortunio",
-        "Valore_Atteso",
-    ]],
-    use_container_width=True,
-    hide_index=True,
-)
-
-# ---------------------------------------------------------
-# 7. SEZIONE PRINCIPALE: GESTIONE, AGGIORNAMENTO MULTI-ANNO & LEGA
-# ---------------------------------------------------------
-st.divider()
-st.subheader("📋 Gestione Avanzata & Analisi Lega")
-
-with st.expander("📂 Carica Listone Aggiornato (Senza Toccare le Rose)"):
-    st.markdown("""
-    Carica il file listone aggiornato (es. Excel, CSV o TXT). 
-    Questa funzione **aggiornerà quotazioni, ruoli, squadre e statistiche** di tutti i giocatori, lasciando **completamente inalterate** le rose e i crediti dei partecipanti già assegnati!
-    """)
-    
-    uploaded_listone_agg = st.file_uploader("📂 Seleziona file listone aggiornato", type=["xlsx", "xls", "csv", "txt"], key="up_listone_agg_puro")
-
-    if st.button("🚀 Aggiorna Listone Mantenendo le Rose", key="btn_esegui_aggiornamento_puro"):
-        if uploaded_listone_agg is not None:
-            try:
-                df_nuovo_listone, map_colonne_agg = elabora_file_caricato(uploaded_listone_agg)
-                col_nome = map_colonne_agg.get("calciatore", df_nuovo_listone.columns[0])
-                col_quot = map_colonne_agg.get("quotazione", None)
-                col_ruolo = map_colonne_agg.get("ruolo", None)
-                col_sq = map_colonne_agg.get("squadra", None)
-                col_scad = map_colonne_agg.get("scadenza", None)
-                
-                df_master_agg = st.session_state.df_giocatori.copy()
-                stati_correnti_map = {str(r["Nome"]).strip().lower(): r["Stato"] for _, r in df_master_agg.iterrows()}
-                scadenze_correnti_map = {str(r["Nome"]).strip().lower(): r["Scadenza_Contratto"] for _, r in df_master_agg.iterrows()}
-                
-                nuove_righe_list = []
-                
-                for _, row_l in df_nuovo_listone.iterrows():
-                    nome_g = ripara_testo(str(row_l[col_nome]).strip())
-                    if not nome_g or nome_g.lower() in ["nan", "none", "", "nat", "inf"]:
-                        continue
-                        
-                    quot_val = 1
-                    if col_quot and col_quot in row_l:
-                        try:
-                            quot_val = int(float(str(row_l[col_quot]).replace(',', '.')))
-                        except:
-                            pass
-                            
-                    ruolo_val = ripara_testo(str(row_l[col_ruolo]).strip().upper()) if col_ruolo and col_ruolo in row_l else "C"
-                    if ruolo_val not in ["P", "D", "C", "A"]:
-                        ruolo_val = "C"
-                        
-                    squadra_val = ripara_testo(str(row_l[col_sq]).strip()) if col_sq and col_sq in row_l else "N/D"
-                    if squadra_val.lower() in ["nan", "none", ""]:
-                        squadra_val = "N/D"
-                        
-                    nome_key = nome_g.lower()
-                    stato_precedente = stati_correnti_map.get(nome_key, "LIBERO")
-                    
-                    scad_precedente = scadenze_correnti_map.get(nome_key, "Giugno 2030")
-                    if col_scad and col_scad in row_l:
-                        scad_raw = str(row_l[col_scad]).strip()
-                        scad_precedente = formatta_scadenza_csv(scad_raw)
-                    
-                    quot = quot_val
-                    tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
-                    
-                    if ruolo_val == "A":
-                        xg = round(max(0.1, quot * 0.035), 2)
-                        xa = round(max(0.05, quot * 0.015), 2)
-                        cart = "Medio" if quot < 20 else "Basso"
-                    elif ruolo_val == "C":
-                        xg = round(max(0.05, quot * 0.02), 2)
-                        xa = round(max(0.08, quot * 0.025), 2)
-                        cart = "Medio-Alto"
-                    elif ruolo_val == "D":
-                        xg = round(max(0.02, quot * 0.01), 2)
-                        xa = round(max(0.03, quot * 0.015), 2)
-                        cart = "Alto"
-                    else:
-                        xg, xa = 0.0, 0.0
-                        cart = "Basso"
-                        
-                    if quot >= 25:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.95, 36, 8.8, "Basso (Affidabile)", "Basso"
-                    elif quot >= 15:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.82, 32, 7.8, "Medio-Basso", "Medio"
-                    elif quot >= 8:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.65, 27, 6.8, "Medio", "Medio"
-                    else:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
-                        
-                    p_titolare = int(round(part_att * p_tit))
-                    p_subentrato = max(0, int(part_att - p_titolare))
-
-                    base_fm = 6.00
-                    if ruolo_val == "A":
-                        base_fm += 0.35 + (quot * 0.04)
-                    elif ruolo_val == "C":
-                        base_fm += 0.20 + (quot * 0.03)
-                    elif ruolo_val == "D":
-                        base_fm += 0.10 + (quot * 0.02)
-                    else:
-                        base_fm = 5.50 + (quot * 0.01)
-                    fm_stimata = round(min(base_fm, 9.5), 2)
-                    
-                    status_p = "Rigorista 🎯" if quot >= 28 else ("Vice-Rigorista 👟" if quot >= 18 else "No")
-                    
-                    hype_squadra = {"Inter": 1.25, "Atalanta": 1.25, "Milan": 1.15, "Juventus": 1.15}
-                    molt_team = hype_squadra.get(squadra_val, 0.95)
-                    val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * molt_team, 1)
-                    
-                    nuove_righe_list.append({
-                        "Nome": nome_g,
-                        "Squadra": squadra_val,
-                        "Ruolo": ruolo_val,
-                        "Quotazione": quot,
-                        "Proprietario_Iniziale": stato_precedente if stato_precedente != "LIBERO" else "LIBERO",
-                        "Stato": stato_precedente,
-                        "Tier": tier,
-                        "Scadenza_Contratto": scad_precedente,
-                        "Percentuale_Titolarita": p_tit,
-                        "Partite_Attese": part_att,
-                        "Indice_Continuita": ind_cont,
-                        "Rischio_Infortunio": r_inf,
-                        "xG_90": xg,
-                        "xA_90": xa,
-                        "Indice_Cartellini": cart,
-                        "Rischio_Turnover": r_turn,
-                        "Partite_Titolare": p_titolare,
-                        "Partite_Subentrato": p_subentrato,
-                        "FantaMedia_Stimata": fm_stimata,
-                        "Status_Piazzati": status_p,
-                        "Moltiplicatore_Team": molt_team,
-                        "Valore_Atteso": val_atteso,
-                        "Indice_VfM": round(val_atteso / quot, 2)
-                    })
-                
-                if nuove_righe_list:
-                    st.session_state.df_giocatori = pd.DataFrame(nuove_righe_list)
-                    st.success("✅ Listone aggiornato con successo! Tutte le quotazioni e statistiche sono state aggiornate, mentre le rose e le scadenze dei partecipanti sono rimaste perfettamente intatte.")
-                    st.rerun()
-                else:
-                    st.warning("Nessun dato trovato nel file.")
-            except Exception as e:
-                st.error(f"Errore durante l'elaborazione del file: {e}")
-        else:
-            st.warning("Seleziona prima un file valido.")
-
-with st.expander("📈 Aggiornamento Storico & Media 3 Anni"):
-    st.markdown("""
-    Puoi caricare **fino a 3 file storici** per calcolare automaticamente una **media ponderata** delle performance e aggiornare il listone attivo!
-    """)
-    
-    col_up_a, col_up_b, col_up_c = st.columns(3)
-    with col_up_a:
-        file_anno_1 = st.file_uploader("📂 Listone Anno 1 (Corrente/Recente)", type=["xlsx", "xls", "csv", "txt"], key="up_a1")
-    with col_up_b:
-        file_anno_2 = st.file_uploader("📂 Listone Anno 2 (Precedente)", type=["xlsx", "xls", "csv", "txt"], key="up_a2")
-    with col_up_c:
-        file_anno_3 = st.file_uploader("📂 Listone Anno 3 (Storico)", type=["xlsx", "xls", "csv", "txt"], key="up_a3")
-
-    if st.button("🚀 Elabora e Fondi Storico 3 Anni", key="btn_fondi_storico"):
-        uploaded_files_list = [f for f in [file_anno_1, file_anno_2, file_anno_3] if f is not None]
-        
-        if uploaded_files_list:
-            dfs_storico = []
-            for idx_f, f_obj in enumerate(uploaded_files_list):
-                try:
-                    df_temp_anno, map_c_anno = elabora_file_caricato(f_obj)
-                    col_nome = map_c_anno.get("calciatore", df_temp_anno.columns[0])
-                    col_quot = map_c_anno.get("quotazione", None)
-                    col_ruolo = map_c_anno.get("ruolo", None)
-                    col_sq = map_c_anno.get("squadra", None)
-                    
-                    df_clean_anno = pd.DataFrame()
-                    df_clean_anno["Nome"] = df_temp_anno[col_nome].astype(str).str.strip().apply(ripara_testo)
-                    df_clean_anno["Quotazione"] = pd.to_numeric(df_temp_anno[col_quot], errors="coerce").fillna(1) if col_quot else 1
-                    df_clean_anno["Ruolo"] = df_temp_anno[col_ruolo].astype(str).str.strip() if col_ruolo else "C"
-                    df_clean_anno["Squadra"] = df_temp_anno[col_sq].astype(str).str.strip().apply(ripara_testo) if col_sq else "N/D"
-                    df_clean_anno["Peso_Anno"] = 3 - idx_f if idx_f < 3 else 1
-                    
-                    dfs_storico.append(df_clean_anno)
-                except Exception as ex:
-                    st.error(f"Errore nella lettura del file {f_obj.name}: {ex}")
-
-            if dfs_storico:
-                df_unito = pd.concat(dfs_storico, ignore_index=True)
-                df_unito["Nome_Key"] = df_unito["Nome"].str.lower()
-                
-                df_agg = df_unito.groupby("Nome_Key").agg(
-                    Nome=("Nome", "first"),
-                    Ruolo=("Ruolo", "last"),
-                    Squadra=("Squadra", "last"),
-                    Quotazione_Media=("Quotazione", lambda x: int(np.average(x, weights=df_unito.loc[x.index, "Peso_Anno"])))
-                ).reset_index(drop=True)
-                
-                df_master_corr = st.session_state.df_giocatori.copy()
-                
-                for _, r_agg in df_agg.iterrows():
-                    n_key = r_agg["Nome"].strip().lower()
-                    match_m = df_master_corr[df_master_corr["Nome"].astype(str).str.strip().str.lower() == n_key]
-                    
-                    if not match_m.empty:
-                        idx_m = match_m.index[0]
-                        nuova_q = int(r_agg["Quotazione_Media"])
-                        df_master_corr.at[idx_m, "Quotazione"] = nuova_q
-                        
-                        q = nuova_q
-                        r_ruolo = df_master_corr.at[idx_m, "Ruolo"]
-                        
-                        tier = "Top" if q >= 25 else ("Semitop" if q >= 15 else ("Titolare" if q >= 8 else "Scommessa"))
-                        df_master_corr.at[idx_m, "Tier"] = tier
-                        
-                        base_fm = 6.00
-                        if r_ruolo == "A":
-                            base_fm += 0.35 + (q * 0.04)
-                        elif r_ruolo == "C":
-                            base_fm += 0.20 + (q * 0.03)
-                        elif r_ruolo == "D":
-                            base_fm += 0.10 + (q * 0.02)
-                        else:
-                            base_fm = 5.50 + (q * 0.01)
-                        df_master_corr.at[idx_m, "FantaMedia_Stimata"] = round(min(base_fm, 9.5), 2)
-                    else:
-                        nuova_q = int(r_agg["Quotazione_Media"])
-                        r_ruolo = str(r_agg["Ruolo"])
-                        sq = str(r_agg["Squadra"])
-                        
-                        tier = "Top" if nuova_q >= 25 else ("Semitop" if nuova_q >= 15 else ("Titolare" if nuova_q >= 8 else "Scommessa"))
-                        base_fm = 6.00
-                        if r_ruolo == "A":
-                            base_fm += 0.35 + (nuova_q * 0.04)
-                        elif r_ruolo == "C":
-                            base_fm += 0.20 + (nuova_q * 0.03)
-                        elif r_ruolo == "D":
-                            base_fm += 0.10 + (nuova_q * 0.02)
-                        else:
-                            base_fm = 5.50 + (nuova_q * 0.01)
-                        
-                        nuova_riga_m = {
-                            "Nome": r_agg["Nome"],
-                            "Squadra": sq if sq != "nan" else "N/D",
-                            "Ruolo": r_ruolo if r_ruolo in ["P", "D", "C", "A"] else "C",
-                            "Quotazione": nuova_q,
-                            "Proprietario_Iniziale": "LIBERO",
-                            "Stato": "LIBERO",
-                            "Tier": tier,
-                            "Scadenza_Contratto": "Giugno 2030",
-                            "Percentuale_Titolarita": 0.82,
-                            "Partite_Attese": 32,
-                            "Indice_Continuita": 7.8,
-                            "Rischio_Infortunio": "Medio",
-                            "xG_90": 0.1,
-                            "xA_90": 0.1,
-                            "Indice_Cartellini": "Medio",
-                            "Rischio_Turnover": "Medio",
-                            "Partite_Titolare": 26,
-                            "Partite_Subentrato": 6,
-                            "FantaMedia_Stimata": round(min(base_fm, 9.5), 2),
-                            "Status_Piazzati": "No",
-                            "Moltiplicatore_Team": 0.95,
-                            "Valore_Atteso": 15.0,
-                            "Indice_VfM": 1.5
-                        }
-                        df_master_corr = pd.concat([df_master_corr, pd.DataFrame([nuova_riga_m])], ignore_index=True)
-
-                st.session_state.df_giocatori = df_master_corr
-                st.success("✅ Storico elaborato con successo!")
-                st.rerun()
-        else:
-            st.warning("Carica almeno un file storico per procedere.")
-
-with st.expander("➕ Inserisci Nuovo Giocatore / Acquisto al Listone"):
-    st.markdown("Aggiungi manualmente un nuovo giocatore direttamente nel database del listone come **LIBERO**:")
-    
-    with st.form("form_aggiungi_nuovo_giocatore"):
-        col_nq1, col_nq2 = st.columns(2)
-        with col_nq1:
-            nuovo_nome = st.text_input("Nome Giocatore:")
-            nuovo_ruolo = st.selectbox("Ruolo:", ["P", "D", "C", "A"])
-        with col_nq2:
-            nuova_squadra = st.text_input("Squadra Serie A (es. Inter, Milan...):")
-            nuova_quotazione = st.number_input("Quotazione / Valore iniziale (cr):", min_value=1, value=10)
-            
-        submit_nuovo_g = st.form_submit_button("Aggiungi al Listone")
-        
-        if submit_nuovo_g:
-            if nuovo_nome.strip():
-                nome_pulito = ripara_testo(nuovo_nome.strip())
-                squadra_pulita = ripara_testo(nuova_squadra.strip() if nuova_squadra else "N/D")
-                
-                esistente = st.session_state.df_giocatori[
-                    st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower() == nome_pulito.lower()
-                ]
-                
-                if not esistente.empty:
-                    st.warning(f"⚠️ Il giocatore **{nome_pulito}** è già presente nel listone!")
-                else:
-                    quot = int(nuova_quotazione)
-                    tier = "Top" if quot >= 25 else ("Semitop" if quot >= 15 else ("Titolare" if quot >= 8 else "Scommessa"))
-                    scadenza = "Giugno 2029" if quot >= 8 else "Giugno 2030"
-                    
-                    if nuovo_ruolo == "A":
-                        xg = round(max(0.1, quot * 0.035), 2)
-                        xa = round(max(0.05, quot * 0.015), 2)
-                        cart = "Medio" if quot < 20 else "Basso"
-                    elif nuovo_ruolo == "C":
-                        xg = round(max(0.05, quot * 0.02), 2)
-                        xa = round(max(0.08, quot * 0.025), 2)
-                        cart = "Medio-Alto"
-                    elif nuovo_ruolo == "D":
-                        xg = round(max(0.02, quot * 0.01), 2)
-                        xa = round(max(0.03, quot * 0.015), 2)
-                        cart = "Alto"
-                    else:
-                        xg, xa = 0.0, 0.0
-                        cart = "Basso"
-                        
-                    if quot >= 25:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.95, 36, 8.8, "Basso (Affidabile)", "Basso"
-                    elif quot >= 15:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.82, 32, 7.8, "Medio-Basso", "Medio"
-                    elif quot >= 8:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.65, 27, 6.8, "Medio", "Medio"
-                    else:
-                        p_tit, part_att, ind_cont, r_inf, r_turn = 0.40, 20, 5.8, "Variabile / Rischio", "Alto"
-                        
-                    p_titolare = int(round(part_att * p_tit))
-                    p_subentrato = max(0, int(part_att - p_titolare))
-
-                    base_fm = 6.00
-                    if nuovo_ruolo == "A":
-                        base_fm += 0.35 + (quot * 0.04)
-                    elif nuovo_ruolo == "C":
-                        base_fm += 0.20 + (quot * 0.03)
-                    elif nuovo_ruolo == "D":
-                        base_fm += 0.10 + (quot * 0.02)
-                    else:
-                        base_fm = 5.50 + (quot * 0.01)
-                    fm_stimata = round(min(base_fm, 9.5), 2)
-                    
-                    status_p = "Rigorista 🎯" if quot >= 28 else ("Vice-Rigorista 👟" if quot >= 18 else "No")
-                    val_atteso = round(((xg * 3.0) + (xa * 1.0)) * part_att * 0.95, 1)
-                    
-                    nuova_riga = {
-                        "Nome": nome_pulito,
-                        "Squadra": squadra_pulita,
-                        "Ruolo": nuovo_ruolo,
-                        "Quotazione": quot,
-                        "Proprietario_Iniziale": "LIBERO",
-                        "Stato": "LIBERO",
-                        "Tier": tier,
-                        "Scadenza_Contratto": scadenza,
-                        "Percentuale_Titolarita": p_tit,
-                        "Partite_Attese": part_att,
-                        "Indice_Continuita": ind_cont,
-                        "Rischio_Infortunio": r_inf,
-                        "xG_90": xg,
-                        "xA_90": xa,
-                        "Indice_Cartellini": cart,
-                        "Rischio_Turnover": r_turn,
-                        "Partite_Titolare": p_titolare,
-                        "Partite_Subentrato": p_subentrato,
-                        "FantaMedia_Stimata": fm_stimata,
-                        "Status_Piazzati": status_p,
-                        "Moltiplicatore_Team": 0.95,
-                        "Valore_Atteso": val_atteso,
-                        "Indice_VfM": round(val_atteso / quot, 2)
-                    }
-                    
-                    st.session_state.df_giocatori = pd.concat([st.session_state.df_giocatori, pd.DataFrame([nuova_riga])], ignore_index=True)
-                    st.success(f"✅ **{nome_pulito}** aggiunto con successo!")
-                    st.rerun()
-            else:
-                st.error("Inserisci un nome valido.")
-
-with st.expander("🔮 Analisi Predittiva & Consigli per Bardo"):
-    punteggi_squadre = {}
-    for part in PARTECIPANTI_LEGA:
-        rosa_part = st.session_state.rose_lega.get(part, [])
-        if rosa_part:
-            nomi_rosa = [str(g["Nome"]).strip().lower() for g in rosa_part]
-            sub_df = df[df["Nome"].astype(str).str.strip().str.lower().isin(nomi_rosa)]
-            if not sub_df.empty:
-                fm_totale = sub_df["FantaMedia_Stimata"].sum()
-                val_atteso_totale = sub_df["Valore_Atteso"].sum()
-                forza_complessiva = (fm_totale * 1.5) + (val_atteso_totale * 0.8)
-            else:
-                forza_complessiva = 0.0
-        else:
-            forza_complessiva = 0.0
-        punteggi_squadre[part] = forza_complessiva
-
-    squadra_piu_forte = max(punteggi_squadre, key=punteggi_squadre.get) if punteggi_squadre and max(punteggi_squadre.values()) > 0 else "Nessuna (Rose vuote)"
-
-    col_pred1, col_pred2 = st.columns(2)
-
-    with col_pred1:
-        st.markdown("### 🏆 Previsione Squadra Più Forte")
-        st.info(f"Basandosi sulle rose attuali, l'algoritmo predice che la squadra più forte è: **{squadra_piu_forte}**!")
-        
-        df_ranking = pd.DataFrame(list(punteggi_squadre.items()), columns=["Squadra", "Indice di Forza"]).sort_values(by="Indice di Forza", ascending=False)
-        df_ranking["Indice di Forza"] = df_ranking["Indice di Forza"].round(1)
-        st.dataframe(df_ranking, use_container_width=True, hide_index=True)
-
-    with col_pred2:
-        st.markdown("### 🎸 Stato Rosa Bardo")
-        rosa_bardo = st.session_state.rose_lega.get("BARDO", [])
-        
-        if rosa_bardo:
-            nomi_bardo = [str(g["Nome"]).strip().lower() for g in rosa_bardo]
-            df_bardo = df[df["Nome"].astype(str).str.strip().str.lower().isin(nomi_bardo)]
-            
-            if not df_bardo.empty:
-                fm_media_bardo = df_bardo["FantaMedia_Stimata"].mean()
-                st.metric("FantaMedia Media Attuale (Bardo)", f"{fm_media_bardo:.2f} FM")
-                
-                ruoli_bardo = df_bardo["Ruolo"].value_counts()
-                st.write("Composizione Rosa di Bardo:")
-                for r, count in ruoli_bardo.items():
-                    st.text(f"- {r}: {count} giocatori")
-            else:
-                st.warning("La rosa di Bardo non contiene giocatori registrati nel listone o è vuota.")
-        else:
-            st.warning("La rosa di Bardo è attualmente vuota.")
-
-with st.expander("🔄 Gestione Rosa & Svincoli (Rendi Libero)"):
-    allenatore_svincolo = st.selectbox(
-        "Seleziona allenatore che intende svincolare:",
-        PARTECIPANTI_LEGA,
-        key="select_svincolo_allenatore",
-    )
-    rosa_allenatore_attuale = st.session_state.get("rose_lega", {}).get(
-        allenatore_svincolo, []
-    )
-
-    if rosa_allenatore_attuale:
-        nomi_giocatori_in_rosa = [str(g["Nome"]) for g in rosa_allenatore_attuale]
-
-        giocatore_da_svincolare = st.selectbox(
-            "Seleziona il giocatore da svincolare (torna LIBERO):",
-            nomi_giocatori_in_rosa,
-            key="select_giocatore_da_svincolare",
-        )
-
-        if st.button("🗑️ Conferma Svincolo / Rendi Libero", key="btn_svincola"):
-            current_rose = st.session_state.get("rose_lega", {})
-            current_rose[allenatore_svincolo] = [
-                g
-                for g in rosa_allenatore_attuale
-                if str(g["Nome"]).strip().lower()
-                != str(giocatore_da_svincolare).strip().lower()
-            ]
-            st.session_state.rose_lega = current_rose
-
-            match_idx = st.session_state.df_giocatori[
-                st.session_state.df_giocatori["Nome"].astype(str).str.strip().str.lower()
-                == str(giocatore_da_svincolare).strip().lower()
-            ].index
-
-            if not match_idx.empty:
-                for idx_df in match_idx:
-                    st.session_state.df_giocatori.at[idx_df, "Stato"] = "LIBERO"
-
-            st.success(
-                f"✅ **{giocatore_da_svincolare}** è stato svincolato da {allenatore_svincolo}!"
-            )
-            st.rerun()
-    else:
-        st.info(f"La rosa di {allenatore_svincolo} è vuota.")
-
-with st.expander("🤝 Scambi Diretti & Multipli tra Società (Con Soldi, Anteprima Forza & Storico)"):
-    col_sc1, col_sc2 = st.columns(2)
-    with col_sc1:
-        societa_a = st.selectbox("Società A:", PARTECIPANTI_LEGA, key="scambio_soc_a")
-    with col_sc2:
-        societa_b = st.selectbox("Società B:", [p for p in PARTECIPANTI_LEGA if p != societa_a], key="scambio_soc_b")
-
-    rosa_soc_a = st.session_state.get("rose_lega", {}).get(societa_a, [])
-    rosa_soc_b = st.session_state.get("rose_lega", {}).get(societa_b, [])
-
-    if rosa_soc_a or rosa_soc_b:
-        st.markdown("#### 📋 Seleziona i giocatori oggetto dello scambio")
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            giocatori_da_a = st.multiselect(f"Giocatori ceduti da **{societa_a}**:", [g["Nome"] for g in rosa_soc_a], key="scambio_mult_a")
-        with col_g2:
-            giocatori_da_b = st.multiselect(f"Giocatori ceduti da **{societa_b}**:", [g["Nome"] for g in rosa_soc_b], key="scambio_mult_b")
-
-        st.markdown("#### 💰 Aggiungi Crediti allo Scambio")
-        col_soldi1, col_soldi2 = st.columns(2)
-        with col_soldi1:
-            soldi_da_a = st.number_input(f"Crediti aggiuntivi offerti da **{societa_a}** a {societa_b}:", min_value=0, value=0, step=1, key="soldi_da_a_input")
-        with col_soldi2:
-            soldi_da_b = st.number_input(f"Crediti aggiuntivi offerti da **{societa_b}** a {societa_a}:", min_value=0, value=0, step=1, key="soldi_da_b_input")
-
-        sub_df_a = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_a])]
-        sub_df_b = df[df["Nome"].astype(str).str.strip().str.lower().isin([str(x).strip().lower() for x in giocatori_da_b])]
-
-        tot_fm_a = sub_df_a["FantaMedia_Stimata"].sum() if not sub_df_a.empty else 0.0
-        tot_fm_b = sub_df_b["FantaMedia_Stimata"].sum() if not sub_df_b.empty else 0.0
-
-        st.markdown("---")
-        st.markdown("### 📊 Anteprima Bilancio Scambio (Giocatori & Crediti)")
-        prev_col1, prev_col2 = st.columns(2)
-        prev_col1.metric(f"Pacchetto {societa_a}", f"{tot_fm_a:.2f} FM", f"+ {soldi_da_a} crediti offerti")
-        prev_col2.metric(f"Pacchetto {societa_b}", f"{tot_fm_b:.2f} FM", f"+ {soldi_da_b} crediti offerti")
-
-        if tot_fm_a > tot_fm_b:
-            diff_scambio = round(tot_fm_a - tot_fm_b, 2)
-            st.warning(f"⚠️ **Verifica:** La società **{societa_b}** riceve giocatori con FantaMedia superiore (+{diff_scambio} FM).")
-        elif tot_fm_b > tot_fm_a:
-            diff_scambio = round(tot_fm_b - tot_fm_a, 2)
-            st.warning(f"⚠️ **Verifica:** La società **{societa_a}** riceve giocatori con FantaMedia superiore (+{diff_scambio} FM).")
-        else:
-            st.success("⚖️ I pacchetti giocatori si equivalgono a livello di FantaMedia!")
-
-        st.markdown("---")
-        if st.button("⚖️ Conferma ed Esegui Scambio con Crediti", key="btn_esegui_scambio_multiplo"):
-            current_rose = st.session_state.get("rose_lega", {})
-            current_extra = st.session_state.get("extra_budget", {})
-
-            oggetti_a = [g for g in rosa_soc_a if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_a]]
-            oggetti_b = [g for g in rosa_soc_b if str(g["Nome"]).strip().lower() in [str(x).strip().lower() for x in giocatori_da_b]]
-
-            current_rose[societa_a] = [g for g in current_rose[societa_a] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_a]]
-            current_rose[societa_b] = [g for g in current_rose[societa_b] if str(g["Nome"]).strip().lower() not in [str(x).strip().lower() for x in giocatori_da_b]]
-
-            current_rose[societa_a].extend(oggetti_b)
-            current_rose[societa_b].extend(oggetti_a)
-
-            current_extra[societa_a] = current_extra.get(societa_a, 0) - soldi_da_a + soldi_da_b
-            current_extra[societa_b] = current_extra.get(societa_b, 0) - soldi_da_b + soldi_da_a
-
-            st.session_state.rose_lega = current_rose
-            st.session_state.extra_budget = current_extra
-
-            for nome_g in giocatori_da_a:
-                idx_g = df[df["Nome"].astype(str).str.strip().str.lower() == str(nome_g).strip().lower()].index
-                if not idx_g.empty:
-                    st.session_state.df_giocatori.at[idx_g[0], "Stato"] = societa_b
-
-            for nome_g in giocatori_da_b:
-                idx_g = df[df["Nome"].astype(str).str.strip().str.lower() == str(nome_g).strip().lower()].index
-                if not idx_g.empty:
-                    st.session_state.df_giocatori.at[idx_g[0], "Stato"] = societa_a
-
-            record_scambio = {
-                "Da": societa_a,
-                "A": societa_b,
-                "Giocatori_A": giocatori_da_a,
-                "Giocatori_B": giocatori_da_b,
-                "Soldi_A_a_B": soldi_da_a,
-                "Soldi_B_a_A": soldi_da_b,
-            }
-            if "storico_scambi" not in st.session_state:
-                st.session_state.storico_scambi = []
-            st.session_state.storico_scambi.append(record_scambio)
-
-            st.success(f"✅ Scambio multiplo eseguito con successo!")
-            st.rerun()
-    else:
-        st.info("Le rose selezionate non hanno giocatori disponibili.")
-
-    if st.session_state.get("storico_scambi"):
-        st.markdown("#### 📜 Storico Scambi Eseguiti nella Lega")
-        for i, sc in enumerate(st.session_state.storico_scambi):
-            st.text(f"Scambio #{i+1}: {sc['Da']} ⇄ {sc['A']}")
-
-with st.expander("🏢 Gestione Prestiti FantaLega"):
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        prestito_da = st.selectbox("Squadra Cedente (Proprietario):", PARTECIPANTI_LEGA, key="prestito_cedente")
-    with col_p2:
-        prestito_a = st.selectbox("Squadra Ricevente (In Prestito):", [p for p in PARTECIPANTI_LEGA if p != prestito_da], key="prestito_ricevente")
-
-    rosa_cedente = st.session_state.get("rose_lega", {}).get(prestito_da, [])
-    if rosa_cedente:
-        giocatore_prestito_sel = st.selectbox("Seleziona giocatore da mandare in prestito:", [g["Nome"] for g in rosa_cedente], key="prestito_giocatore")
-        
-        if st.button("🤝 Registra Prestito", key="btn_registra_prestito"):
-            prestito_record = {
-                "Cedente": prestito_da,
-                "Ricevente": prestito_a,
-                "Giocatore": giocatore_prestito_sel
-            }
-            if "prestiti_lega" not in st.session_state:
-                st.session_state.prestiti_lega = []
-            st.session_state.prestiti_lega.append(prestito_record)
-            st.success(f"✅ **{giocatore_prestito_sel}** in prestito con successo!")
-            st.rerun()
-    else:
-        st.info("La squadra cedente non ha giocatori in rosa.")
-
-    if st.session_state.get("prestiti_lega"):
-        st.markdown("#### 📋 Prestiti Attivi in Lega")
-        for idx_p, pr in enumerate(st.session_state.prestiti_lega):
-            st.text(f"• {pr['Giocatore']} (Proprietà di {pr['Cedente']}) in prestito a {pr['Ricevente']}")
-            if st.button(f"Termina Prestito #{idx_p+1}", key=f"term_prestito_{idx_p}"):
-                st.session_state.prestiti_lega.pop(idx_p)
-                st.success("Prestito terminato!")
-                st.rerun()
-
-# ---------------------------------------------------------
-# 8. TABELLONE GENERALE DELLE ROSE
-# ---------------------------------------------------------
-st.divider()
-st.subheader("🛡️ Tabellone Generale delle Rose della Lega")
-
-tab_squadre = st.tabs(PARTECIPANTI_LEGA)
-for idx_t, squadra_nome in enumerate(PARTECIPANTI_LEGA):
-    with tab_squadre[idx_t]:
-        rosa_sq = st.session_state.rose_lega.get(squadra_nome, [])
-        spesa_sq = sum(item.get("Prezzo_Acquisto", 1) for item in rosa_sq)
-        budget_rimanente_sq = (
-            st.session_state.get("budget_iniziale", 500)
-            + extra_budget_dict.get(squadra_nome, 0)
-            - spesa_sq
-        )
-        
-        st.markdown(
-            f"**Crediti Spesi:** {spesa_sq} | **Budget Rimanente:** {budget_rimanente_sq} cr | **Giocatori in Rosa:** {len(rosa_sq)}"
-        )
-        
-        if rosa_sq:
-            df_rosa_tab = pd.DataFrame(rosa_sq)
-            
-            fiammate_fm = []
-            part_titolare_list = []
-            part_sub_list = []
-            for _, r_item in df_rosa_tab.iterrows():
-                m_match = df[df["Nome"].astype(str).str.strip().str.lower() == str(r_item["Nome"]).strip().lower()]
-                if not m_match.empty:
-                    fiammate_fm.append(m_match["FantaMedia_Stimata"].values[0])
-                    part_titolare_list.append(safe_get(m_match.iloc[0], ["Partite_Titolare", "Partite Titolare", "Titolare"], 24))
-                    part_sub_list.append(safe_get(m_match.iloc[0], ["Partite_Subentrato", "Partite Subentrato", "Subentrato"], 6))
-                else:
-                    fiammate_fm.append(6.0)
-                    part_titolare_list.append(24)
-                    part_sub_list.append(6)
-
-            df_rosa_tab["FantaMedia"] = fiammate_fm
-            df_rosa_tab["Titolare"] = part_titolare_list
-            df_rosa_tab["Subentrato"] = part_sub_list
-            
-            st.dataframe(df_rosa_tab[["Ruolo", "Nome", "Squadra", "Prezzo_Acquisto", "FantaMedia", "Titolare", "Subentrato", "Scadenza"]], use_container_width=True, hide_index=True)
-            
-            txt_rosa_full = f"📋 **ROSA FANTA-LEGA: {squadra_nome}**\n"
-            for _, row_f in df_rosa_tab.iterrows():
-                txt_rosa_full += f"- {row_f['Ruolo']} | {row_f['Nome']} ({row_f['Squadra']}) [Spesa: {row_f['Prezzo_Acquisto']}cr | FM: {row_f.get('FantaMedia', 6.0)} | Tit/Sub: {row_f['Titolare']}/{row_f['Subentrato']} | Scad: {row_f['Scadenza']}]\n"
-            
-            st.download_button(
-                label=f"📥 Esporta Rosa {squadra_nome} (WhatsApp/Testo)",
-                data=txt_rosa_full,
-                file_name=f"rosa_{squadra_nome.lower()}.txt",
-                mime="text/plain",
-                key=f"dl_tab_{squadra_nome}"
-            )
-        else:
-            st.info("Rosa attualmente vuota.")
+    st.info("Tutti i giocatori sono stati assegnati o il listone è vuoto.")
