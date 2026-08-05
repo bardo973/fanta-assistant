@@ -169,7 +169,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             g_nome = parti[0]
                             g_ruolo = "C"
                             g_costo = 1
-                            g_scadenza = "01/06/2027"
+                            g_scadenza = "01/06/2028"
                             for p in parti:
                                 if p in ["P", "D", "C", "A"]:
                                     g_ruolo = p
@@ -232,7 +232,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 except:
                                     g_costo = 1
 
-                                g_scadenza = "01/06/2027"
+                                g_scadenza = "01/06/2028"
                                 if col_contratto and pd.notna(row[col_contratto]):
                                     val_str = str(row[col_contratto]).strip()
                                     if "/" in val_str and len(val_str) >= 8:
@@ -452,7 +452,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             st.info("Nessuna operazione registrata in questa sessione.")
 
 # ==========================================
-# 3. SCAMBI TRA PROPRIETARI
+# 3. SCAMBI tra PROPRIETARI
 # ==========================================
 elif menu == "🤝 Scambi tra Proprietà":
     st.header("🤝 Negoziazione Scambi & Prestiti")
@@ -570,7 +570,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         if "Anni_Contratto" in rosa_df.columns:
                             rosa_df["Scadenza_Contratto"] = pd.to_numeric(rosa_df["Anni_Contratto"], errors="coerce").fillna(1).astype(int).apply(lambda x: f"01/06/{2026 + x}")
                         else:
-                            rosa_df["Scadenza_Contratto"] = "01/06/2027"
+                            rosa_df["Scadenza_Contratto"] = "01/06/2028"
 
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
@@ -592,7 +592,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         if st.button("Aggiorna Scadenza Contratto", key=f"btn_c_{nome_sq}"):
                             for g_item in st.session_state.squadre[nome_sq]["rosa"]:
                                 if g_item["Nome"] == g_sel_contratto:
-                                    g_item["Scadenza_Contratto"] = nueva_scadenza if 'nueva_scadenza' in locals() else nuova_scadenza
+                                    g_item["Scadenza_Contratto"] = nuova_scadenza
                                     if "Anni_Contratto" in g_item:
                                         del g_item["Anni_Contratto"]
                             st.success(f"Scadenza contratto di {g_sel_contratto} aggiornata a {nuova_scadenza}!")
