@@ -319,6 +319,15 @@ if menu == "🔍 Scouting & Database":
     df_filtrato = df_filtrato.sort_values(by="Indice_Affare", ascending=False)
 
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
+    
+    # --- MIGLIORAMENTO 2: SELEZIONE MULTIPLA E CONFRONTO MULTIPLO NELLO SCOUTING ---
+    if not df_filtrato.empty:
+        scelta_confronto_scout = st.multiselect("Confronta giocatori selezionati dal listone", df_filtrato["Nome"].values)
+        if scelta_confronto_scout:
+            st.markdown("##### ⚖️ Confronto rapido obiettivi di scouting")
+            df_scout_comp = df_filtrato[df_filtrato["Nome"].isin(scelta_confronto_scout)]
+            st.dataframe(df_scout_comp[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "Proprietario"]], use_container_width=True)
+
     st.dataframe(df_filtrato, use_container_width=True)
 
     st.markdown("---")
@@ -445,14 +454,23 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
 
     with tab_reg:
         st.subheader("📜 Storico Ufficiale Operazioni di Mercato")
+        
+        # --- MIGLIORAMENTO 4: ESPORTAZIONE DATI (REGISTRO) ---
         if len(st.session_state.storico_mercato) > 0:
             df_storico = pd.DataFrame(st.session_state.storico_mercato)
+            csv_storico = df_storico.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Esporta Storico Operazioni in CSV",
+                data=csv_storico,
+                file_name="storico_mercato_fanta.csv",
+                mime="text/csv",
+            )
             st.dataframe(df_storico, use_container_width=True)
         else:
             st.info("Nessuna operazione registrata in questa sessione.")
 
 # ==========================================
-# 3. SCAMBI tra PROPRIETARI
+# 3. SCAMBI TRA PROPRIETARI
 # ==========================================
 elif menu == "🤝 Scambi tra Proprietà":
     st.header("🤝 Negoziazione Scambi & Prestiti")
@@ -572,6 +590,25 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         else:
                             rosa_df["Scadenza_Contratto"] = "01/06/2028"
 
+                    # --- MIGLIORAMENTO 1 & 3: KPI ANALITICI E AVVISO SCADENZE VICINE ---
+                    tot_crediti_spesi = rosa_df["Costo_Acquisto"].sum() if "Costo_Acquisto" in rosa_df.columns else 0
+                    fanta_media_ponderata = round(rosa_df["FantaMedia"].mean(), 2) if "FantaMedia" in rosa_df.columns else 0.0
+
+                    kpi1, kpi2, kpi3 = st.columns(3)
+                    kpi1.metric("Totale Crediti Spesi", f"{tot_crediti_spesi} 🪙")
+                    kpi2.metric("FantaMedia Media Rosa", f"{fanta_media_ponderata}")
+                    
+                    # Calcolo contratti in scadenza ravvicinata (es. entro metà 2027)
+                    scadenze_urgenti = 0
+                    for sc in rosa_df["Scadenza_Contratto"]:
+                        try:
+                            dt_scad = datetime.strptime(str(sc).strip(), "%d/%m/%Y")
+                            if dt_scad <= datetime(2027, 6, 1):
+                                scadenze_urgenti += 1
+                        except:
+                            pass
+                    kpi3.metric("Contratti in Scadenza (≤2027)", scadenze_urgenti, delta_color="inverse" if scadenze_urgenti > 0 else "off")
+
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
                     d = conti_ruoli.get("D", 0)
@@ -583,7 +620,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     with st.expander("⚙️ Gestisci / Modifica Scadenza Contratto Rosa"):
                         g_sel_contratto = st.selectbox("Seleziona Giocatore", rosa_df["Nome"].values, key=f"sel_c_{nome_sq}")
                         
-                        # Cerca la scadenza attuale del giocatore selezionato per metterla come valore di default nel campo di testo
                         g_trovato = next((g for g in st.session_state.squadre[nome_sq]["rosa"] if g["Nome"] == g_sel_contratto), None)
                         val_scad_attuale = g_trovato.get("Scadenza_Contratto", "01/06/2028") if g_trovato else "01/06/2028"
 
@@ -627,4 +663,14 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             })
             
         df_riepilogo = pd.DataFrame(riepilogo_data)
+        
+        # --- MIGLIORAMENTO 4: DOWNLOAD MATRICE GENERALE ---
+        csv_riepilogo = df_riepilogo.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Esporta Riepilogo Generale in CSV",
+            data=csv_riepilogo,
+            file_name="riepilogo_generale_10_squadre.csv",
+            mime="text/csv",
+        )
+        
         st.dataframe(df_riepilogo, use_container_width=True)
