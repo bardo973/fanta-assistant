@@ -534,10 +534,9 @@ with st.sidebar.expander("💾 Salvataggio & Caricamento JSON"):
             except Exception as e:
                 st.sidebar.error(f"Errore durante il caricamento del backup: {e}")
 
-with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
-    st.markdown("### 📋 1. Importa File o Incolla Listone / Rose")
+with st.sidebar.expander("📊 Importa Rose, Vincolati & Scadenze"):
     uploaded_excel = st.file_uploader(
-        "Carica file (Excel, CSV o TXT)", type=["xlsx", "xls", "csv", "txt"], key="excel_rose_uploader_new"
+        "Carica file rose/vincolati", type=["xlsx", "xls", "csv", "txt"], key="excel_rose_uploader"
     )
 
     if uploaded_excel is not None:
@@ -561,17 +560,17 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
                         nome_g_lower = nome_g.lower()
                         
                         prop_val = "LIBERO"
-                        if "proprietario" in map_colonne and map_colonne["proprietario"] in row:
+                        if "proprietario" in map_colonne:
                             p_raw = ripara_testo(str(row[map_colonne["proprietario"]]).strip().upper())
                             if p_raw and p_raw not in ["NAN", "NONE", "", "SVINCOLATO", "LIBERO", "0", "#N/D", "#RIF!", "NAT", "INF"] and not p_raw.startswith("="):
                                 prop_val = p_raw
-                                if prop_val not in PARTECIPANTI_LEGA and prop_val not in ["LIBERO", "SVINCOLATO"]:
+                                if prop_val not in PARTECIPANTI_LEGA:
                                     PARTECIPANTI_LEGA.append(prop_val)
                                     if prop_val not in new_rose:
                                         new_rose[prop_val] = []
                         
                         prezzo_val = 1
-                        if "quotazione" in map_colonne and map_colonne["quotazione"] in row:
+                        if "quotazione" in map_colonne:
                             try:
                                 prezzo_val = int(float(str(row[map_colonne["quotazione"]]).replace(',', '.')))
                             except:
@@ -616,96 +615,12 @@ with st.sidebar.expander("📥 Inserimento Manuale & Listone Aggiornato"):
                     st.session_state.rose_lega = new_rose
                     st.session_state.df_giocatori = df_temp
                     st.session_state.last_uploaded_excel = excel_identifier
-                    st.sidebar.success(f"✅ Rose e listone importati con successo!")
+                    st.sidebar.success("Rose, vincolati e scadenze estratti con successo!")
                     st.rerun()
                 else:
                     st.sidebar.error("Impossibile individuare la colonna del nome/giocatore nel file.")
             except Exception as e:
-                st.sidebar.error(f"Errore durante l'elaborazione del file: {e}")
-
-    st.markdown("---")
-    st.markdown("### ✍️ 2. Inserimento o Modifica Manuale Singolo Giocatore")
-    
-    input_nome_manuale = st.text_input("Nome Giocatore:", key="man_nome_gioc")
-    input_ruolo_manuale = st.selectbox("Ruolo:", ["P", "D", "C", "A"], key="man_ruolo_gioc")
-    input_squadra_manuale = st.text_input("Squadra Serie A:", value="Juventus", key="man_squadra_gioc")
-    input_prezzo_manuale = st.number_input("Prezzo / Quotazione:", min_value=1, value=10, key="man_prezzo_gioc")
-    
-    lista_prop_form = ["LIBERO"] + PARTECIPANTI_LEGA
-    input_proprietario_manuale = st.selectbox("Proprietario (Rosa):", lista_prop_form, key="man_prop_gioc")
-    
-    col_man1, col_man2 = st.columns(2)
-    with col_man1:
-        input_mese_scad = st.selectbox("Mese Scadenza:", ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"], index=5, key="man_mese_scad")
-    with col_man2:
-        input_anno_scad = st.selectbox("Anno Scadenza:", [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035], index=4, key="man_anno_scad")
-    
-    scadenza_manuale_finale = f"{input_mese_scad} {input_anno_scad}"
-
-    if st.button("💾 Salva / Assegna Giocatore Manualmente", key="btn_salva_manuale_gioc"):
-        if not input_nome_manuale.strip():
-            st.error("Inserisci un nome valido per il giocatore.")
-        else:
-            nome_clean = input_nome_manuale.strip()
-            nome_clean_lower = nome_clean.lower()
-            
-            df_temp = st.session_state.df_giocatori.copy()
-            match_idx = df_temp[df_temp["Nome"].astype(str).str.strip().str.lower() == nome_clean_lower].index
-            
-            if not match_idx.empty:
-                idx = match_idx[0]
-                df_temp.at[idx, "Ruolo"] = input_ruolo_manuale
-                df_temp.at[idx, "Squadra"] = input_squadra_manuale
-                df_temp.at[idx, "Quotazione"] = input_prezzo_manuale
-                df_temp.at[idx, "Stato"] = input_proprietario_manuale
-                df_temp.at[idx, "Scadenza_Contratto"] = scadenza_manuale_finale
-            else:
-                nuova_riga = {
-                    "Nome": nome_clean,
-                    "Squadra": input_squadra_manuale,
-                    "Ruolo": input_ruolo_manuale,
-                    "Quotazione": input_prezzo_manuale,
-                    "Proprietario_Iniziale": input_proprietario_manuale,
-                    "Stato": input_proprietario_manuale,
-                    "Scadenza_Contratto": scadenza_manuale_finale,
-                    "Tier": "Titolare" if input_prezzo_manuale >= 8 else "Scommessa",
-                    "Percentuale_Titolarita": 0.8,
-                    "Partite_Attese": 30,
-                    "Indice_Continuita": 7.5,
-                    "Rischio_Infortunio": "Basso",
-                    "xG_90": 0.1,
-                    "xA_90": 0.05,
-                    "Indice_Cartellini": "Medio",
-                    "Rischio_Turnover": "Medio",
-                    "Partite_Titolare": 24,
-                    "Partite_Subentrato": 6,
-                    "FantaMedia_Stimata": 6.5,
-                    "Status_Piazzati": "No",
-                    "Moltiplicatore_Team": 1.0,
-                    "Valore_Atteso": 15.0,
-                    "Indice_VfM": 1.5
-                }
-                df_temp = pd.concat([df_temp, pd.DataFrame([nuova_riga])], ignore_index=True)
-            
-            st.session_state.df_giocatori = df_temp
-            
-            for p_key in st.session_state.rose_lega:
-                st.session_state.rose_lega[p_key] = [g for g in st.session_state.rose_lega[p_key] if str(g["Nome"]).strip().lower() != nome_clean_lower]
-            
-            if input_proprietario_manuale != "LIBERO":
-                if input_proprietario_manuale not in st.session_state.rose_lega:
-                    st.session_state.rose_lega[input_proprietario_manuale] = []
-                st.session_state.rose_lega[input_proprietario_manuale].append({
-                    "Nome": nome_clean,
-                    "Ruolo": input_ruolo_manuale,
-                    "Squadra": input_squadra_manuale,
-                    "Prezzo_Acquisto": input_prezzo_manuale,
-                    "Valore_Attuale": input_prezzo_manuale,
-                    "Scadenza": scadenza_manuale_finale
-                })
-                
-            st.success(f"✅ Giocatore **{nome_clean}** aggiornato con successo!")
-            st.rerun()
+                st.sidebar.error(f"Errore durante l'estrazione delle rose dal file: {e}")
 
 with st.sidebar.expander("📅 Modifica Scadenze Contratti"):
     squadra_mod_scadenza = st.selectbox("Seleziona squadra:", PARTECIPANTI_LEGA, key="mod_scad_sq")
@@ -902,7 +817,6 @@ with col_destra:
     if rosa_attiva_destra:
         df_rosa_attiva = pd.DataFrame(rosa_attiva_destra)
         
-        # Mostra tabella compatta
         st.dataframe(
             df_rosa_attiva[["Ruolo", "Nome", "Squadra", "Prezzo_Acquisto", "Scadenza"]],
             use_container_width=True,
@@ -917,12 +831,10 @@ with col_destra:
         )
         
         if st.button("❌ Svincola / Elimina Giocatore", key="btn_rimuovi_giocatore_rosa"):
-            # Rimuovi dalla rosa
             st.session_state.rose_lega[fanta_allenatore_attivo] = [
                 g for g in rosa_attiva_destra if str(g["Nome"]).strip().lower() != str(giocatore_da_rimuovere).strip().lower()
             ]
             
-            # Rimetti lo stato del DataFrame a LIBERO
             idx_m = df[df["Nome"].astype(str).str.strip().str.lower() == str(giocatore_da_rimuovere).strip().lower()].index
             if not idx_m.empty:
                 st.session_state.df_giocatori.at[idx_m[0], "Stato"] = "LIBERO"
