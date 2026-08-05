@@ -162,7 +162,6 @@ with st.sidebar.expander("📁 Importa e Intreccia Più File"):
                     
                     df_temp = df_temp.rename(columns=col_mappa)
                     
-                    # Correzione sicura per evitare conflitti Series duplicate o ambigue
                     if 'Nome' in df_temp.columns:
                         s_nome = df_temp['Nome']
                         if isinstance(s_nome, pd.DataFrame):
@@ -375,7 +374,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                     else:
                         st.sidebar.error("Colonne essenziali mancanti ('Squadra' o 'Nome').")
             else:
-                st.sidebar.error("Il file caricato è vuoto o non leggibile.")
+                st.sidebar.error("File vuoto o non leggibile.")
         except Exception as e:
             st.sidebar.error(f"Errore caricamento rose: {e}")
 
@@ -393,6 +392,12 @@ if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting, Quotazioni & FantaMedie Avanzate")
     df = st.session_state.giocatori_db.copy()
 
+    # Correzione sicura nel caso la colonna Nome sia stata duplicata o non sia una Serie pulita
+    s_nome = df["Nome"]
+    if isinstance(s_nome, pd.DataFrame):
+        s_nome = s_nome.iloc[:, 0]
+    df["Nome"] = s_nome.astype(str).str.strip()
+
     df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
     df["Trend"] = df.apply(calcola_trend, axis=1)
 
@@ -401,7 +406,7 @@ if menu == "🔍 Scouting & Database":
         for g in dati["rosa"]:
             giocatori_assegnati[g["Nome"].lower()] = sq
             
-    df["Proprietario"] = df["Nome"].apply(lambda x: giocatori_assegnati.get(x.lower(), "Svincolato 🟢"))
+    df["Proprietario"] = df["Nome"].apply(lambda x: giocatori_assegnati.get(str(x).lower(), "Svincolato 🟢"))
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -776,4 +781,4 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             mime="text/csv",
         )
         
-        st.dataframe(df_riepilogo, use_container_width=True)
+        df_riepilogo, use_container_width=True
