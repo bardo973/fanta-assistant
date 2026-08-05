@@ -361,7 +361,7 @@ with tab_asta:
 
         prezzo_consigliato = max(1, prezzo_base)
         if slot_liberi.get(g_info["Ruolo"], 0) <= 0:
-            prezzo_consigliato = 0
+            prezzo_consigliato = 1
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Ruolo & Squadra", f"{g_info['Ruolo']} - {g_info['Squadra']}", f"Tier: {g_info['Tier']}")
@@ -373,7 +373,7 @@ with tab_asta:
             st.subheader("Registra Assegnazione")
             col_fa, col_fb = st.columns(2)
             with col_fa:
-                prezzo_pagato = st.number_input("Prezzo di chiusura effettivo (crediti):", min_value=1, value=int(prezzo_consigliato))
+                prezzo_pagato = st.number_input("Prezzo di chiusura effettivo (crediti):", min_value=1, value=max(1, int(prezzo_consigliato)))
             with col_fb:
                 vincitore = st.selectbox("Assegna alla squadra:", PARTECIPANTI_LEGA, index=PARTECIPANTI_LEGA.index(allenatore_attivo) if allenatore_attivo in PARTECIPANTI_LEGA else 0)
             
