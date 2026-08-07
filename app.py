@@ -55,6 +55,27 @@ if 'giocatori_db' not in st.session_state:
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
+# --- FUNZIONI DI SUPPORTO PER INTEGRAZIONE E INCROCIO DATI ---
+def calcola_crediti_rimanenti(nome_squadra):
+    budget_iniziale = 500
+    speso = sum(giocatore["Costo_Acquisto"] for giocatore in st.session_state.squadre[nome_squadra]["rosa"])
+    return budget_iniziale - speso
+
+def analizza_giocatori_senza_squadra():
+    lista_db_nomi = set(st.session_state.giocatori_db['Nome'].str.lower().tolist())
+    esuberi = []
+    for sq in NOMI_SQUADRE:
+        for g in st.session_state.squadre[sq]["rosa"]:
+            if g["Nome"].lower() not in lista_db_nomi:
+                esuberi.append({
+                    "FantaSquadra": sq,
+                    "Nome": g["Nome"],
+                    "Ruolo": g["Ruolo"],
+                    "Vecchia_Squadra": g["Squadra_SerieA"],
+                    "Costo_Acquisto": g["Costo_Acquisto"]
+                })
+    return pd.DataFrame(esuberi)
+
 # --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
 st.sidebar.title("⚽ Fanta Manager Hub")
 
@@ -101,14 +122,10 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     df_load['FantaMedia'] = df_load['FantaMedia'].astype(str).str.replace(',', '.')
                 df_load['FantaMedia'] = pd.to_numeric(df_load['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
                 
-                # --- FIX PROTEZIONE STATISTICHE AVANZATE ---
-                # Preserviamo le colonne Potenziale e Titolarità se il giocatore esisteva già nel vecchio db
+                # FIX PROTEZIONE STATISTICHE AVANZATE
                 vecchio_db = st.session_state.giocatori_db[['Nome', 'Potenziale', 'Titolarita']].copy() if 'Potenziale' in st.session_state.giocatori_db.columns else pd.DataFrame(columns=['Nome', 'Potenziale', 'Titolarita'])
-                
-                # Facciamo il merge del listone caricato con i vecchi dati basandoci sul Nome del giocatore
                 df_unito = pd.merge(df_load, vecchio_db, on='Nome', how='left')
                 
-                # Per i nuovi giocatori che non hanno statistiche vecchie, assegniamo valori di default (3) per evitare NaN
                 df_unito['Potenziale'] = df_unito['Potenziale'].fillna(3).astype(int)
                 df_unito['Titolarita'] = df_unito['Titolarita'].fillna(3).astype(int)
                 
@@ -120,27 +137,6 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
 
 # Menu di navigazione principale
 opzione_menu = st.sidebar.radio("Vai a:", ["📊 Dashboard & Classifiche", "🛒 Sessione Mercato", "🕵️ Scouting Hub & Listone", "📋 Rose Squadre"])
-
-# --- FUNZIONI DI SUPPORTO PER INTEGRAZIONE E INCROCIO DATI ---
-def calcola_crediti_rimanenti(nome_squadra):
-    budget_iniziale = 500
-    speso = sum(giocatore["Costo_Acquisto"] for giocatore in st.session_state.squadre[nome_squadra]["rosa"])
-    return budget_iniziale - speso
-
-def analizza_giocatori_senza_squadra():
-    lista_db_nomi = set(st.session_state.giocatori_db['Nome'].str.lower().tolist())
-    esuberi = []
-    for sq in NOMI_SQUADRE:
-        for g in st.session_state.squadre[sq]["rosa"]:
-            if g["Nome"].lower() not in lista_db_nomi:
-                esuberi.append({
-                    "FantaSquadra": sq,
-                    "Nome": g["Nome"],
-                    "Ruolo": g["Ruolo"],
-                    "Vecchia_Squadra": g["Squadra_SerieA"],
-                    "Costo_Acquisto": g["Costo_Acquisto"]
-                })
-    return pd.DataFrame(esuberi)
 
 # --- VISTA 1: DASHBOARD & CLASSIFICHE ---
 if opzione_menu == "📊 Dashboard & Classifiche":
@@ -160,3 +156,10 @@ if opzione_menu == "📊 Dashboard & Classifiche":
             "Esuberi (Senza Squadra) ⚠️": f"⚠️ {num_senza_squadra}" if num_senza_squadra > 0 else "0",
             "Portieri": sum(1 for p in rosa if p["Ruolo"] == "P"),
             "Difensori": sum(1 for p in rosa if p["Ruolo"] == "D"),
+            "Centrocampisti": sum(1 for p in rosa if p["Ruolo"] == "C"),
+            "Attaccanti": sum(1 for p in rosa if p["Ruolo"] == "A")
+        })
+    
+    df_dash = pd.DataFrame(dati_dashboard)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Squadra Più Ricca", df_dash.loc[df_dash['Crediti Residui'].idxmax()]['Squadra'], f"{df_dash['Crediti Residui'].max()} cr")
