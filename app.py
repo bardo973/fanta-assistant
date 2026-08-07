@@ -1,126 +1,236 @@
-import streamlit as st
-import pandas as pd
+from fastapi import FastAPI, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, ForeignKey, TIMESTAMP, func
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from typing import List, Optional
+import datetime
 
-# 1. CONFIGURAZIONE PAGINA
-st.set_page_config(page_title="FantaManager & Scouting Hub", page_icon="⚽", layout="wide")
+# 1. CONFIGURAZIONE DATABASE (In-memory SQLite per test, convertibile in PostgreSQL)
+DATABASE_URL = "sqlite:///./fantacalcio.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-# 2. COSTANTI UFFICIALI
-NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
-BUDGET_INIZIALE = 500
+app = FastAPI(title="FantaApp API", version="1.0.0")
 
-# 3. INIZIALIZZAZIONE STATO DELLA SESSIONE (DATABASE TEMPORANEO)
-if 'squadre' not in st.session_state:
-    st.session_state.squadre = {sq: {"rosa": []} for sq in NOMI_SQUADRE}
+# Dependency per ottenere la sessione del database
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# Carichiamo la tua rosa iniziale di esempio per PECU
-if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
-    st.session_state.squadre["PECU"]["rosa"] = [
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8},
-        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6},
-        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 6},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Costo_Acquisto": 10},
-        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 1},
-        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 6},
-        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Costo_Acquisto": 9},
-        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 7},
-        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Costo_Acquisto": 4},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Costo_Acquisto": 9},
-        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 7},
-        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Costo_Acquisto": 13},
-        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Costo_Acquisto": 6},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Costo_Acquisto": 13},
-        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 5},
-        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Costo_Acquisto": 9},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Costo_Acquisto": 13},
-        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Costo_Acquisto": 18},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Costo_Acquisto": 18},
-        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Costo_Acquisto": 7},
-        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Costo_Acquisto": 7},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Costo_Acquisto": 11},
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Costo_Acquisto": 27},
-        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 3},
-        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Costo_Acquisto": 6}
-    ]
+# 2. MODELLI DATABASE (SQLAlchemy)
+class CalciatoreDB(Base):
+    __tablename__ = "calciatori"
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, index=True)
+    ruolo = Column(String(2))  # P, D, C, A
+    squadra_reale = Column(String)
+    quotazione = Column(Integer)
+    fanta_media = Column(Float, default=0.0)
+    media_voto = Column(Float, default=0.0)
+    gol = Column(Integer, default=0)
+    assist = Column(Integer, default=0)
+    minuti_giocati = Column(Integer, default=0)
 
-# Inizializzazione del listone base con i dati di esempio (inclusi Potenziale e Titolarità)
-if 'giocatori_db' not in st.session_state:
-    data_iniziale = [
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 27, "FantaMedia": 7.8, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "Vardy", "Ruolo": "A", "Squadra_SerieA": "Cremonese", "Quotazione": 16, "FantaMedia": 7.2, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Juventus", "Quotazione": 11, "FantaMedia": 6.8, "Potenziale": 4, "Titolarita": 3},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 13, "FantaMedia": 7.5, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 18, "FantaMedia": 6.9, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 13, "FantaMedia": 6.7, "Potenziale": 4, "Titolarita": 4},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Potenziale": 5, "Titolarita": 5},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Potenziale": 3, "Titolarita": 5},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Potenziale": 2, "Titolarita": 3},
-        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Potenziale": 3, "Titolarita": 3},
-        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Potenziale": 3, "Titolarita": 4}
-    ]
-    st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
+class FantasquadraDB(Base):
+    __tablename__ = "fantasquadre"
+    id = Column(Integer, primary_key=True, index=True)
+    nome_squadra = Column(String, unique=True)
+    budget_crediti = Column(Integer, default=500)
 
-# --- FUNZIONI DI CALCOLO INTERNE ---
-def calcola_crediti_residui(nome_squadra):
-    operazioni = st.session_state.squadre[nome_squadra]["rosa"]
-    speso = sum(giocatore["Costo_Acquisto"] for giocatore in operazioni)
-    return BUDGET_INIZIALE - speso
+class RosaDB(Base):
+    __tablename__ = "rose"
+    id_squadra = Column(Integer, ForeignKey("fantasquadre.id", ondelete="CASCADE"), primary_key=True)
+    id_calciatore = Column(Integer, ForeignKey("calciatori.id", ondelete="CASCADE"), primary_key=True)
 
-# --- BARRA LATERALE: CARICAMENTO FILE ---
-st.sidebar.title("⚽ Fanta Manager & Scouting")
+class PrestitoDB(Base):
+    __tablename__ = "prestiti"
+    id = Column(Integer, primary_key=True, index=True)
+    id_calciatore = Column(Integer, ForeignKey("calciatori.id"))
+    squadra_origine = Column(Integer, ForeignKey("fantasquadre.id"))
+    squadra_destinazione = Column(Integer, ForeignKey("fantasquadre.id"))
+    giornata_inizio = Column(Integer)
+    giornata_fine = Column(Integer)
+    crediti_pagati = Column(Integer, default=0)
+    stato = Column(String, default="ATTIVO")  # ATTIVO, CONCLUSO
 
-with st.sidebar.expander("📁 Importa Listone Ufficiale", expanded=True):
-    st.markdown("Carica il file Excel o CSV ottenuto dalle piattaforme.")
-    file_caricato = st.file_uploader("Scegli file", type=["csv", "xlsx"])
+# Crea le tabelle nel database
+Base.metadata.create_all(bind=engine)
+
+
+# 3. SCHEMI DI VALIDAZIONE DATI (Pydantic)
+class PropostaScambio(BaseModel):
+    squadra_proprietaria_id: int
+    squadra_acquirente_id: int
+    calciatore_offerto_id: int
+    calciatore_richiesto_id: int
+    conguaglio_crediti: int = Field(..., description="Crediti che la squadra proprietaria dà in aggiunta")
+
+class PropostaPrestito(BaseModel):
+    squadra_origine_id: int
+    squadra_destinazione_id: int
+    id_calciatore: int
+    giornata_inizio: int
+    giornata_fine: int
+    crediti_pagati: int
+
+
+# 4. ENDPOINT 1: ALGORITMO DI SCOUTING AVANZATO (Intreccio Dati)
+@app.get("/scouting/", response_model=List[dict])
+def scouting_giocatori(
+    ruolo: Optional[str] = None, 
+    max_prezzo: Optional[int] = None, 
+    min_partite: Optional[int] = 5, 
+    db: Session = Depends(get_db)
+):
+    """
+    Calcola l'Indice di Valore Reale (IVR) incrociando fanta-media, 
+    presenze (minuti) e bonus per scovare i migliori talenti.
+    """
+    query = db.query(CalciatoreDB)
+    if ruolo:
+        query = query.filter(CalciatoreDB.ruolo == ruolo.upper())
+    if max_prezzo:
+        query = query.filter(CalciatoreDB.quotazione <= max_prezzo)
+        
+    calciatori = query.all()
+    risultati = []
+
+    for c in calciatori:
+        partite_giocate = c.minuti_giocati / 90
+        if partite_giocate < min_partite:
+            continue
+            
+        # Algoritmo IVR: Pesa la fanta-media (50%), la costanza (30%) e i bonus puri (20%)
+        score_presenze = min(partite_giocate / 38, 1.0) * 10
+        score_bonus = (c.gol * 3) + c.assist
+        ivr = (c.fanta_media * 0.5) + (score_presenze * 0.3) + (score_bonus * 0.2)
+        
+        risultati.append({
+            "id": c.id,
+            "nome": c.nome,
+            "ruolo": c.ruolo,
+            "quotazione": c.quotazione,
+            "fanta_media": c.fanta_media,
+            "ivr_scouting": round(ivr, 2)
+        })
+        
+    # Ordina i giocatori dal più appetibile al meno appetibile
+    return sorted(risultati, key=lambda x: x["ivr_scouting"], reverse=True)
+
+
+# 5. ENDPOINT 2: SCAMBIO DIRETTO TRA UTENTI CON SCAMBIO DI DENARO
+@app.post("/mercato/scambio/")
+def esegui_scambio(proposta: PropostaScambio, db: Session = Depends(get_db)):
+    """
+    Esegue uno scambio atomico tra due fantasquadre con transazione monetaria in crediti.
+    """
+    # 1. Recupera le squadre
+    squadra_prop = db.query(FantasquadraDB).filter(FantasquadraDB.id == proposta.squadra_proprietaria_id).first()
+    squadra_acq = db.query(FantasquadraDB).filter(FantasquadraDB.id == proposta.squadra_acquirente_id).first()
     
-    if file_caricato is not None:
-        try:
-            # Lettura flessibile del formato
-            df_nuovo = pd.read_csv(file_caricato, encoding='utf-8', on_bad_lines='skip') if file_caricato.name.endswith('.csv') else pd.read_excel(file_caricato)
-            
-            # Normalizzazione nomi colonne
-            df_nuovo.columns = [str(col).strip().lower() for col in df_nuovo.columns]
-            
-            # Mappatura intelligente delle intestazioni
-            mappa = {}
-            for col in df_nuovo.columns:
-                if 'nome' in col or 'giocatore' in col: mappa[col] = 'Nome'
-                elif col in ['r', 'ruolo']: mappa[col] = 'Ruolo'
-                elif 'squadra' in col or 'team' in col: mappa[col] = 'Squadra_SerieA'
-                elif 'quot' in col or 'valore' in col or 'qt' in col: mappa[col] = 'Quotazione'
-                elif 'fm' in col or 'fantamedia' in col or 'media' in col: mappa[col] = 'FantaMedia'
-            
-            df_nuovo = df_nuovo.rename(columns=mappa)
-            
-            if 'Nome' in df_nuovo.columns:
-                df_nuovo = df_nuovo.loc[:, ~df_nuovo.columns.duplicated()]
-                
-                # Definizione dei valori mancanti di base
-                if 'Ruolo' not in df_nuovo.columns: df_nuovo['Ruolo'] = 'C'
-                if 'Squadra_SerieA' not in df_nuovo.columns: df_nuovo['Squadra_SerieA'] = 'N/D'
-                if 'Quotazione' not in df_nuovo.columns: df_nuovo['Quotazione'] = 10
-                if 'FantaMedia' not in df_nuovo.columns: df_nuovo['FantaMedia'] = 6.0
-                
-                # Sanificazione dei tipi di dato
-                df_nuovo['Quotazione'] = pd.to_numeric(df_nuovo['Quotazione'], errors='coerce').fillna(10).astype(int)
-                if df_nuovo['FantaMedia'].dtype == object:
-                    df_nuovo['FantaMedia'] = df_nuovo['FantaMedia'].astype(str).str.replace(',', '.')
-                df_nuovo['FantaMedia'] = pd.to_numeric(df_nuovo['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
-                
-                # --- INTEGRAZIONE DELLE STATISTICHE ESISTENTI (MERGE BLINDATO) ---
-                # Estraiamo l'anagrafica attuale delle statistiche per non perderle mai
-                statistiche_vecchie = st.session_state.giocatori_db[['Nome', 'Potenziale', 'Titolarita']].copy() if 'Potenziale' in st.session_state.giocatori_db.columns else pd.DataFrame(columns=['Nome', 'Potenziale', 'Titolarita'])
-                
-                # Fondiamo il nuovo listone con le vecchie colonne basandoci sul Nome esatto
-                df_fuso = pd.merge(df_nuovo, statistiche_vecchie, on='Nome', how='left')
-                
-                # Per i nuovi acquisti inseriti nel listone compiliamo i campi vuoti senza rompere l'interfaccia
-                df_fuso['Potenziale'] = df_fuso['Potenziale'].fillna(3).astype(int)
-                df_fuso['Titolarita'] = df_fuso['Titolarita'].fillna(3).astype(int)
-                
-                # Filtriamo la struttura definitiva del database
-                colonne_finali = ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']
-                st.session_state.giocatori_db = df_fuso[[c for c in colonne_finali if c in df_fuso.columns]]
-                st.sidebar.success("✅ Listone aggiornato! Statistiche integrate salvate.")
-        except Exception as err:
+    if not squadra_prop or not squadra_acq:
+        raise HTTPException(status_code=404, detail="Una o entrambe le fantasquadre non esistono")
+        
+    # 2. Verifica copertura finanziaria per il conguaglio
+    if squadra_prop.budget_crediti < proposta.conguaglio_crediti:
+        raise HTTPException(status_code=400, detail="Budget crediti insufficiente per coprire il conguaglio")
+
+    # 3. Verifica l'effettivo possesso dei giocatori nelle rose
+    possesso_offerto = db.query(RosaDB).filter(RosaDB.id_squadra == squadra_prop.id, RosaDB.id_calciatore == proposta.calciatore_offerto_id).first()
+    possesso_richiesto = db.query(RosaDB).filter(RosaDB.id_squadra == squadra_acq.id, RosaDB.id_calciatore == proposta.calciatore_richiesto_id).first()
+    
+    if not possesso_offerto or not possesso_richiesto:
+        raise HTTPException(status_code=400, detail="I giocatori non appartengono ai rispettivi proprietari dichiarati")
+
+    try:
+        # 4. Spostamento Economico
+        squadra_prop.budget_crediti -= proposta.conguaglio_crediti
+        squadra_acq.budget_crediti += proposta.conguaglio_crediti
+        
+        # 5. Spostamento Fisico dei Calciatori nelle Rose
+        db.delete(possesso_offerto)
+        db.delete(possesso_richiesto)
+        db.flush() # Svuota i vecchi record prima di inserire i nuovi per evitare conflitti di chiave primaria
+        
+        nuovo_possesso_1 = RosaDB(id_squadra=squadra_acq.id, id_calciatore=proposta.calciatore_offerto_id)
+        nuovo_possesso_2 = RosaDB(id_squadra=squadra_prop.id, id_calciatore=proposta.calciatore_richiesto_id)
+        
+        db.add(nuovo_possesso_1)
+        db.add(nuovo_possesso_2)
+        
+        # Salva tutto nel database definitivamente
+        db.commit()
+        return {"status": "Successo", "detail": "Scambio e transazione monetaria completati con successo"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore transazione annullata: {str(e)}")
+
+
+# 6. ENDPOINT 3: CEDERE IN PRESTITO CON SCAMBIO DI DENARO
+@app.post("/mercato/prestito/")
+def cedi_in_prestito(prestito: PropostaPrestito, db: Session = Depends(get_db)):
+    """
+    Trasferisce temporaneamente un giocatore da una squadra all'altra in cambio di crediti.
+    """
+    squadra_orig = db.query(FantasquadraDB).filter(FantasquadraDB.id == prestito.squadra_origine_id).first()
+    squadra_dest = db.query(FantasquadraDB).filter(FantasquadraDB.id == prestito.squadra_destinazione_id).first()
+    
+    if squadra_dest.budget_crediti < prestito.crediti_pagati:
+        raise HTTPException(status_code=400, detail="La squadra destinataria non ha abbastanza crediti per il prestito")
+        
+    rosa_orig = db.query(RosaDB).filter(RosaDB.id_squadra == squadra_orig.id, RosaDB.id_calciatore == prestito.id_calciatore).first()
+    if not rosa_orig:
+        raise HTTPException(status_code=400, detail="Il calciatore non è presente nella rosa della squadra di origine")
+
+    try:
+        # Transazione finanziaria
+        squadra_dest.budget_crediti -= prestito.crediti_pagati
+        squadra_orig.budget_crediti += prestito.crediti_pagati
+        
+        # Spostamento rosa
+        db.delete(rosa_orig)
+        nuova_rosa = RosaDB(id_squadra=squadra_dest.id, id_calciatore=prestito.id_calciatore)
+        db.add(nuova_rosa)
+        
+        # Registro del prestito temporaneo
+        nuovo_prestito_registro = PrestitoDB(
+            id_calciatore=prestito.id_calciatore,
+            squadra_origine=squadra_orig.id,
+            squadra_destinazione=squadra_dest.id,
+            giornata_inizio=prestito.giornata_inizio,
+            giornata_fine=prestito.giornata_fine,
+            crediti_pagati=prestito.crediti_pagati
+        )
+        db.add(nuovo_prestito_registro)
+        
+        db.commit()
+        return {"status": "Successo", "detail": f"Giocatore concesso in prestito fino alla giornata {prestito.giornata_fine}"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 7. SCRIPT AUTOMATICO (CRONJOB) PER IL RIENTRO DEI PRESTITI A FINE GIORNATA
+@app.post("/sistema/risolvi-prestiti/{giornata_conclusa}")
+def cronjob_rientro_prestiti(giornata_conclusa: int, db: Session = Depends(get_db)):
+    """
+    Questo endpoint va chiamato automaticamente dal server alla fine di ogni giornata.
+    Riprende i giocatori in prestito scaduto e li rimette nella rosa originale.
+    """
+    prestiti_scaduti = db.query(PrestitoDB).filter(
+        PrestitoDB.giornata_fine == giornata_conclusa, 
+        PrestitoDB.stato == "ATTIVO"
+    ).all()
+    
+    contatore = 0
+    for p in prestiti_scaduti:
+        # Rimuovi dalla squadra temporanea
+        db.query(RosaDB).filter(RosaDB.id_squadra == p.squadra_destinazione, RosaDB.id_calciatore == p.id_calciatore).delete()
+        # Ritorna alla squadra originaria
+        rientro = RosaDB(id_squadra=p.squadra_origine, id_calciatore=p.id_calciatore)
+        db.add(rientro)
