@@ -138,7 +138,7 @@ with tab2:
         st.subheader("➕ Inserimento Manuale Diretto")
         with st.form("form_manuale"):
             m_nome = st.text_input("Nome Calciatore:")
-            m_ruolo = st.selectbox("Ruolo:", ["P", "D", "C", "A"])
+            m_ruolo = m_ruolo_sel = st.selectbox("Ruolo:", ["P", "D", "C", "A"])
             m_squadra = st.text_input("Squadra Serie A:")
             m_prezzo = st.number_input("Prezzo di Acquisto:", min_value=1, value=1)
             submit_m = st.form_submit_button("Aggiungi alla Rosa")
@@ -167,7 +167,7 @@ with tab3:
     else:
         st.info("Dati insufficienti per generare i grafici. Inserisci prima dei giocatori nelle rose.")
 
-# --- TAB 4: CARICA LISTONE ---
+# --- TAB 4: CARICA LISTONE (LOGICA LINEARE ANTI-INDENTATION-ERROR) ---
 with tab4:
     st.header("📥 Caricamento File Listone (Excel o CSV)")
     st.write("Carica il file delle quotazioni ufficiale. Il sistema aggiornerà i dati senza cancellare le vecchie statistiche.")
@@ -186,10 +186,7 @@ with tab4:
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
             all_cols = nuovo_df.columns.tolist()
             
-            with col_m1: 
-                c_nome = st.selectbox("Colonna Nome:", all_cols, index=0)
-            with col_m2: 
-                c_ruolo = st.selectbox("Colonna Ruolo:", all_cols, index=1 if len(all_cols)>1 else 0)
-            with col_m3: 
-                c_squadra = st.selectbox("Colonna Squadra:", all_cols, index=2 if len(all_cols)>2 else 0)
-            with col_m4: 
+            # Struttura lineare piatta senza 'with' annidati per prevenire errori di indentazione
+            c_nome = col_m1.selectbox("Colonna Nome:", all_cols, index=0)
+            c_ruolo = col_m2.selectbox("Colonna Ruolo:", all_cols, index=1 if len(all_cols)>1 else 0)
+            c_squadra = col_m3.selectbox("Colonna Squadra:", all_cols, index=2 if len(all_cols)>2 else 0)
