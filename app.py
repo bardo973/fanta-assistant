@@ -47,7 +47,6 @@ def calcola_trend(row):
 
 # --- INIZIALIZZAZIONE STATO DELLA SESSIONE (DATABASE TEMPORANEO) ---
 if 'listone_ufficiale' not in st.session_state:
-    # Dati di test iniziali reali
     st.session_state.listone_ufficiale = pd.DataFrame([
         {"Id": 1, "Nome": "Lautaro Martinez", "Ruolo": "A", "Squadra_SerieA": "Inter", "Quotazione": 40, "FantaMedia": 8.5, "FM_2025": 8.2, "FM_2024": 8.8},
         {"Id": 2, "Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 22, "FantaMedia": 7.4, "FM_2025": 7.3, "FM_2024": 7.5},
@@ -74,7 +73,6 @@ with tab1:
         df_visualizzazione['Costanza'] = df_visualizzazione.apply(calcola_costanza, axis=1)
         df_visualizzazione['Trend'] = df_visualizzazione.apply(calcola_trend, axis=1)
         
-        # Filtri di ricerca dinamici
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             ricerca_nome = st.text_input("Cerca calciatore per nome:")
@@ -85,10 +83,8 @@ with tab1:
             df_visualizzazione = df_visualizzazione[df_visualizzazione['Nome'].str.contains(ricerca_nome, case=False, na=False)]
         df_visualizzazione = df_visualizzazione[df_visualizzazione['Ruolo'].isin(ricerca_ruolo)]
         
-        # Mostra la tabella con tutte le colonne visibili
         st.dataframe(df_visualizzazione[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Costanza", "Trend"]], use_container_width=True)
         
-        # Assegnazione rapida a una squadra da listone
         st.subheader("⚡ Assegna Giocatore del Listone a una Squadra")
         col_as1, col_as2, col_as3, col_as4 = st.columns(4)
         with col_as1:
@@ -189,6 +185,11 @@ with tab4:
             
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
             all_cols = nuovo_df.columns.tolist()
-            with col_m1: c_nome = st.selectbox("Colonna Nome:", all_cols, index=0)
-            with col_m2: c_ruolo = st.selectbox("Colonna Ruolo:", all_cols, index=1 if len(all_cols)>1 else 0)
-            with col_m3: c_squadra = st.selectbox("Colonna Squadra:", all_cols, index=2 if len(all_cols)>2 else 0)
+            
+            with col_m1: 
+                c_nome = st.selectbox("Colonna Nome:", all_cols, index=0)
+            with col_m2: 
+                c_ruolo = st.selectbox("Colonna Ruolo:", all_cols, index=1 if len(all_cols)>1 else 0)
+            with col_m3: 
+                c_squadra = st.selectbox("Colonna Squadra:", all_cols, index=2 if len(all_cols)>2 else 0)
+            with col_m4: 
