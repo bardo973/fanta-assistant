@@ -64,7 +64,7 @@ if 'voti_giornata' not in st.session_state:
 # --- INTERFACCIA GRAFICA (TABS) ---
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Scouting & Listone", "🏠 Gestione 10 Rose", "📊 Grafici di Lega", "📥 Carica Listone & Dati"])
 
-# --- TAB 1: SCOUTING & LISTONE (BUG FIXATO: I NOMI NON SPARISCONO) ---
+# --- TAB 1: SCOUTING & LISTONE ---
 with tab1:
     st.header("🔍 Scouting Calciatori & Analisi Valore")
     
@@ -85,7 +85,7 @@ with tab1:
             df_visualizzazione = df_visualizzazione[df_visualizzazione['Nome'].str.contains(ricerca_nome, case=False, na=False)]
         df_visualizzazione = df_visualizzazione[df_visualizzazione['Ruolo'].isin(ricerca_ruolo)]
         
-        # Mostra la tabella con tutte le colonne visibili, inclusi i NOMI
+        # Mostra la tabella con tutte le colonne visibili
         st.dataframe(df_visualizzazione[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Costanza", "Trend"]], use_container_width=True)
         
         # Assegnazione rapida a una squadra da listone
@@ -109,12 +109,12 @@ with tab1:
                 st.success(f"{p_selezionato} assegnato correttamente a {squadra_dest}!")
                 st.rerun()
 
-# --- TAB 2: GESTIONE 10 ROSE (RIPRISTINATO INSERIMENTO MANUALE + STATO LISTONE) ---
+# --- TAB 2: GESTIONE 10 ROSE ---
 with tab2:
     st.header("🏠 Gestione Rose e Inserimento Manuale")
     squadra_sel = st.selectbox("Seleziona la Fanta-Squadra da visualizzare/modificare:", options=NOMI_SQUADRE)
     
-    col_r1, col_r2 = st.columns([2, 1])
+    col_r1, col_r2 = st.columns(2)
     
     with col_r1:
         st.subheader(f"Rosa attuale di: {squadra_sel}")
@@ -123,13 +123,11 @@ with tab2:
         st.metric(label="Budget Residuo (su 500 iniziali)", value=f"{crediti_rimasti} / 500 Crediti")
         
         if not rosa_attuale.empty:
-            # Controlla se i giocatori fanno ancora parte del listone attuale
             nomi_listone = st.session_state.listone_ufficiale['Nome'].tolist()
             rosa_attuale['In_Listone'] = rosa_attuale['Nome'].apply(lambda x: "✅ Attivo" if x in nomi_listone else "❌ NON IN LISTONE")
             
             st.dataframe(rosa_attuale, use_container_width=True)
             
-            # Svincola Giocatore
             player_da_svincolare = st.selectbox("Seleziona un giocatore da svincolare:", options=rosa_attuale['Nome'].tolist())
             if st.button("Svincola Giocatore"):
                 costo = rosa_attuale[rosa_attuale['Nome'] == player_da_svincolare]['Costo_Acquisto'].values[0]
@@ -147,9 +145,9 @@ with tab2:
             m_ruolo = st.selectbox("Ruolo:", ["P", "D", "C", "A"])
             m_squadra = st.text_input("Squadra Serie A:")
             m_prezzo = st.number_input("Prezzo di Acquisto:", min_value=1, value=1)
-            Submit_m = st.form_submit_button("Aggiungi alla Rosa")
+            submit_m = st.form_submit_button("Aggiungi alla Rosa")
             
-            if Submit_m and m_nome:
+            if submit_m and m_nome:
                 nuovo_p_man = pd.DataFrame([{
                     "Nome": m_nome, "Ruolo": m_ruolo, "Squadra_SerieA": m_squadra, "Costo_Acquisto": m_prezzo, "In_Listone": "✅ Attivo"
                 }])
@@ -173,10 +171,10 @@ with tab3:
     else:
         st.info("Dati insufficienti per generare i grafici. Inserisci prima dei giocatori nelle rose.")
 
-# --- TAB 4: CARICA LISTONE (AGGIORNAMENTO CON CONSERVAZIONE STATISTICHE) ---
+# --- TAB 4: CARICA LISTONE ---
 with tab4:
     st.header("📥 Caricamento File Listone (Excel o CSV)")
-    st.write("Carica il file delle quotazioni ufficiale. Il sistema aggiornerà i dati **senza cancellare** le vecchie statistiche e segnalerà i giocatori fuori listone nelle rose.")
+    st.write("Carica il file delle quotazioni ufficiale. Il sistema aggiornerà i dati senza cancellare le vecchie statistiche.")
     
     file_caricato = st.file_uploader("Scegli un file Excel o CSV", type=["xlsx", "csv"])
     
@@ -187,6 +185,10 @@ with tab4:
             else:
                 nuovo_df = pd.read_excel(file_caricato)
                 
-            st.success("File caricato con successo! Mappa le colonne del tuo file per integrarlo nel sistema:")
+            st.success("File caricato con successo! Mappa le colonne del tuo file:")
             
-            # Mapping Colonne Dinamico per evitare crash
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            all_cols = nuovo_df.columns.tolist()
+            with col_m1: c_nome = st.selectbox("Colonna Nome:", all_cols, index=0)
+            with col_m2: c_ruolo = st.selectbox("Colonna Ruolo:", all_cols, index=1 if len(all_cols)>1 else 0)
+            with col_m3: c_squadra = st.selectbox("Colonna Squadra:", all_cols, index=2 if len(all_cols)>2 else 0)
