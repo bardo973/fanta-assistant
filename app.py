@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+# --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
 
 # --- LISTA DELLE 10 SQUADRE UFFICIALI ---
@@ -13,7 +14,7 @@ if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre,
 
 for sq in NOMI_SQUADRE:
     if sq not in st.session_state.squadre:
-        st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+        st.session_state.squadre[sq] = {"crediti_totali": 500, "rosa": []}
 
 if 'storico_mercato' not in st.session_state:
     st.session_state.storico_mercato = []
@@ -21,7 +22,7 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Rosa precaricata di esempio per PECU (se vuota)
+# Rosa precaricata di esempio per PECU (se vuota) con colonna Scadenza_Contratto
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
         {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Scadenza_Contratto": 2027},
@@ -67,7 +68,7 @@ if 'giocatori_db' not in st.session_state:
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
-# --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
+# --- BARRA LATERALE: GESTIONE FILE E STATISTICHE ---
 st.sidebar.title("⚽ Fanta Manager Hub")
 
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
@@ -118,6 +119,5 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Questa riga salva i dati puliti nel database globale dell'app
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Scadenza_Contratto']].copy()
-                st.success("File importato correttamente!")
+                st.success("Listone aggiornato con successo!")
