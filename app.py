@@ -83,17 +83,14 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                     
                     df = df.dropna(subset=['Nome'])
                     df['Nome'] = df['Nome'].astype(str).str.strip()
-                    
-                    # RISOLTO: Trasformazione sicura della stringa Ruolo senza usare .str incompleti
-                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().apply(lambda x: x[0] if len(x) > 0 else 'C')
-                    
+                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().apply(lambda x: x if len(x) > 0 else 'C')
                     df['Squadra_SerieA'] = df['Squadra_SerieA'].astype(str).str.strip()
                     df['Quotazione'] = pd.to_numeric(df['Quotazione'], errors='coerce').fillna(1).astype(int)
                     df['FantaMedia'] = pd.to_numeric(df['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
                     
                     df = df.drop_duplicates(subset=['Nome'])
                     st.session_state.giocatori_db = df[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia']].copy()
-                    st.sidebar.success(f"📊 Listone caricato! Importati {len(df)} calciatori dal file Excel.")
+                    st.sidebar.success(f"📊 Listone caricato! Importati {len(df)} calciatori.")
                     st.rerun()
                 else:
                     st.sidebar.error("❌ Errore intestazione: Colonna del nome del giocatore non identificata.")
@@ -128,10 +125,10 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                         if team in NOMI_SQUADRE and g_name != 'nan':
                             match = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'].str.lower() == g_name.lower()]
                             if not match.empty:
-                                r = match.iloc[0]['Ruolo']
-                                s_a = match.iloc[0]['Squadra_SerieA']
-                                qt = match.iloc[0]['Quotazione']
-                                fm = match.iloc[0]['FantaMedia']
+                                r = match.iloc['Ruolo']
+                                s_a = match.iloc['Squadra_SerieA']
+                                qt = match.iloc['Quotazione']
+                                fm = match.iloc['FantaMedia']
                             else:
                                 r, s_a, qt, fm = "C", "N/D", 1, 6.0
                             
@@ -140,10 +137,10 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                                 "Tipo_Contratto": "Proprietà", "Scadenza": ANNO_ATTUALE + DURATA_CONTRATTO_ANNI
                             })
                             st.session_state.squadre[team]["crediti"] -= g_cost
-                    st.sidebar.success("✅ Rose Excel caricate e sincronizzate correttamente!")
+                    st.sidebar.success("✅ Rose Excel caricate e sincronizzate!")
                     st.rerun()
                 else:
-                    st.sidebar.error("❌ Intestazioni file rose non riconosciute (Campi richiesti: FantaSquadra, Costo, Giocatore).")
+                    st.sidebar.error("❌ Intestazioni file rose non riconosciute.")
             except Exception as e:
                 st.sidebar.error(f"Errore caricamento rose Excel: {e}")
 
@@ -171,6 +168,7 @@ if menu == "⏱️ Chiamata & Martello Asta":
         else:
             st.warning("Carica un listone valido nella barra laterale.")
             
+        # BLOCCO RISOLTO: Indentazione riscritta in modo pulito e lineare
         if st.session_state.chiamata_asta.get("calciatore"):
             tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
             if tempo_rimasto > 0:
@@ -178,4 +176,7 @@ if menu == "⏱️ Chiamata & Martello Asta":
                 st.metric(label="Tempo Rimasto prima della scadenza", value=f"{tempo_rimasto} secondi")
                 time.sleep(1)
                 st.rerun()
-            else:
+            if tempo_rimasto <= 0:
+                st.error(f"🚨 TEMPO SCADUTO per {st.session_state.chiamata_asta['calciatore']}!")
+
+    with col_assegna:
