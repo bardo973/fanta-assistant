@@ -1,6 +1,4 @@
-
-with open('/mnt/agents/output/fanta_manager.py', 'w') as f:
-    f.write("""import streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import datetime
 
@@ -123,16 +121,16 @@ st.sidebar.title("⚽ Fanta Manager Hub")
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
     st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel).")
     listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
-    
+
     if listone_file is not None:
         try:
             if listone_file.name.endswith('.csv'):
                 df_load = pd.read_csv(listone_file, encoding='utf-8', on_bad_lines='skip')
             else:
                 df_load = pd.read_excel(listone_file)
-            
+
             df_load.columns = [str(c).strip() for c in df_load.columns]
-            
+
             col_mappa = {}
             for col in df_load.columns:
                 c_low = str(col).lower()
@@ -146,19 +144,19 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     col_mappa[col] = 'Quotazione'
                 elif 'fm' in c_low or 'fantamedia' in c_low or 'media' in c_low:
                     col_mappa[col] = 'FantaMedia'
-                    
+
             df_load = df_load.rename(columns=col_mappa)
-            
+
             if 'Nome' in df_load.columns:
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
-                
+
                 if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
-                
+
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                
+
                 fm_serie = df_load['FantaMedia']
                 if isinstance(fm_serie, pd.DataFrame):
                     fm_serie = fm_serie.iloc[:, 0]
@@ -166,10 +164,10 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie.astype(str).str.replace(',', '.', regex=False), 
                     errors='coerce'
                 ).fillna(6.0)
-                
+
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
-                
+
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
                 st.sidebar.success("Listone importato con successo!")
             else:
@@ -180,42 +178,42 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
     st.markdown("Carica un file CSV/Excel con le rose. Colonne: **Squadra** (fantateam), **Nome**, **Ruolo**, **Costo**, opzionale: **Squadra Serie A**, **Scadenza Contratto** (formato: *mmm yy*).")
     rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx"], key="upload_rose")
-    
+
     if rose_file is not None:
         try:
             if rose_file.name.endswith('.csv'):
                 df_rose = pd.read_csv(rose_file, encoding='utf-8', on_bad_lines='skip')
             else:
                 df_rose = pd.read_excel(rose_file)
-            
+
             df_rose.columns = [str(c).strip().lower() for c in df_rose.columns]
-            
+
             col_squadra = next((c for c in df_rose.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
             col_nome = next((c for c in df_rose.columns if 'nome' in c or 'giocatore' in c), None)
             col_ruolo = next((c for c in df_rose.columns if 'ruolo' in c or 'r' == c), None)
             col_costo = next((c for c in df_rose.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
             col_scadenza = next((c for c in df_rose.columns if 'scadenza' in c or 'contratto' in c or 'anno' in c), None)
             col_squadra_sa = next((c for c in df_rose.columns if 'squadra serie a' in c or 'team' in c or 'club' in c or 'serie a' in c), None)
-            
+
             if col_squadra and col_nome:
                 count_importati = 0
                 for _, row in df_rose.iterrows():
                     sq_nome = str(row[col_squadra]).strip().upper()
                     sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
-                    
+
                     if sq_match:
                         g_nome = str(row[col_nome]).strip()
                         g_ruolo = str(row[col_ruolo]).strip().upper() if col_ruolo and pd.notna(row[col_ruolo]) else "C"
                         g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1
                         g_scadenza = normalizza_scadenza(row[col_scadenza]) if col_scadenza and pd.notna(row[col_scadenza]) else "N/D"
-                        
+
                         g_squadra_sa = None
                         if col_squadra_sa and pd.notna(row[col_squadra_sa]):
                             g_squadra_sa = str(row[col_squadra_sa]).strip()
-                        
+
                         db_g = st.session_state.giocatori_db
                         match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
-                        
+
                         squadra_sa = "N/D"
                         quot = 10
                         fm = 6.0
@@ -224,7 +222,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             quot = int(match_db.iloc[0]['Quotazione'])
                             fm = float(match_db.iloc[0]['FantaMedia'])
                             g_ruolo = str(match_db.iloc[0]['Ruolo'])
-                        
+
                         if g_squadra_sa:
                             squadra_sa = g_squadra_sa
 
@@ -239,7 +237,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 "Scadenza_Contratto": g_scadenza
                             })
                             count_importati += 1
-                
+
                 st.sidebar.success(f"Importati {count_importati} giocatori nelle rose con successo!")
             else:
                 st.sidebar.error("Colonne essenziali mancanti ('Squadra' o 'Nome').")
@@ -265,7 +263,7 @@ if menu == "🔍 Scouting & Database":
     for sq, dati in st.session_state.squadre.items():
         for g in dati["rosa"]:
             giocatori_assegnati[g["Nome"].lower()] = sq
-            
+
     df["Proprietario"] = df["Nome"].apply(lambda x: giocatori_assegnati.get(x.lower(), "Svincolato 🟢"))
 
     col1, col2, col3, col4 = st.columns(4)
@@ -315,7 +313,7 @@ if menu == "🔍 Scouting & Database":
 # ==========================================
 elif menu == "🛒 Mercato (Acquisti/Vendite)":
     st.header("🛒 Gestione Mercato: Acquisti, Svincoli e Registro")
-    
+
     tab_acq, tab_vend, tab_reg = st.tabs(["📥 Acquista da Svincolati", "📤 Vendi / Svincola", "📜 Registro Operazioni"])
 
     with tab_acq:
@@ -323,7 +321,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         squadra_selezionata = st.selectbox("Seleziona la tua Squadra", NOMI_SQUADRE, key="mercato_sq")
         crediti_disponibili = st.session_state.squadre[squadra_selezionata]["crediti"]
         rosa_attuale_len = len(st.session_state.squadre[squadra_selezionata]["rosa"])
-        
+
         posti_rim = 25 - rosa_attuale_len
         if posti_rim > 0:
             offerta_max_ideale = crediti_disponibili - (posti_rim - 1)
@@ -345,16 +343,16 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         if len(svincolati) > 0:
             giocatore_scelto = st.selectbox("Seleziona Giocatore Svincolato", svincolati["Nome"].values)
             info_g = svincolati[svincolati["Nome"] == giocatore_scelto].iloc[0]
-            
+
             prezzo_consigliato = int(info_g["Quotazione"])
-            
+
             st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
 
             # --- PARAGONE FANTAMEDIA SELEZIONABILE ---
             rosa_sq = st.session_state.squadre[squadra_selezionata]["rosa"]
             ruolo_target = info_g['Ruolo']
             giocatori_stesso_ruolo = [g for g in rosa_sq if g['Ruolo'] == ruolo_target]
-            
+
             st.markdown("#### 📊 Paragone con la tua rosa")
             if giocatori_stesso_ruolo:
                 nomi_paragone = st.multiselect(
@@ -374,9 +372,9 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 media_ruolo = 0.0
                 media_costo = 0.0
                 st.info(f"Nessun {ruolo_target} attualmente in rosa.")
-            
+
             delta = round(info_g['FantaMedia'] - media_ruolo, 2)
-            
+
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("FantaMedia Target", f"{info_g['FantaMedia']}")
             c2.metric(f"Media {ruolo_target} selezionati", f"{media_ruolo:.2f}")
@@ -422,12 +420,12 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         if len(rosa_sq) > 0:
             nomi_rosa = [g["Nome"] for g in rosa_sq]
             giocatore_da_vendere = st.selectbox("Seleziona il giocatore da cedere", nomi_rosa, key="sel_vendi_giocatore")
-            
+
             g_obj = next(item for item in rosa_sq if item["Nome"] == giocatore_da_vendere)
             prezzo_base = g_obj.get("Costo_Acquisto", 10)
 
             st.write(f"Ruolo: **{g_obj['Ruolo']}** | Squadra Serie A: **{g_obj.get('Squadra_SerieA', 'N/D')}** | Scadenza: **{g_obj.get('Scadenza_Contratto', 'N/D')}**")
-            
+
             prezzo_vendita = st.number_input("Prezzo di vendita / rimborso scelto (crediti)", min_value=0, value=prezzo_base, key="input_prezzo_vend")
 
             if st.button("Conferma Vendita / Svincolo"):
@@ -490,7 +488,7 @@ elif menu == "🤝 Scambi tra Proprietà":
 
                 oggetti_sq1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] in giocatori_sq1_scelti]
                 st.session_state.squadre[sq1]["rosa"] = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in giocatori_sq1_scelti]
-                
+
                 oggetti_sq2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] in giocatori_sq2_scelti]
                 st.session_state.squadre[sq2]["rosa"] = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in giocatori_sq2_scelti]
 
@@ -510,7 +508,7 @@ elif menu == "🤝 Scambi tra Proprietà":
                         st.session_state.squadre[sq2]["rosa"].append(g_prestito)
                     msg_log = f"Prestito registrato tra {sq1} e {sq2}."
                     st.success(f"🤝 {msg_log}")
-                
+
                 st.session_state.storico_mercato.insert(0, {
                     "Orario": datetime.now().strftime("%H:%M:%S"),
                     "Operazione": "SCAMBIO",
@@ -537,14 +535,14 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     st.subheader(f"🛡️ {nome_sq}")
                 with col_b:
                     st.metric("Crediti Residui", f"{dati['crediti']} 🪙")
-                
+
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
                     if 'Scadenza_Contratto' not in rosa_df.columns:
                         rosa_df['Scadenza_Contratto'] = 'N/D'
                     if 'Squadra_SerieA' not in rosa_df.columns:
                         rosa_df['Squadra_SerieA'] = 'N/D'
-                    
+
                     def stato_contratto(x):
                         if is_in_scadenza(x):
                             return '🚨 In scadenza'
@@ -552,25 +550,25 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         if dt and dt < datetime.now():
                             return '⏳ Scaduto'
                         return '✅ Attivo'
-                    
+
                     rosa_df['Stato'] = rosa_df['Scadenza_Contratto'].apply(stato_contratto)
-                    
+
                     cols_pref = ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Costo_Acquisto', 'Scadenza_Contratto', 'Stato']
                     cols_presenti = [c for c in cols_pref if c in rosa_df.columns]
                     rosa_df = rosa_df[cols_presenti + [c for c in rosa_df.columns if c not in cols_pref]]
-                    
+
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
                     d = conti_ruoli.get("D", 0)
                     c = conti_ruoli.get("C", 0)
                     a = conti_ruoli.get("A", 0)
                     st.caption(f"Composizione reparto ➔ Portieri: {p} | Difensori: {d} | Centrocampisti: {c} | Attaccanti: {a} (Tot: {len(rosa_df)})")
-                    
+
                     def highlight_scadenza(row):
                         if is_in_scadenza(row.get('Scadenza_Contratto', 'N/D')):
                             return ['background-color: rgba(255, 80, 80, 0.25)'] * len(row)
                         return [''] * len(row)
-                    
+
                     styled = rosa_df.style.apply(highlight_scadenza, axis=1)
                     st.dataframe(styled, use_container_width=True)
                 else:
@@ -584,7 +582,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
             rosa = dati["rosa"]
             tot_giocatori = len(rosa)
             crediti = dati["crediti"]
-            
+
             p, d, c, a = 0, 0, 0, 0
             spesa_totale = 0
             squadre_sa_set = set()
@@ -610,9 +608,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 "Attaccanti (A)": a,
                 "Squadre Serie A": ", ".join(sorted(squadre_sa_set)) if squadre_sa_set else "N/D"
             })
-        
+
         df_summary = pd.DataFrame(summary_data)
         st.dataframe(df_summary, use_container_width=True)
-""")
-
-print("File scritto con successo")
