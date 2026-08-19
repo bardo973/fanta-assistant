@@ -6,8 +6,9 @@ import re
 st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
 
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
-STAGIONI_DISP = ["2023-24", "2024-25", "2025-26"]
+STAGIONI = ["2023-24", "2024-25", "2025-26"]
 
+# ─── HELPERS SCADENZA ───
 MESI_ITA = {
     'gen': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'mag': 5, 'giu': 6,
     'lug': 7, 'ago': 8, 'sett': 9, 'set': 9, 'ott': 10, 'nov': 11, 'dic': 12
@@ -55,7 +56,46 @@ def scadenza_da_acquisto():
     mese = oggi.month
     return f"{MESI_ITA_REV[mese]} {str(anno)[2:]}"
 
-# --- INIZIALIZZAZIONE SESSIONE ---
+# ─── HELPER SQUADRA SERIE A ───
+def get_squadra_sa_da_listone(nome_giocatore):
+    db = st.session_state.get('giocatori_db', pd.DataFrame())
+    if db.empty or 'Nome' not in db.columns:
+        return None
+    match = db[db['Nome'].str.lower() == nome_giocatore.lower()]
+    if not match.empty and 'Squadra_SerieA' in match.columns:
+        return str(match.iloc[0]['Squadra_SerieA'])
+    return None
+
+def aggiorna_sa_rosa(rosa_list):
+    """Sovrascrive Squadra_SerieA in ogni dizionario della rosa prendendo dal listone se esiste."""
+    for g in rosa_list:
+        sa_listone = get_squadra_sa_da_listone(g.get('Nome', ''))
+        if sa_listone:
+            g['Squadra_SerieA'] = sa_listone
+    return rosa_list
+
+# ─── HELPER STATISTICHE ───
+def calcola_media_stats(nome, campo):
+    db = st.session_state.get('statistiche_db', {})
+    if nome not in db:
+        return None
+    vals = [db[nome][s][campo] for s in db[nome] if campo in db[nome][s]]
+    return sum(vals) / len(vals) if vals else None
+
+def ha_stats(nome):
+    return nome in st.session_state.get('statistiche_db', {})
+
+def indice_affidabilita(nome):
+    """Presenze medie / 38 * 100"""
+    db = st.session_state.get('statistiche_db', {})
+    if nome not in db:
+        return None
+    pres = [db[nome][s]['Presenze'] for s in db[nome] if 'Presenze' in db[nome][s]]
+    if not pres:
+        return None
+    return round((sum(pres) / len(pres)) / 38 * 100, 1)
+
+# ─── INIT SESSION STATE ───
 if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
     st.session_state.squadre = {}
 for sq in NOMI_SQUADRE:
@@ -69,7 +109,7 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Database statistiche 3 anni
+# Database statistiche
 if 'statistiche_db' not in st.session_state:
     st.session_state.statistiche_db = {
         "Douvikas": {
@@ -160,11 +200,11 @@ if 'giocatori_db' not in st.session_state:
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
-# --- BARRA LATERALE ---
+# ─── SIDEBAR ───
 st.sidebar.title("⚽ Fanta Manager Hub")
 
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
-    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel). La colonna **Squadra** del listone popola automaticamente *Squadra_SerieA*.")
+    st.markdown("Carica il file listone. La colonna **Squadra** popola *Squadra_SerieA*.")
     listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
     if listone_file is not None:
         try:
@@ -201,14 +241,14 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
-                st.sidebar.success("Listone importato! Squadre Serie A aggiornate dal file.")
+                st.sidebar.success("Listone importato! Squadre Serie A aggiornate.")
             else:
-                st.sidebar.error("Colonna 'Nome' non trovata.")
+                st.sidebar.error("Colonna 'Nome' mancante.")
         except Exception as e:
             st.sidebar.error(f"Errore: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
-    st.markdown("Carica CSV/Excel con: **Squadra** (fantateam), **Nome**, **Ruolo**, **Costo**. Opzionale: **Squadra Serie A**, **Scadenza Contratto** (*mmm yy*).")
+    st.markdown("CSV/Excel con: **Squadra** (fantateam), **Nome**, **Ruolo**, **Costo**. Opzionale: **Squadra Serie A**, **Scadenza Contratto**.")
     rose_file = st.file_uploader("File Rose", type=["csv", "xlsx"], key="upload_rose")
     if rose_file is not None:
         try:
@@ -255,15 +295,16 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 "Scadenza_Contratto": g_scadenza
                             })
                             count_importati += 1
-                st.sidebar.success(f"Importati {count_importati} giocatori nelle rose!")
+                st.sidebar.success(f"Importati {count_importati} giocatori!")
             else:
                 st.sidebar.error("Colonne essenziali mancanti.")
         except Exception as e:
             st.sidebar.error(f"Errore: {e}")
 
-with st.sidebar.expander("📈 Importa Statistiche Storiche"):
-    st.markdown("Carica CSV/Excel con colonne: **Nome**, **Stagione** (es. 2024-25), **FantaMedia**, **MediaVoto**, **Gol**, **Assist**, **Presenze**, **Rigori**, **Ammonizioni**, **Espulsioni**.")
-    stats_file = st.file_uploader("File Statistiche 3 Anni", type=["csv", "xlsx"], key="upload_stats")
+with st.sidebar.expander("📈 Importa Statistiche per Stagione"):
+    st.markdown("Carica un file per **ogni stagione** separatamente. Colonne: **Nome**, **FantaMedia**, **MediaVoto**, **Gol**, **Assist**, **Presenze**, **Rigori**, **Ammonizioni**, **Espulsioni**.")
+    stagione_upload = st.selectbox("Stagione da importare", STAGIONI, key="stag_up_sel")
+    stats_file = st.file_uploader(f"File Statistiche {stagione_upload}", type=["csv", "xlsx"], key=f"upload_stats_{stagione_upload}")
     if stats_file is not None:
         try:
             if stats_file.name.endswith('.csv'):
@@ -271,14 +312,11 @@ with st.sidebar.expander("📈 Importa Statistiche Storiche"):
             else:
                 df_stats = pd.read_excel(stats_file)
             df_stats.columns = [str(c).strip() for c in df_stats.columns]
-            # Mappatura flessibile
             col_map = {}
             for col in df_stats.columns:
                 cl = col.lower()
                 if 'nome' in cl or 'giocatore' in cl:
                     col_map[col] = 'Nome'
-                elif 'stagione' in cl or 'anno' in cl or 'season' in cl:
-                    col_map[col] = 'Stagione'
                 elif 'fantamedia' in cl or 'fm' == cl:
                     col_map[col] = 'FantaMedia'
                 elif 'mediavoto' in cl or 'media voto' in cl or 'mv' == cl:
@@ -296,12 +334,12 @@ with st.sidebar.expander("📈 Importa Statistiche Storiche"):
                 elif 'espulsioni' in cl or 'esp' in cl or 'rossi' in cl:
                     col_map[col] = 'Espulsioni'
             df_stats = df_stats.rename(columns=col_map)
-            req = ['Nome', 'Stagione']
-            if all(r in df_stats.columns for r in req):
+            if 'Nome' not in df_stats.columns:
+                st.sidebar.error("Colonna 'Nome' obbligatoria.")
+            else:
                 imported = 0
                 for _, row in df_stats.iterrows():
                     nome = str(row['Nome']).strip()
-                    stagione = str(row['Stagione']).strip()
                     if nome not in st.session_state.statistiche_db:
                         st.session_state.statistiche_db[nome] = {}
                     record = {}
@@ -309,11 +347,9 @@ with st.sidebar.expander("📈 Importa Statistiche Storiche"):
                         if k in df_stats.columns and pd.notna(row[k]):
                             record[k] = float(row[k]) if k in ['FantaMedia', 'MediaVoto'] else int(row[k])
                     if record:
-                        st.session_state.statistiche_db[nome][stagione] = record
+                        st.session_state.statistiche_db[nome][stagione_upload] = record
                         imported += 1
-                st.sidebar.success(f"Importate {imported} righe statistiche!")
-            else:
-                st.sidebar.error("Colonne Nome e Stagione obbligatorie.")
+                st.sidebar.success(f"Importate {imported} righe per stagione {stagione_upload}!")
         except Exception as e:
             st.sidebar.error(f"Errore: {e}")
 
@@ -333,6 +369,10 @@ if menu == "🔍 Scouting & Database":
     df = st.session_state.giocatori_db.copy()
     df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
 
+    # Aggiungi info storiche al listone
+    df["📊 Stats"] = df["Nome"].apply(lambda x: "✅" if ha_stats(x) else "❌")
+    df["Affidabilità %"] = df["Nome"].apply(lambda x: indice_affidabilita(x) if indice_affidabilita(x) else None)
+
     giocatori_assegnati = {}
     for sq, dati in st.session_state.squadre.items():
         for g in dati["rosa"]:
@@ -341,14 +381,14 @@ if menu == "🔍 Scouting & Database":
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        ruoli_disponibili = df["Ruolo"].unique() if "Ruolo" in df.columns else ["P", "D", "C", "A"]
-        filtro_ruolo = st.multiselect("Filtra per Ruolo", options=ruoli_disponibili, default=ruoli_disponibili)
+        ruoli = df["Ruolo"].unique() if "Ruolo" in df.columns else ["P", "D", "C", "A"]
+        filtro_ruolo = st.multiselect("Filtra per Ruolo", options=ruoli, default=ruoli)
     with col2:
         min_fm = st.slider("FantaMedia Minima", 4.0, 10.0, 5.0, 0.1)
     with col3:
         solo_svincolati = st.checkbox("Mostra solo Svincolati", value=False)
     with col4:
-        search_nome = st.text_input("Cerca per Nome Giocatore")
+        search_nome = st.text_input("Cerca per Nome")
 
     df_filtrato = df[(df["Ruolo"].isin(filtro_ruolo)) & (df["FantaMedia"] >= min_fm)]
     if solo_svincolati:
@@ -357,23 +397,25 @@ if menu == "🔍 Scouting & Database":
         df_filtrato = df_filtrato[df_filtrato["Nome"].str.contains(search_nome, case=False, na=False)]
     df_filtrato = df_filtrato.sort_values(by="Indice_Affare", ascending=False)
 
-    st.subheader(f"Risultati Scouting ({len(df_filtrato)} giocatori trovati)")
-    st.dataframe(df_filtrato, use_container_width=True)
+    st.subheader(f"Risultati Scouting ({len(df_filtrato)} trovati)")
+    display_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "📊 Stats", "Affidabilità %", "Proprietario"]
+    display_cols = [c for c in display_cols if c in df_filtrato.columns]
+    st.dataframe(df_filtrato[display_cols], use_container_width=True)
 
     st.markdown("---")
     st.subheader("⭐ Watchlist")
-    g_watchlist = st.selectbox("Aggiungi giocatore alla Watchlist", df["Nome"].values, key="sel_watchlist")
-    if st.button("Aggiungi alla Watchlist"):
+    g_watchlist = st.selectbox("Aggiungi alla Watchlist", df["Nome"].values, key="sel_watchlist")
+    if st.button("Aggiungi"):
         if g_watchlist not in st.session_state.watchlist:
             st.session_state.watchlist.append(g_watchlist)
             st.success(f"{g_watchlist} aggiunto!")
             st.rerun()
         else:
-            st.warning("Gia' presente.")
+            st.warning("Già presente.")
 
-    if len(st.session_state.watchlist) > 0:
+    if st.session_state.watchlist:
         df_watch = df[df["Nome"].isin(st.session_state.watchlist)]
-        st.dataframe(df_watch[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "Proprietario"]], use_container_width=True)
+        st.dataframe(df_watch[display_cols], use_container_width=True)
         if st.button("Svuota Watchlist"):
             st.session_state.watchlist = []
             st.rerun()
@@ -412,25 +454,21 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             prezzo_consigliato = int(info_g["Quotazione"])
             st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
 
+            # ─── PARAGONE ROSA ───
             rosa_sq = st.session_state.squadre[squadra_selezionata]["rosa"]
             ruolo_target = info_g['Ruolo']
             giocatori_stesso_ruolo = [g for g in rosa_sq if g['Ruolo'] == ruolo_target]
-
             st.markdown("#### 📊 Paragone con la tua rosa")
             if giocatori_stesso_ruolo:
                 nomi_paragone = st.multiselect(
-                    f"Scegli quali {ruolo_target} in rosa paragonare",
+                    f"Scegli quali {ruolo_target} paragonare",
                     options=[g['Nome'] for g in giocatori_stesso_ruolo],
                     default=[g['Nome'] for g in giocatori_stesso_ruolo],
                     key="paragone_acquisto"
                 )
                 selezionati = [g for g in giocatori_stesso_ruolo if g['Nome'] in nomi_paragone]
-                if selezionati:
-                    media_ruolo = sum(g['FantaMedia'] for g in selezionati) / len(selezionati)
-                    media_costo = sum(g['Costo_Acquisto'] for g in selezionati) / len(selezionati)
-                else:
-                    media_ruolo = 0.0
-                    media_costo = 0.0
+                media_ruolo = sum(g['FantaMedia'] for g in selezionati) / len(selezionati) if selezionati else 0.0
+                media_costo = sum(g['Costo_Acquisto'] for g in selezionati) / len(selezionati) if selezionati else 0.0
             else:
                 media_ruolo = 0.0
                 media_costo = 0.0
@@ -438,11 +476,36 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
 
             delta = round(info_g['FantaMedia'] - media_ruolo, 2)
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("FantaMedia Target", f"{info_g['FantaMedia']}")
-            c2.metric(f"Media {ruolo_target} selezionati", f"{media_ruolo:.2f}")
+            c1.metric("FM Target", f"{info_g['FantaMedia']}")
+            c2.metric(f"Media {ruolo_target} rosa", f"{media_ruolo:.2f}")
             c3.metric("Delta FM", f"{delta:+.2f}", delta=delta)
             if media_costo > 0:
                 c4.metric(f"Costo Medio {ruolo_target}", f"{media_costo:.1f} 🪙")
+
+            # ─── PARAGONE STATS STORICHE ───
+            st.markdown("#### 📈 Confronto con dati storici (ultimi 3 anni)")
+            if ha_stats(giocatore_scelto):
+                fm_media_3y = calcola_media_stats(giocatore_scelto, "FantaMedia")
+                mv_media_3y = calcola_media_stats(giocatore_scelto, "MediaVoto")
+                gol_media_3y = calcola_media_stats(giocatore_scelto, "Gol")
+                pres_media_3y = calcola_media_stats(giocatore_scelto, "Presenze")
+                affid = indice_affidabilita(giocatore_scelto)
+
+                s1, s2, s3, s4, s5 = st.columns(5)
+                s1.metric("FM Listone", f"{info_g['FantaMedia']}")
+                s2.metric("FM Media 3Y", f"{fm_media_3y:.2f}")
+                s3.metric("Delta Listone/3Y", f"{info_g['FantaMedia'] - fm_media_3y:+.2f}")
+                s4.metric("MV Media 3Y", f"{mv_media_3y:.2f}")
+                s5.metric("Affidabilità", f"{affid}%" if affid else "N/D")
+
+                # Alert se la FM listone è molto diversa dalla media storica
+                if fm_media_3y and abs(info_g['FantaMedia'] - fm_media_3y) > 0.5:
+                    if info_g['FantaMedia'] > fm_media_3y:
+                        st.info(f"📈 La FantaMedia listone è **{info_g['FantaMedia'] - fm_media_3y:+.2f}** sopra la media storica. Potrebbe essere sovraquotato.")
+                    else:
+                        st.success(f"📉 La FantaMedia listone è **{info_g['FantaMedia'] - fm_media_3y:+.2f}** sotto la media storica. Possibile affare!")
+            else:
+                st.info("Nessun dato storico disponibile per questo giocatore.")
             st.markdown("---")
 
             prezzo_acquisto = st.number_input("Prezzo di Acquisto (crediti)", min_value=1, max_value=max(1, crediti_disponibili), value=prezzo_consigliato, key="input_prezzo_acq")
@@ -461,7 +524,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "Orario": datetime.now().strftime("%H:%M:%S"), "Operazione": "ACQUISTO",
                         "Dettagli": f"{squadra_selezionata} acquista {giocatore_scelto} ({info_g['Ruolo']}) per {prezzo_acquisto} cr. Scadenza: {scadenza_nuova}"
                     })
-                    st.success(f"Acquisto completato!")
+                    st.success("Acquisto completato!")
                     st.rerun()
                 else:
                     st.error("Crediti insufficienti!")
@@ -493,7 +556,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
 
     with tab_reg:
         st.subheader("📜 Storico Operazioni")
-        if len(st.session_state.storico_mercato) > 0:
+        if st.session_state.storico_mercato:
             st.dataframe(pd.DataFrame(st.session_state.storico_mercato), use_container_width=True)
         else:
             st.info("Nessuna operazione.")
@@ -577,6 +640,10 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 with col_b:
                     st.metric("Crediti", f"{dati['crediti']} 🪙")
 
+                # Aggiorna Squadra_SerieA dal listone (precedenza listone)
+                dati["rosa"] = aggiorna_sa_rosa(dati["rosa"])
+                dati["prestiti_ceduti"] = aggiorna_sa_rosa(dati.get("prestiti_ceduti", []))
+
                 rosa_list = dati.get("rosa", [])
                 prestiti_list = dati.get("prestiti_ceduti", [])
                 rosa_df = pd.DataFrame(rosa_list) if rosa_list else pd.DataFrame()
@@ -608,7 +675,10 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         return "✅ Attivo"
                     full_df["Stato"] = full_df.apply(stato_contratto, axis=1)
 
-                    cols_pref = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto", "Stato", "Tipo_Vista"]
+                    # Badge stats storiche
+                    full_df["📊 Stats"] = full_df["Nome"].apply(lambda x: "✅" if ha_stats(str(x).split(" (in prestito")[0].strip()) else "❌")
+
+                    cols_pref = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Costo_Acquisto", "Scadenza_Contratto", "Stato", "📊 Stats", "Tipo_Vista"]
                     cols_presenti = [c for c in cols_pref if c in full_df.columns]
                     full_df = full_df[cols_presenti + [c for c in full_df.columns if c not in cols_pref]]
 
@@ -635,6 +705,8 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
         summary_data = []
         for sq in NOMI_SQUADRE:
             dati = st.session_state.squadre[sq]
+            # aggiorna SA
+            dati["rosa"] = aggiorna_sa_rosa(dati["rosa"])
             rosa = dati["rosa"]
             prestiti = dati.get("prestiti_ceduti", [])
             p = d = c = a = 0
@@ -671,7 +743,7 @@ elif menu == "📈 Statistiche & Trend 3 Anni":
     with col1:
         giocatore_stat = st.selectbox("Seleziona Giocatore", tutti_nomi, key="stat_giocatore")
     with col2:
-        stagione_focus = st.selectbox("Focus Stagione", ["Tutte"] + STAGIONI_DISP, key="stat_stagione")
+        stagione_focus = st.selectbox("Focus Stagione", ["Tutte"] + STAGIONI, key="stat_stagione")
 
     # Info listone
     info_listone = db_listone[db_listone["Nome"] == giocatore_stat]
@@ -695,7 +767,7 @@ elif menu == "📈 Statistiche & Trend 3 Anni":
     if giocatore_stat in db_stats and db_stats[giocatore_stat]:
         stats = db_stats[giocatore_stat]
         rows = []
-        for stag in STAGIONI_DISP:
+        for stag in STAGIONI:
             if stag in stats:
                 row = {"Stagione": stag}
                 row.update(stats[stag])
@@ -727,20 +799,25 @@ elif menu == "📈 Statistiche & Trend 3 Anni":
                     c1.metric("FM Attuale Listone", f"{fm_attuale}")
                     c2.metric("Media 3 Anni", f"{media_3y:.2f}")
                     c3.metric("Delta", f"{delta:+.2f}", delta=delta)
+                    if abs(delta) > 0.5:
+                        if delta > 0:
+                            st.info(f"📈 FM listone **+{delta}** sopra la media storica. Attenzione alla sovraquotazione.")
+                        else:
+                            st.success(f"📉 FM listone **{delta}** sotto la media storica. Possibile affare!")
         else:
-            st.info("Nessun dato storico per le stagioni selezionate.")
+            st.info("Nessun dato per le stagioni selezionate.")
     else:
-        st.info("Nessuna statistica storica disponibile per questo giocatore. Importa un file o aggiungi dati manualmente.")
+        st.info("Nessuna statistica disponibile. Importa un file o aggiungi manualmente.")
 
-    # Sezione import manuale rapida
+    # Inserimento manuale
     st.markdown("---")
-    st.subheader("➕ Aggiungi/Modifica Statistica Manuale")
+    st.subheader("➕ Aggiungi/Modifica Statistica")
     with st.form("form_stat"):
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             f_nome = st.text_input("Nome Giocatore", value=giocatore_stat if giocatore_stat else "")
         with c2:
-            f_stag = st.selectbox("Stagione", STAGIONI_DISP)
+            f_stag = st.selectbox("Stagione", STAGIONI)
         with c3:
             f_fm = st.number_input("FantaMedia", min_value=0.0, max_value=15.0, value=6.0, step=0.1)
         with c4:
