@@ -175,8 +175,8 @@ if menu == "⏱️ Chiamata & Martello Asta":
                 dati_sq = st.session_state.squadre[squadra_acq]
                 conteggio_ruoli = pd.DataFrame(dati_sq["rosa"])['Ruolo'].value_counts().to_dict() if dati_sq["rosa"] else {}
                 
+                # RISOLTO: Sistemata l'indentazione corretta per tutto il blocco di controllo
                 if dati_sq["crediti"] < prezzo_acq:
                     st.error("Fondi insufficienti per completare l'operazione!")
                 elif len(dati_sq["rosa"]) >= MAX_GIOCATORI:
                     st.error("La rosa della fanta-squadra selezionata è piena.")
-                elif conteggio_ruoli.get(info_g['Ruolo'], 0) >= LIMITI_RUOLI[info_g['Ruolo']]:
