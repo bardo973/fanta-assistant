@@ -1,59 +1,36 @@
 from datetime import datetime, timedelta
 import sqlite3
-from flask import Flask, jsonify, request
+import pandas as pd
+import streamlit as Streamlit
 
-app = Flask(__name__)
 DB_NAME = "fantacalcio_career.db"
 
 
+# --- INIZIALIZZAZIONE DATABASE ---
 def init_db():
-    """Inizializza il database con le tabelle necessarie."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
-    # Tabella Squadre del Fantacalcio
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS fanta_squadre (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            budget REAL NOT NULL
-        )
-    """
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, budget REAL
+        )"""
     )
-
-    # Tabella Listone Generale Calciatori
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS calciatori (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            ruolo TEXT NOT NULL,
-            squadra_reale TEXT NOT NULL,
-            fantamedia REAL DEFAULT 0.0,
-            gol INTEGER DEFAULT 0,
-            assist INTEGER DEFAULT 0
-        )
-    """
+            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, ruolo TEXT, 
+            squadra_reale TEXT, fantamedia REAL, gol INTEGER, assist INTEGER
+        )"""
     )
-
-    # Tabella Rose e Contratti (Gestisce Proprietà, Scadenze e Prestiti)
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS rose (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fanta_squadra_id INTEGER,
-            calciatore_id INTEGER,
-            data_inizio TEXT NOT NULL,
-            data_scadenza TEXT NOT NULL,
-            tipo_possesso TEXT CHECK(tipo_possesso IN ('PROPRIETA', 'PRESTITO_SECCO')) NOT NULL,
-            FOREIGN KEY(fanta_squadra_id) REFERENCES fanta_squadre(id),
-            FOREIGN KEY(calciatore_id) REFERENCES calciatori(id)
-        )
-    """
+            id INTEGER PRIMARY KEY AUTOINCREMENT, fanta_squadra_id INTEGER, calciatore_id INTEGER,
+            data_inizio TEXT, data_scadenza TEXT, tipo_possesso TEXT
+        )"""
     )
 
-    # Inserimento dati dimostrativi (Popolamento iniziale se vuoto)
     cursor.execute("SELECT COUNT(*) FROM calciatori")
     if cursor.fetchone()[0] == 0:
         cursor.executemany(
@@ -64,208 +41,216 @@ def init_db():
                 ("Nicolò Barella", "C", "Inter", 6.9, 3, 5),
                 ("Teun Koopmeiners", "C", "Juventus", 7.5, 11, 4),
                 ("Alessandro Bastoni", "D", "Inter", 6.5, 1, 3),
+                ("Marcus Thuram", "A", "Inter", 8.0, 15, 7),
+                ("Dusan Vlahovic", "A", "Juventus", 7.9, 18, 2),
             ],
         )
         cursor.executemany(
             "INSERT INTO fanta_squadre (nome, budget) VALUES (?, ?)",
             [("FantaTeam A", 500.0), ("FantaTeam B", 500.0)],
         )
-        # Assegna Lautaro a Team A con contratto di 4 anni (scadenza nel 2030)
-        cursor.execute(
-            "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 1, '2026-08-19', '2030-08-19', 'PROPRIETA')"
-        )
-        # Assegna Leao a Team A ma in scadenza imminente (es. tra 3 mesi) per il test
-        scadenza_breve = (datetime.now() + timedelta(days=90)).strftime(
+
+        # Scadenze simulate per il test
+        oggi = datetime.now()
+        scadenza_lunga = (oggi + timedelta(days=4 * 365)).strftime("%Y-%m-%d")
+        scadenza_breve = (oggi + timedelta(days=90)).strftime(
             "%Y-%m-%d"
+        )  # Tra 3 mesi (allerta)
+
+        cursor.execute(
+            "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 1, ?, ?, 'PROPRIETA')",
+            (oggi.strftime("%Y-%m-%d"), scadenza_lunga),
         )
         cursor.execute(
-            "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 2, '2023-08-19', ?, 'PROPRIETA')",
-            (scadenza_breve,),
+            "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 2, ?, ?, 'PROPRIETA')",
+            (oggi.strftime("%Y-%m-%d"), scadenza_breve),
         )
 
     conn.commit()
     conn.close()
 
 
-# ----------------------------------------------------
-# ENDPOINT 1: ACQUISTO CON CONTRATTO A 4 ANNI
-# ----------------------------------------------------
-@app.route("/acquista", methods=["POST"])
-def acquista_giocatore():
-    """Registra l'acquisto di un giocatore impostando un contratto di 4 anni."""
-    data = request.json
-    squadra_id = data["fanta_squadra_id"]
-    calciatore_id = data["calciatore_id"]
+init_db()
 
-    oggi = datetime.now()
-    # Logica business richiesta: contratto fisso di 4 anni (4 * 365 giorni)
-    scadenza = oggi + timedelta(days=4 * 365)
+# --- INTERFACCIA STREAMLIT ---
+st.title("⚽ FantaManager Career Pro")
 
-    data_inizio_str = oggi.strftime("%Y-%m-%d")
-    data_scadenza_str = scadenza.strftime("%Y-%m-%d")
+menu = [
+    "Visualizza Rose & Scadenze",
+    "Acquista Giocatore (4 Anni)",
+    "Mercato & Scambi",
+    "Scouting & Confronto",
+]
+scelta = st.sidebar.selectbox("Navigazione App", menu)
 
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso)
-        VALUES (?, ?, ?, ?, 'PROPRIETA')
-    """,
-        (squadra_id, calciatore_id, data_inizio_str, data_scadenza_str),
+conn = sqlite3.connect(DB_NAME)
+
+# 1. VISUALIZZA ROSE E SCADENZE
+if scelta == "Visualizza Rose & Scadenze":
+    st.header("📋 Gestione Rose della Lega")
+    squadre = pd.read_sql_query("SELECT * FROM fanta_squadre", conn)
+    squadra_scelta = st.selectbox(
+        "Seleziona la FantaSquadra", squadre["nome"].tolist()
     )
-    conn.commit()
-    conn.close()
+    squadra_id = squadre[squadre["nome"] == squadron_scelta]["id"].values[0]
 
-    return (
-        jsonify(
-            {
-                "status": "success",
-                "message": f"Giocatore acquistato fino al {data_scadenza_str}",
-            }
-        ),
-        201,
-    )
-
-
-# ----------------------------------------------------
-# ENDPOINT 2: ROSA E GIOCATORI IN SCADENZA (< 6 MESI)
-# ----------------------------------------------------
-@app.route("/rosa/<int:squadra_id>", methods=["GET"])
-def get_rosa(squadra_id):
-    """Restituisce la rosa evidenziando i contratti che scadono entro 6 mesi."""
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT r.id as contratto_id, c.nome, c.ruolo, r.data_scadenza, r.tipo_possesso
-        FROM rose r
-        JOIN calciatori c ON r.calciatore_id = c.id
+    query = """
+        SELECT c.nome, c.ruolo, r.data_scadenza, r.tipo_possesso 
+        FROM rose r JOIN calciatori c ON r.calciatore_id = c.id 
         WHERE r.fanta_squadra_id = ?
-    """,
-        (squadra_id,),
-    )
-    giocatori = cursor.fetchall()
+    """
+    rosa_df = pd.read_sql_query(query, conn, params=(int(squadra_id),))
 
-    rosa_output = []
-    limite_scadenza = datetime.now() + timedelta(
-        days=180
-    )  # Finestra di 6 mesi
+    if not rosa_df.empty:
+        limite_scadenza = datetime.now() + timedelta(days=180)
 
-    for g in giocatori:
-        data_scad_obj = datetime.strptime(g["data_scadenza"], "%Y-%m-%d")
-        # Controllo se scade entro i prossimi 6 mesi e non è già scaduto
-        in_scadenza = datetime.now() <= data_scad_obj <= limite_scadenza
+        def evidenzia_scadenza(val):
+            dt = datetime.strptime(val, "%Y-%m-%d")
+            if datetime.now() <= dt <= limite_scadenza:
+                return "background-color: #ffcccc; color: black; font-weight: bold;"  # Rosso soft per scadenze < 6 mesi
+            return ""
 
-        rosa_output.append(
-            {
-                "nome": g["nome"],
-                "ruolo": g["ruolo"],
-                "scadenza": g["data_scadenza"],
-                "tipo": g["tipo_possesso"],
-                "allerta_scadenza_6_mesi": in_scadenza,  # Flag per l'interfaccia frontend
-            }
+        st.subheader("Giocatori in Rosa")
+        st.write("⚠️ I giocatori evidenziati in rosso scadono entro 6 mesi.")
+        st.dataframe(rosa_df.style.map(evidenzia_scadenza, subset=["data_scadenza"]))
+    else:
+        st.info("Questa squadra non ha ancora calciatori in rosa.")
+
+# 2. ACQUISTA GIOCATORE CON CONTRATTO 4 ANNI
+elif scelta == "Acquista Giocatore (4 Anni)":
+    st.header("✍️ Nuovo Acquisto Cardine")
+    squadre = pd.read_sql_query("SELECT * FROM fanta_squadre", conn)
+    squadra_scelta = st.selectbox("Affida a:", squadre["nome"].tolist())
+    squadra_id = squadre[squadre["nome"] == squadron_scelta]["id"].values[0]
+
+    # Mostra solo i giocatori svincolati
+    svincolati_query = "SELECT * FROM calciatori WHERE id NOT IN (SELECT calciatore_id FROM rose)"
+    svincolati_df = pd.read_sql_query(svincolati_query, conn)
+
+    if not svincolati_df.empty:
+        giocatore_scelto = st.selectbox(
+            "Seleziona il calciatore da acquistare", svincolati_df["nome"].tolist()
+        )
+        giocatore_id = svincolati_df[svincolati_df["nome"] == giocatore_scelto][
+            "id"
+        ].values[0]
+
+        if st.button("Firma Contratto (4 Anni)"):
+            oggi = datetime.now()
+            scadenza = oggi + timedelta(days=4 * 365)
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (?, ?, ?, ?, 'PROPRIETA')",
+                (
+                    int(squadra_id),
+                    int(giocatore_id),
+                    oggi.strftime("%Y-%m-%d"),
+                    scadenza.strftime("%Y-%m-%d"),
+                ),
+            )
+            conn.commit()
+            st.success(
+                f"Contratto depositato! {giocatore_scelto} è legato al club fino al {scadenza.strftime('%Y-%m-%d')}."
+            )
+            st.rerun()
+    else:
+        st.warning("Non ci sono giocatori svincolati nel listone.")
+
+# 3. MERCATO, SCAMBI MULTIPLI E PRESTITI
+elif scelta == "Mercato & Scambi":
+    st.header("🤝 Tavolo delle Trattative")
+    squadre = pd.read_sql_query("SELECT * FROM fanta_squadre", conn)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        sq_a = st.selectbox("FantaSquadra A", squadre["nome"].tolist(), index=0)
+        id_a = squadre[squadre["nome"] == sq_a]["id"].values[0]
+        giocatori_a = pd.read_sql_query(
+            "SELECT c.id, c.nome FROM rose r JOIN calciatori c ON r.calciatore_id = c.id WHERE r.fanta_squadra_id = ?",
+            conn,
+            params=(int(id_a),),
+        )
+        da_a = st.multiselect(
+            "Giocatori da cedere da A",
+            giocatori_a["nome"].tolist(),
+            key="da_a",
         )
 
-    conn.close()
-    return jsonify(rosa_output)
+    with col2:
+        sq_b = st.selectbox("FantaSquadra B", squadre["nome"].tolist(), index=1)
+        id_b = squadre[squadre["nome"] == sq_b]["id"].values[0]
+        giocatori_b = pd.read_sql_query(
+            "SELECT c.id, c.nome FROM rose r JOIN calciatori c ON r.calciatore_id = c.id WHERE r.fanta_squadra_id = ?",
+            conn,
+            params=(int(id_b),),
+        )
+        da_b = st.multiselect(
+            "Giocatori da cedere da B",
+            giocatori_b["nome"].tolist(),
+            key="da_b",
+        )
 
+    tipo_affare = st.radio("Formula dell'operazione", ["PROPRIETA", "PRESTITO"])
 
-# ----------------------------------------------------
-# ENDPOINT 3: SCAMBI MULTIPLI E PRESTITI
-# ----------------------------------------------------
-@app.route("/scambio", methods=["POST"])
-def gestisci_scambio():
-    """Gestisce scambi complessi (1 o più giocatori) e prestiti."""
-    data = request.json
-    squadra_a = data["squadra_a_id"]
-    squadra_b = data["squadra_b_id"]
+    if st.button("Concludi Scambio"):
+        if sq_a == sq_b:
+            st.error("Seleziona due squadre diverse per negoziare!")
+        elif not da_a and not da_b:
+            st.warning("Inserisci almeno un giocatore nella trattativa.")
+        else:
+            cursor = conn.cursor()
+            # Sposta da A a B
+            for g_nome in da_a:
+                g_id = giocatori_a[giocatori_a["nome"] == g_nome]["id"].values[0]
+                if tipo_affare == "PROPRIETA":
+                    cursor.execute(
+                        "UPDATE rose SET fanta_squadra_id = ? WHERE calciatore_id = ?",
+                        (int(id_b), int(g_id)),
+                    )
+                else:
+                    fine_stagione = f"{datetime.now().year + 1}-06-30"
+                    cursor.execute(
+                        "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (?, ?, ?, ?, 'PRESTITO_SECCO')",
+                        (
+                            int(id_b),
+                            int(g_id),
+                            datetime.now().strftime("%Y-%m-%d"),
+                            fine_stagione,
+                        ),
+                    )
 
-    # Liste di ID calciatori coinvolti
-    giocatori_da_a_a_b = data.get("da_a_a_b", [])  # Es: [{"id": 1, "tipo": "PROPRIETA"}, {"id": 2, "tipo": "PRESTITO"}]
-    giocatori_da_b_a_a = data.get("da_b_a_a", [])
+            # Sposta da B a A
+            for g_nome in da_b:
+                g_id = giocatori_b[giocatori_b["nome"] == g_nome]["id"].values[0]
+                if tipo_affare == "PROPRIETA":
+                    cursor.execute(
+                        "UPDATE rose SET fanta_squadra_id = ? WHERE calciatore_id = ?",
+                        (int(id_a), int(g_id)),
+                    )
+                else:
+                    fine_stagione = f"{datetime.now().year + 1}-06-30"
+                    cursor.execute(
+                        "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (?, ?, ?, ?, 'PRESTITO_SECCO')",
+                        (
+                            int(id_a),
+                            int(g_id),
+                            datetime.now().strftime("%Y-%m-%d"),
+                            fine_stagione,
+                        ),
+                    )
 
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+            conn.commit()
+            st.success("🤝 Affare concluso con successo!")
+            st.rerun()
 
-    try:
-        # Sposta i giocatori da Squadra A a Squadra B
-        for item in giocatori_da_a_a_b:
-            if item["tipo"] == "PROPRIETA":
-                cursor.execute(
-                    "UPDATE rose SET fanta_squadra_id = ? WHERE fanta_squadra_id = ? AND calciatore_id = ?",
-                    (squadra_b, squadra_a, item["id"]),
-                )
-            elif item["tipo"] == "PRESTITO":
-                # Il prestito secco scade a fine stagione calcistica (es. 30 Giugno)
-                fine_stagione = f"{datetime.now().year + 1}-06-30"
-                cursor.execute(
-                    """
-                    INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso)
-                    VALUES (?, ?, ?, ?, 'PRESTITO_SECCO')
-                """,
-                    (
-                        squadra_b,
-                        item["id"],
-                        datetime.now().strftime("%Y-%m-%d"),
-                        fine_stagione,
-                    ),
-                )
+# 4. SCOUTING E CONFRONTO GIOCATORI
+elif scelta == "Scouting & Confronto":
+    st.header("🔬 Area Scouting Head-to-Head")
+    tutti_calciatori = pd.read_sql_query("SELECT * FROM calciatori", conn)
 
-        # Sposta i giocatori da Squadra B a Squadra A
-        for item in giocatori_da_b_a_a:
-            if item["tipo"] == "PROPRIETA":
-                cursor.execute(
-                    "UPDATE rose SET fanta_squadra_id = ? WHERE fanta_squadra_id = ? AND calciatore_id = ?",
-                    (squadra_a, squadra_b, item["id"]),
-                )
-            elif item["tipo"] == "PRESTITO":
-                fine_stagione = f"{datetime.now().year + 1}-06-30"
-                cursor.execute(
-                    """
-                    INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso)
-                    VALUES (?, ?, ?, ?, 'PRESTITO_SECCO')
-                """,
-                    (
-                        squadra_a,
-                        item["id"],
-                        datetime.now().strftime("%Y-%m-%d"),
-                        fine_stagione,
-                    ),
-                )
-
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 400
-    finally:
-        conn.close()
-
-    return jsonify({"status": "success", "message": "Operazione di mercato conclusa."})
-
-
-# ----------------------------------------------------
-# ENDPOINT 4: SCOUTING E CONFRONTO
-# ----------------------------------------------------
-@app.route("/scout/confronto", methods=["GET"])
-def confronta_giocatori():
-    """Confronta i dati statistici di due giocatori (es. uno nel listone e uno in rosa)."""
-    id_g1 = request.args.get("id1")
-    id_g2 = request.args.get("id2")
-
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM calciatori WHERE id IN (?, ?)", (id_g1, id_g2))
-    risultati = cursor.fetchall()
-    conn.close()
-
-    confronto = [dict(r) for r in risultati]
-    return jsonify(confronto)
-
-
-if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        g1 = st.selectbox(
+            "Seleziona Primo Giocatore", tutti_calciatori["nome"].tolist(), index=0
+        )
+        dati_g1 = tutti_calciatori[tutti_calciatori["nome"] == g1].iloc[0]
