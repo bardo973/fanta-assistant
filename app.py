@@ -13,7 +13,7 @@ if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre,
 
 for sq in NOMI_SQUADRE:
     if sq not in st.session_state.squadre:
-        st.session_state.squadre[sq] = {"crediti": 500, "rose": []}
+        st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
 
 if 'storico_mercato' not in st.session_state:
     st.session_state.storico_mercato = []
@@ -21,9 +21,9 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Rosa precaricata di esempio per PECU (se vuota) con colonna Scadenza_Contratto
-if len(st.session_state.squadre["PECU"]["rose"]) == 0:
-    st.session_state.squadre["PECU"]["rose"] = [
+# Rosa precaricata di esempio per PECU (se vuota)
+if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
+    st.session_state.squadre["PECU"]["rosa"] = [
         {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Scadenza_Contratto": 2027},
         {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8, "Scadenza_Contratto": 2028},
         {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6, "Scadenza_Contratto": 2029},
@@ -118,5 +118,5 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Sostituisce in session_state il db giocatori con i nuovi dati puliti
+                # Salvataggio sicuro dentro giocatori_db e chiusura corretta del blocco try
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Scadenza_Contratto']].copy()
