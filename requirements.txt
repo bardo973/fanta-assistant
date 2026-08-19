@@ -1,4 +1,1 @@
-fastapi
-uvicorn
-sqlalchemy
-pydantic
+openpyxl
