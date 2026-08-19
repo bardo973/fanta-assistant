@@ -117,3 +117,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if isinstance(fm_serie, pd.DataFrame):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
+                
+                # Questa riga salva i dati puliti nel database globale dell'app
+                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Scadenza_Contratto']].copy()
+                st.success("File importato correttamente!")
