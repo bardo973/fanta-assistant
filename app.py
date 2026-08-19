@@ -83,7 +83,7 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                     
                     df = df.dropna(subset=['Nome'])
                     df['Nome'] = df['Nome'].astype(str).str.strip()
-                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().str[0]
+                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().str
                     df['Squadra_SerieA'] = df['Squadra_SerieA'].astype(str).str.strip()
                     df['Quotazione'] = pd.to_numeric(df['Quotazione'], errors='coerce').fillna(1).astype(int)
                     df['FantaMedia'] = pd.to_numeric(df['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
@@ -125,10 +125,10 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                         if team in NOMI_SQUADRE and g_name != 'nan':
                             match = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'].str.lower() == g_name.lower()]
                             if not match.empty:
-                                r = match.iloc[0]['Ruolo']
-                                s_a = match.iloc[0]['Squadra_SerieA']
-                                qt = match.iloc[0]['Quotazione']
-                                fm = match.iloc[0]['FantaMedia']
+                                r = match.iloc['Ruolo']
+                                s_a = match.iloc['Squadra_SerieA']
+                                qt = match.iloc['Quotazione']
+                                fm = match.iloc['FantaMedia']
                             else:
                                 r, s_a, qt, fm = "C", "N/D", 1, 6.0
                             
@@ -168,7 +168,7 @@ if menu == "⏱️ Chiamata & Martello Asta":
         else:
             st.warning("Carica un listone valido nella barra laterale.")
             
-        # CORRETTO: Spostato fuori dal blocco condizionale 'if lista_nomi' e allineato correttamente a 'with col_timer'
+        # BLOCCO CORRETTO E ALLINEATO SENZA ERRORI DI INDENTAZIONE
         if st.session_state.chiamata_asta.get("calciatore"):
             tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
             if tempo_rimasto > 0:
@@ -177,3 +177,5 @@ if menu == "⏱️ Chiamata & Martello Asta":
                 time.sleep(1)
                 st.rerun()
             else:
+                st.error(f"🚨 TEMPO SCADUTO per {st.session_state.chiamata_asta['calciatore']}!")
+
