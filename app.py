@@ -41,39 +41,33 @@ if 'giocatori_db' not in st.session_state:
         {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 8, "FantaMedia": 7.3}
     ])
 
-# --- 3. MOTORE DI LETTURA ROBUSTO (RISOLVE IL SALTO DELLE RIGHE) ---
-def carica_file_sicuro(file_oggetto):
+# --- 3. MOTORE DI LETTURA SPECIFICO PER EXCEL .XLSX ---
+def carica_excel_sicuro(file_oggetto):
     try:
-        if file_oggetto.name.endswith('.csv'):
-            # Proviamo prima la codifica standard utf-8 con gestione BOM per Excel italiani
-            try:
-                return pd.read_csv(file_oggetto, encoding='utf-8-sig', sep=None, engine='python')
-            except Exception:
-                # Fallback su latin1 se ci sono caratteri o accenti speciali bloccanti
-                file_oggetto.seek(0)
-                return pd.read_csv(file_oggetto, encoding='latin1', sep=None, engine='python')
-        else:
-            try:
-                return pd.read_excel(file_oggetto, engine='openpyxl')
-            except ImportError:
-                st.sidebar.error("⚠️ Errore openpyxl: Installa 'openpyxl' o converti il listone in formato .csv")
-                return None
+        # Legge il file .xlsx forzando l'engine openpyxl
+        df_excel = pd.read_excel(file_oggetto, engine='openpyxl')
+        if df_excel is not None:
+            # Rimuove le righe completamente vuote generate spesso da Excel in fondo al foglio
+            df_excel = df_excel.dropna(how='all')
+            return df_excel
+        return None
     except Exception as e:
-        st.sidebar.error(f"⚠️ Errore critico di lettura file: {e}")
+        st.sidebar.error(f"⚠️ Impossibile leggere il file Excel (.xlsx): {e}")
+        st.sidebar.info("Verifica che il file non sia corrotto o aperto in un altro programma.")
         return None
 
 # --- 4. BARRA LATERALE: STRUMENTI E IMPORTAZIONI ---
 st.sidebar.title("⚽ FantaManager Pro v3")
 st.sidebar.markdown("---")
 
-with st.sidebar.expander("📁 Carica Listone / Rose", expanded=True):
+with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
     st.markdown("**1. Importa Listone Generale**")
-    file_l = st.file_uploader("File Listone (.csv / .xlsx)", type=["csv", "xlsx"], key="upl_l")
+    file_l = st.file_uploader("Scegli Listone Excel (.xlsx)", type=["xlsx"], key="upl_l")
     if file_l:
-        df = carica_file_sicuro(file_l)
+        df = carica_excel_sicuro(file_l)
         if df is not None and not df.empty:
             try:
-                # Normalizzazione radicale delle colonne (rimozione spazi e minuscolo)
+                # Normalizzazione colonne Excel
                 df.columns = [str(c).strip().lower() for c in df.columns]
                 
                 mappa = {}
@@ -87,35 +81,34 @@ with st.sidebar.expander("📁 Carica Listone / Rose", expanded=True):
                 df = df.rename(columns=mappa)
                 
                 if 'Nome' in df.columns:
-                    # Garantiamo che le colonne essenziali esistano valorizzandole se assenti
+                    # Fallback colonne assenti nel file Excel
                     if 'Ruolo' not in df.columns: df['Ruolo'] = 'C'
                     if 'Squadra_SerieA' not in df.columns: df['Squadra_SerieA'] = 'N/D'
                     if 'Quotazione' not in df.columns: df['Quotazione'] = 1
                     if 'FantaMedia' not in df.columns: df['FantaMedia'] = 6.0
                     
-                    # Pulizia e forzatura dei tipi dato per evitare problemi nei calcoli matematici
+                    # Pulizia e rimozione dei valori nulli (NaN) di Excel
+                    df = df.dropna(subset=['Nome'])
                     df['Nome'] = df['Nome'].astype(str).str.strip()
-                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().str[0] # Prende solo la prima lettera (P, D, C, A)
+                    df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().str[0]
                     df['Squadra_SerieA'] = df['Squadra_SerieA'].astype(str).str.strip()
                     df['Quotazione'] = pd.to_numeric(df['Quotazione'], errors='coerce').fillna(1).astype(int)
                     df['FantaMedia'] = pd.to_numeric(df['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
                     
-                    # Elimina righe completamente vuote o senza nome per non falsare i conteggi
-                    df = df.dropna(subset=['Nome'])
                     df = df.drop_duplicates(subset=['Nome'])
                     
-                    # Salvataggio persistente ed effettivo nello stato
                     st.session_state.giocatori_db = df[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia']].copy()
-                    st.sidebar.success(f"📊 Listone caricato con successo! Importati {len(df)} giocatori senza saltare righe.")
+                    st.sidebar.success(f"📊 Listone caricato! Importati {len(df)} calciatori dal file Excel.")
+                    st.rerun()
                 else:
-                    st.sidebar.error("❌ Impossibile mappare la colonna del Nome del Giocatore. Controlla l'intestazione della colonna nel tuo file.")
+                    st.sidebar.error("❌ Errore intestazione: Colonna del nome del giocatore non identificata.")
             except Exception as e:
-                st.sidebar.error(f"Errore durante l'elaborazione dei dati del listone: {e}")
+                st.sidebar.error(f"Errore elaborazione dati Excel: {e}")
 
     st.markdown("**2. Importa Rose Attuali**")
-    file_r = st.file_uploader("File Rose (.csv / .xlsx)", type=["csv", "xlsx"], key="upl_r")
+    file_r = st.file_uploader("Scegli Rose Excel (.xlsx)", type=["xlsx"], key="upl_r")
     if file_r:
-        df_r = carica_file_sicuro(file_r)
+        df_r = carica_excel_sicuro(file_r)
         if df_r is not None and not df_r.empty:
             try:
                 df_r.columns = [str(c).strip().lower() for c in df_r.columns]
@@ -126,11 +119,14 @@ with st.sidebar.expander("📁 Carica Listone / Rose", expanded=True):
                     elif any(x in c for x in ['nome', 'giocatore', 'calciatore']): name = c
                 
                 if f_sq and cost and name:
-                    # Pulizia totale preventiva per l'importazione
+                    # Reset preventivo
                     for sq in NOMI_SQUADRE: 
                         st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
                     
                     for _, row in df_r.iterrows():
+                        if pd.isna(row[name]) or pd.isna(row[f_sq]):
+                            continue # Salta le righe vuote di Excel
+                            
                         team = str(row[f_sq]).upper().strip()
                         g_name = str(row[name]).strip()
                         g_cost = int(pd.to_numeric(row[cost], errors='coerce') or 1)
@@ -150,11 +146,12 @@ with st.sidebar.expander("📁 Carica Listone / Rose", expanded=True):
                                 "Tipo_Contratto": "Proprietà", "Scadenza": ANNO_ATTUALE + DURATA_CONTRATTO_ANNI
                             })
                             st.session_state.squadre[team]["crediti"] -= g_cost
-                    st.sidebar.success("✅ Rose dei partecipanti sincronizzate a sistema!")
+                    st.sidebar.success("✅ Rose Excel caricate e sincronizzate correttamente!")
+                    st.rerun()
                 else:
-                    st.sidebar.error("❌ Intestazioni del file rose non riconosciute (richiesti campi: FantaSquadra, Costo, Giocatore).")
+                    st.sidebar.error("❌ Intestazioni file rose non riconosciute (Campi richiesti: FantaSquadra, Costo, Giocatore).")
             except Exception as e:
-                st.sidebar.error(f"Errore durante l'elaborazione del file rose: {e}")
+                st.sidebar.error(f"Errore caricamento rose Excel: {e}")
 
 st.sidebar.markdown("### 🗺️ Navigazione App")
 menu = st.sidebar.radio("Scegli la sezione:", ["⏱️ Chiamata & Martello Asta", "🔍 Scouting Diviso per Ruolo", "🤝 Scambi & Prestiti Annuali", "📊 Situazione Rose & Scadenze", "📜 Storico Operazioni"])
@@ -162,7 +159,6 @@ menu = st.sidebar.radio("Scegli la sezione:", ["⏱️ Chiamata & Martello Asta"
 # --- 5. SEZIONE: TIMING CHIAMATA & MARTELLO ASTA ---
 if menu == "⏱️ Chiamata & Martello Asta":
     st.title("⏱️ Sistema di Chiamata Calciatore & Chiusura Mercato")
-    
     col_timer, col_assegna = st.columns(2)
     
     with col_timer:
@@ -170,3 +166,15 @@ if menu == "⏱️ Chiamata & Martello Asta":
         lista_nomi = sorted(st.session_state.giocatori_db['Nome'].unique()) if not st.session_state.giocatori_db.empty else []
         if lista_nomi:
             calciatore_selezionato = st.selectbox("Seleziona Calciatore da lanciare", lista_nomi)
+            tempo_attesa = st.slider("Tempo di attesa (secondi)", min_value=10, max_value=120, value=30, step=5)
+            
+            if st.button("Avvia Timer Chiamata", type="primary"):
+                st.session_state.chiamata_asta = {
+                    "calciatore": calciatore_selezionato,
+                    "scadenza_timer": time.time() + tempo_attesa
+                }
+                st.rerun()
+        else:
+            st.warning("Carica un listone valido nella barra laterale.")
+            
+        if st.session_state.chiamata_asta.get("calciatore"):
