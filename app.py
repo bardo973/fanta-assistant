@@ -69,7 +69,6 @@ if 'giocatori_db' not in st.session_state:
 
 # --- FUNZIONE DI STYLING PER EVIDENZIARE GIOCATORI SENZA SQUADRA ---
 def evidenzia_senza_squadra(row):
-    # Se la squadra è 'Altro' o 'N/D', colora l'intera riga di rosso tenue
     if str(row['Squadra_SerieA']).strip() in ['Altro', 'N/D']:
         return ['background-color: #ffcccc; color: #cc0000; font-weight: bold'] * len(row)
     return [''] * len(row)
@@ -124,7 +123,6 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Setup colonne scouting di default se non presenti
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
@@ -133,3 +131,6 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             else:
                 st.sidebar.error("Colonna 'Nome' o 'Giocatore' non trovata.")
         except Exception as e:
+            st.sidebar.error(f"Errore: {e}")
+
+# --- MAIN INTERFACE: TABS ---
