@@ -353,6 +353,40 @@ with st.sidebar.expander("📈 Importa Statistiche per Stagione"):
         except Exception as e:
             st.sidebar.error(f"Errore: {e}")
 
+# --- SALVATAGGIO / ESPORTAZIONE ---
+with st.sidebar.expander("💾 Salva / Esporta Dati"):
+    import io, json, zipfile
+
+    # Rose
+    rose_rows = []
+    for sq, dati in st.session_state.squadre.items():
+        for g in dati.get("rosa", []):
+            row = {"Squadra": sq}
+            row.update(g)
+            rose_rows.append(row)
+    df_rose_exp = pd.DataFrame(rose_rows) if rose_rows else pd.DataFrame(columns=["Squadra","Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Costo_Acquisto","Scadenza_Contratto"])
+    csv_rose = df_rose_exp.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Scarica Rose (CSV)", data=csv_rose, file_name="rose.csv", mime="text/csv", key="dl_rose")
+
+    # Listone
+    csv_listone = st.session_state.giocatori_db.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Scarica Listone (CSV)", data=csv_listone, file_name="listone.csv", mime="text/csv", key="dl_listone")
+
+    # Statistiche
+    json_stats = json.dumps(st.session_state.statistiche_db, indent=2, ensure_ascii=False).encode('utf-8')
+    st.download_button("📥 Scarica Statistiche (JSON)", data=json_stats, file_name="statistiche.json", mime="application/json", key="dl_stats")
+
+    # ZIP tutto
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("rose.csv", csv_rose.decode('utf-8'))
+        zf.writestr("listone.csv", csv_listone.decode('utf-8'))
+        zf.writestr("statistiche.json", json_stats.decode('utf-8'))
+        # Storico mercato
+        df_storico = pd.DataFrame(st.session_state.storico_mercato)
+        zf.writestr("storico_mercato.csv", df_storico.to_csv(index=False) if not df_storico.empty else "Orario,Operazione,Dettagli\n")
+    st.download_button("📦 Scarica TUTTO (ZIP)", data=buf.getvalue(), file_name="fantamanager_backup.zip", mime="application/zip", key="dl_zip")
+
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database",
     "🛒 Mercato (Acquisti/Vendite)",
@@ -538,41 +572,48 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         if len(rosa_sq) > 0:
             nomi_rosa = [g["Nome"] for g in rosa_sq]
             giocatore_da_vendere = st.selectbox("Seleziona giocatore", nomi_rosa, key="sel_vendi_giocatore")
-            g_obj = next(item for item in rosa_sq if item["Nome"] == giocatore_da_vendere)
-            prezzo_base = g_obj.get("Costo_Acquisto", 10)
-            st.write(f"Ruolo: **{g_obj['Ruolo']}** | Squadra Serie A: **{g_obj.get('Squadra_SerieA', 'N/D')}** | Scadenza: **{g_obj.get('Scadenza_Contratto', 'N/D')}**")
-            prezzo_vendita = st.number_input("Prezzo di vendita (crediti)", min_value=0, value=prezzo_base, key="input_prezzo_vend")
-            if st.button("Conferma Vendita"):
-                # Toglie dalla rosa
-                st.session_state.squadre[sq_vendi]["rosa"] = [g for g in rosa_sq if g["Nome"] != giocatore_da_vendere]
-                # Aggiorna crediti
-                st.session_state.squadre[sq_vendi]["crediti"] += prezzo_vendita
-                # Reinserisce nel listone se non c'è, altrimenti aggiorna i dati
-                db_g = st.session_state.giocatori_db
-                nome_lower = giocatore_da_vendere.lower()
-                mask = db_g["Nome"].str.lower() == nome_lower
-                if mask.any():
-                    idx = db_g[mask].index[0]
-                    for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                        if col in g_obj and col in db_g.columns:
-                            st.session_state.giocatori_db.at[idx, col] = g_obj[col]
-                else:
-                    new_row = {
-                        "Nome": g_obj["Nome"],
-                        "Ruolo": g_obj.get("Ruolo", "C"),
-                        "Squadra_SerieA": g_obj.get("Squadra_SerieA", "N/D"),
-                        "Quotazione": int(g_obj.get("Quotazione", 10)),
-                        "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                        "Potenziale": 3,
-                        "Titolarita": 3
-                    }
-                    st.session_state.giocatori_db = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                st.session_state.storico_mercato.insert(0, {
-                    "Orario": datetime.now().strftime("%H:%M:%S"), "Operazione": "SVINCOLO",
-                    "Dettagli": f"{sq_vendi} svincola {giocatore_da_vendere}, +{prezzo_vendita} cr."
-                })
-                st.success(f"Cessione effettuata! +{prezzo_vendita} crediti.")
-                st.rerun()
+            g_obj = next((item for item in rosa_sq if item["Nome"] == giocatore_da_vendere), None)
+            if g_obj is None:
+                st.error("Giocatore non trovato in rosa.")
+            else:
+                prezzo_base = int(g_obj.get("Costo_Acquisto", 10))
+                st.write(f"Ruolo: **{g_obj['Ruolo']}** | Squadra Serie A: **{g_obj.get('Squadra_SerieA', 'N/D')}** | Scadenza: **{g_obj.get('Scadenza_Contratto', 'N/D')}**")
+                prezzo_vendita = st.number_input("Prezzo di vendita (crediti)", min_value=0, value=prezzo_base, key="input_prezzo_vend")
+                if st.button("Conferma Vendita", key="btn_vendita"):
+                    try:
+                        # 1) Rimuovi dalla rosa
+                        st.session_state.squadre[sq_vendi]["rosa"] = [g for g in rosa_sq if g["Nome"] != giocatore_da_vendere]
+                        # 2) Aggiorna crediti
+                        st.session_state.squadre[sq_vendi]["crediti"] += int(prezzo_vendita)
+                        # 3) Re-inserisci nel listone (nome pulito, senza suffisso prestito)
+                        nome_pulito = giocatore_da_vendere.split(" (in prestito da ")[0].strip()
+                        db_g = st.session_state.giocatori_db
+                        mask = db_g["Nome"].str.lower() == nome_pulito.lower()
+                        if mask.any():
+                            idx = db_g[mask].index[0]
+                            for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                                if col in g_obj and col in db_g.columns:
+                                    st.session_state.giocatori_db.at[idx, col] = g_obj[col]
+                        else:
+                            new_row = {
+                                "Nome": nome_pulito,
+                                "Ruolo": g_obj.get("Ruolo", "C"),
+                                "Squadra_SerieA": g_obj.get("Squadra_SerieA", "N/D"),
+                                "Quotazione": int(g_obj.get("Quotazione", 10)),
+                                "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
+                                "Potenziale": 3,
+                                "Titolarita": 3
+                            }
+                            st.session_state.giocatori_db = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                        # 4) Storico
+                        st.session_state.storico_mercato.insert(0, {
+                            "Orario": datetime.now().strftime("%H:%M:%S"), "Operazione": "SVINCOLO",
+                            "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr."
+                        })
+                        st.success(f"✅ {nome_pulito} svincolato! +{prezzo_vendita} crediti.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Errore durante lo svincolo: {e}")
         else:
             st.info("Rosa vuota.")
 
@@ -661,10 +702,12 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     st.subheader(f"🛡️ {nome_sq}")
                 with col_b:
                     st.metric("Crediti", f"{dati['crediti']} 🪙")
-                    nuovi_cred = st.number_input("Modifica crediti", value=int(dati['crediti']), min_value=0, step=1, key=f"mod_cred_{nome_sq}")
-                    if nuovi_cred != dati['crediti']:
-                        st.session_state.squadre[nome_sq]['crediti'] = int(nuovi_cred)
-                        st.rerun()
+                    with st.popover("✏️ Modifica crediti"):
+                        nuovi_cred = st.number_input("Nuovo saldo", value=int(dati['crediti']), min_value=0, step=1, key=f"mod_cred_{nome_sq}")
+                        if st.button("Salva crediti", key=f"btn_cred_{nome_sq}"):
+                            st.session_state.squadre[nome_sq]['crediti'] = int(nuovi_cred)
+                            st.success("Crediti aggiornati!")
+                            st.rerun()
 
                 # Aggiorna Squadra_SerieA dal listone (precedenza listone)
                 dati["rosa"] = aggiorna_sa_rosa(dati["rosa"])
