@@ -21,7 +21,7 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Rosa precaricata di esempio per PECU (se vuota) con aggiunta Scadenza Contratto
+# Rosa precaricata di esempio per PECU (se vuota) con colonna Scadenza Contratto
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
         {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Scadenza_Contratto": 2027},
@@ -125,3 +125,4 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 st.sidebar.error("❌ Colonna 'Nome' non trovata.")
         except Exception as e:
             st.sidebar.error(f"❌ Errore: {e}")
+
