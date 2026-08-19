@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import time
 from datetime import datetime
 
 # --- CONFIGURAZIONE INTERFACCIA ---
@@ -24,9 +23,6 @@ if 'squadre' not in st.session_state:
 
 if 'storico_mercato' not in st.session_state:
     st.session_state.storico_mercato = []
-
-if 'chiamata_asta' not in st.session_state:
-    st.session_state.chiamata_asta = {"calciatore": None, "scadenza_timer": None}
 
 if 'giocatori_db' not in st.session_state:
     # Database dimostrativo iniziale pronto all'uso
@@ -125,10 +121,10 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                         if team in NOMI_SQUADRE and g_name != 'nan':
                             match = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'].str.lower() == g_name.lower()]
                             if not match.empty:
-                                r = match.iloc['Ruolo']
-                                s_a = match.iloc['Squadra_SerieA']
-                                qt = match.iloc['Quotazione']
-                                fm = match.iloc['FantaMedia']
+                                r = match.iloc[0]['Ruolo']
+                                s_a = match.iloc[0]['Squadra_SerieA']
+                                qt = match.iloc[0]['Quotazione']
+                                fm = match.iloc[0]['FantaMedia']
                             else:
                                 r, s_a, qt, fm = "C", "N/D", 1, 6.0
                             
@@ -145,37 +141,36 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                 st.sidebar.error(f"Errore caricamento rose Excel: {e}")
 
 st.sidebar.markdown("### 🗺️ Navigazione App")
-menu = st.sidebar.radio("Scegli la sezione:", ["⏱️ Chiamata & Martello Asta", "🔍 Scouting Diviso per Ruolo", "🤝 Scambi & Prestiti Annuali", "📊 Situazione Rose & Scadenze", "📜 Storico Operazioni"])
+menu = st.sidebar.radio("Scegli la sezione:", ["🔨 Martello Asta", "🔍 Scouting Diviso per Ruolo", "🤝 Scambi & Prestiti Annuali", "📊 Situazione Rose & Scadenze", "📜 Storico Operazioni"])
 
-# --- 5. SEZIONE: TIMING CHIAMATA & MARTELLO ASTA ---
-if menu == "⏱️ Chiamata & Martello Asta":
-    st.title("⏱️ Sistema di Chiamata Calciatore & Chiusura Mercato")
-    col_timer, col_assegna = st.columns(2)
+# --- 5. SEZIONE: MARTELLO ASTA ---
+if menu == "🔨 Martello Asta":
+    st.title("🔨 Pannello di Assegnazione e Martello Asta")
+    col_sx, col_dx = st.columns(2)
     
-    with col_timer:
-        st.subheader("📢 Lancia un Calciatore all'Asta")
+    with col_sx:
+        st.subheader("📋 Seleziona Calciatore")
         lista_nomi = sorted(st.session_state.giocatori_db['Nome'].unique()) if not st.session_state.giocatori_db.empty else []
         if lista_nomi:
-            calciatore_selezionato = st.selectbox("Seleziona Calciatore da lanciare", lista_nomi)
-            tempo_attesa = st.slider("Tempo di attesa (secondi)", min_value=10, max_value=120, value=30, step=5)
-            if st.button("Avvia Timer Chiamata", type="primary"):
-                st.session_state.chiamata_asta = {
-                    "calciatore": calciatore_selezionato,
-                    "scadenza_timer": time.time() + tempo_attesa
-                }
-                st.rerun()
+            giocatore_scelto = st.selectbox("Cerca Calciatore nel Listone", lista_nomi)
+            riga_g = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'] == giocatore_scelto]
+            if not riga_g.empty:
+                info_g = riga_g.iloc[0]
+                st.info(f"Dettagli Calciatore:\n* **Ruolo**: {info_g['Ruolo']}\n* **Squadra Serie A**: {info_g['Squadra_SerieA']}\n* **FantaMedia**: {info_g['FantaMedia']}\n* **Quotazione**: {info_g['Quotazione']}")
         else:
-            st.warning("Carica un listone valido nella barra laterale.")
-            
-        if st.session_state.chiamata_asta.get("calciatore"):
-            tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
-            if tempo_rimasto > 0:
-                st.warning(f"⏳ IN ATTESA DI OFFERTE: **{st.session_state.chiamata_asta['calciatore']}**")
-                st.metric(label="Tempo Rimasto prima della scadenza", value=f"{tempo_rimasto} secondi")
-                time.sleep(1)
-                st.rerun()
-            if tempo_rimasto <= 0:
-                st.error(f"🚨 TEMPO SCADUTO per {st.session_state.chiamata_asta['calciatore']}!")
+            st.warning("Nessun calciatore nel database. Carica un listone .xlsx di fianco.")
 
-    with col_assegna:
-        st.subheader("🔨 Registrazione e Assegnazione Contratto")
+    with col_dx:
+        st.subheader("✍️ Registra Contratto e Assegna")
+        if lista_nomi and not riga_g.empty:
+            squadra_acq = st.selectbox("Assegna alla FantaSquadra", NOMI_SQUADRE)
+            prezzo_acq = st.number_input("Prezzo Finale d'Acquisto (Crediti)", min_value=1, max_value=500, value=int(info_g['Quotazione']))
+            
+            scadenza_contratto = ANNO_ATTUALE + DURATA_CONTRATTO_ANNI
+            st.markdown(f"📅 *Scadenza contratto automatica: Settembre **{scadenza_contratto}** (Durata: 4 anni).*")
+            
+            if st.button("Conferma Acquisto Calciatore", type="primary"):
+                dati_sq = st.session_state.squadre[squadra_acq]
+                conteggio_ruoli = pd.DataFrame(dati_sq["rosa"])['Ruolo'].value_counts().to_dict() if dati_sq["rosa"] else {}
+                
+                if dati_sq["crediti"] < prezzo_acq:
