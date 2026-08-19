@@ -1,4 +1,6 @@
-import streamlit as st
+
+with open('/mnt/agents/output/fanta_manager.py', 'w') as f:
+    f.write("""import streamlit as st
 import pandas as pd
 from datetime import datetime
 
@@ -15,7 +17,6 @@ MESI_ITA = {
 MESI_ITA_REV = {v: k for k, v in MESI_ITA.items()}
 
 def parse_scadenza(s):
-    """Converte 'sett 26' in datetime(2026, 9, 1)"""
     if not s or pd.isna(s) or str(s).strip().lower() in ('n/d', 'nd', ''):
         return None
     parts = str(s).strip().lower().split()
@@ -29,7 +30,6 @@ def parse_scadenza(s):
     return datetime(anno, mese, 1)
 
 def is_in_scadenza(scadenza_str):
-    """True se la scadenza è entro 6 mesi dalla data attuale"""
     data = parse_scadenza(scadenza_str)
     if not data:
         return False
@@ -39,14 +39,12 @@ def is_in_scadenza(scadenza_str):
     return (data - oggi).days <= 180
 
 def normalizza_scadenza(val):
-    """Porta qualsiasi input nel formato 'mmm yy'"""
     if pd.isna(val) or str(val).strip().lower() in ('n/d', 'nd', ''):
         return "N/D"
     s = str(val).strip().lower()
     parts = s.split()
     if len(parts) == 2 and parts[0] in MESI_ITA:
         return f"{parts[0]} {parts[1]}"
-    # Prova a parsare come data
     try:
         dt = pd.to_datetime(val)
         return f"{MESI_ITA_REV[dt.month]} {str(dt.year)[2:]}"
@@ -54,7 +52,6 @@ def normalizza_scadenza(val):
         return str(val)
 
 def scadenza_da_acquisto():
-    """Calcola scadenza a +4 anni dalla data attuale"""
     oggi = datetime.now()
     anno = oggi.year + 4
     mese = oggi.month
@@ -181,7 +178,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             st.sidebar.error(f"Errore nella lettura: {e}")
 
 with st.sidebar.expander("📋 Importa Rose Esistenti"):
-    st.markdown("Carica un file CSV/Excel con le rose. Colonne: **Squadra**, **Nome**, **Ruolo**, **Costo**, opzionale: **Scadenza Contratto** (formato: *mmm yy*, es. `sett 26`).")
+    st.markdown("Carica un file CSV/Excel con le rose. Colonne: **Squadra** (fantateam), **Nome**, **Ruolo**, **Costo**, opzionale: **Squadra Serie A**, **Scadenza Contratto** (formato: *mmm yy*).")
     rose_file = st.file_uploader("File Rose (10 Squadre)", type=["csv", "xlsx"], key="upload_rose")
     
     if rose_file is not None:
@@ -198,6 +195,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
             col_ruolo = next((c for c in df_rose.columns if 'ruolo' in c or 'r' == c), None)
             col_costo = next((c for c in df_rose.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
             col_scadenza = next((c for c in df_rose.columns if 'scadenza' in c or 'contratto' in c or 'anno' in c), None)
+            col_squadra_sa = next((c for c in df_rose.columns if 'squadra serie a' in c or 'team' in c or 'club' in c or 'serie a' in c), None)
             
             if col_squadra and col_nome:
                 count_importati = 0
@@ -211,6 +209,10 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                         g_costo = int(row[col_costo]) if col_costo and pd.notna(row[col_costo]) else 1
                         g_scadenza = normalizza_scadenza(row[col_scadenza]) if col_scadenza and pd.notna(row[col_scadenza]) else "N/D"
                         
+                        g_squadra_sa = None
+                        if col_squadra_sa and pd.notna(row[col_squadra_sa]):
+                            g_squadra_sa = str(row[col_squadra_sa]).strip()
+                        
                         db_g = st.session_state.giocatori_db
                         match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
                         
@@ -222,6 +224,9 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             quot = int(match_db.iloc[0]['Quotazione'])
                             fm = float(match_db.iloc[0]['FantaMedia'])
                             g_ruolo = str(match_db.iloc[0]['Ruolo'])
+                        
+                        if g_squadra_sa:
+                            squadra_sa = g_squadra_sa
 
                         if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
                             st.session_state.squadre[sq_match]["rosa"].append({
@@ -294,7 +299,7 @@ if menu == "🔍 Scouting & Database":
             st.success(f"{g_watchlist} aggiunto alla tua Watchlist!")
             st.rerun()
         else:
-            st.warning("Il giocatore è già nella tua Watchlist.")
+            st.warning("Il giocatore e' gia' nella tua Watchlist.")
 
     if len(st.session_state.watchlist) > 0:
         df_watch = df[df["Nome"].isin(st.session_state.watchlist)]
@@ -303,7 +308,7 @@ if menu == "🔍 Scouting & Database":
             st.session_state.watchlist = []
             st.rerun()
     else:
-        st.info("La tua watchlist è vuota. Aggiungi i tuoi obiettivi preferiti.")
+        st.info("La tua watchlist e' vuota. Aggiungi i tuoi obiettivi preferiti.")
 
 # ==========================================
 # 2. MERCATO (ACQUISTI E VENDITE)
@@ -319,9 +324,19 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         crediti_disponibili = st.session_state.squadre[squadra_selezionata]["crediti"]
         rosa_attuale_len = len(st.session_state.squadre[squadra_selezionata]["rosa"])
         
-        col_m1, col_m2 = st.columns(2)
+        posti_rim = 25 - rosa_attuale_len
+        if posti_rim > 0:
+            offerta_max_ideale = crediti_disponibili - (posti_rim - 1)
+            budget_medio = crediti_disponibili / posti_rim
+        else:
+            offerta_max_ideale = 0
+            budget_medio = 0
+
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         col_m1.metric("Crediti Residui", f"{crediti_disponibili} 🪙")
         col_m2.metric("Giocatori in Rosa", f"{rosa_attuale_len} / 25")
+        col_m3.metric("Offerta Max Ideale", f"{max(0, int(offerta_max_ideale))} 🪙")
+        col_m4.metric("Budget Medio/Slot", f"{budget_medio:.1f} 🪙")
 
         giocatori_in_rosa = [g["Nome"].lower() for sq_data in st.session_state.squadre.values() for g in sq_data["rosa"]]
         db_g = st.session_state.giocatori_db
@@ -335,31 +350,45 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             
             st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
 
-            # --- PARAGONE FANTAMEDIA ---
+            # --- PARAGONE FANTAMEDIA SELEZIONABILE ---
             rosa_sq = st.session_state.squadre[squadra_selezionata]["rosa"]
             ruolo_target = info_g['Ruolo']
             giocatori_stesso_ruolo = [g for g in rosa_sq if g['Ruolo'] == ruolo_target]
             
+            st.markdown("#### 📊 Paragone con la tua rosa")
             if giocatori_stesso_ruolo:
-                media_ruolo = sum(g['FantaMedia'] for g in giocatori_stesso_ruolo) / len(giocatori_stesso_ruolo)
+                nomi_paragone = st.multiselect(
+                    f"Scegli quali {ruolo_target} in rosa paragonare",
+                    options=[g['Nome'] for g in giocatori_stesso_ruolo],
+                    default=[g['Nome'] for g in giocatori_stesso_ruolo],
+                    key="paragone_acquisto"
+                )
+                selezionati = [g for g in giocatori_stesso_ruolo if g['Nome'] in nomi_paragone]
+                if selezionati:
+                    media_ruolo = sum(g['FantaMedia'] for g in selezionati) / len(selezionati)
+                    media_costo = sum(g['Costo_Acquisto'] for g in selezionati) / len(selezionati)
+                else:
+                    media_ruolo = 0.0
+                    media_costo = 0.0
             else:
                 media_ruolo = 0.0
+                media_costo = 0.0
+                st.info(f"Nessun {ruolo_target} attualmente in rosa.")
             
             delta = round(info_g['FantaMedia'] - media_ruolo, 2)
             
-            st.markdown("#### 📊 Paragone con la tua rosa")
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             c1.metric("FantaMedia Target", f"{info_g['FantaMedia']}")
-            c2.metric(f"Media {ruolo_target} in rosa", f"{media_ruolo:.2f}")
-            c3.metric("Delta", f"{delta:+.2f}", delta=delta)
+            c2.metric(f"Media {ruolo_target} selezionati", f"{media_ruolo:.2f}")
+            c3.metric("Delta FM", f"{delta:+.2f}", delta=delta)
+            if media_costo > 0:
+                c4.metric(f"Costo Medio {ruolo_target}", f"{media_costo:.1f} 🪙")
             st.markdown("---")
-            # ---------------------------
 
             prezzo_acquisto = st.number_input("Prezzo di Acquisto effettivo (crediti)", min_value=1, max_value=max(1, crediti_disponibili), value=prezzo_consigliato, key="input_prezzo_acq")
 
-            # Mostra scadenza che verrà assegnata
             scadenza_nuova = scadenza_da_acquisto()
-            st.caption(f"📝 Contratto che verrà assegnato: **{scadenza_nuova}** (4 anni)")
+            st.caption(f"📝 Contratto che verra' assegnato: **{scadenza_nuova}** (4 anni)")
 
             if st.button("Conferma Acquisto"):
                 if crediti_disponibili >= prezzo_acquisto:
@@ -378,7 +407,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         "Operazione": "ACQUISTO",
                         "Dettagli": f"{squadra_selezionata} acquista {giocatore_scelto} ({info_g['Ruolo']}) per {prezzo_acquisto} crediti. Scadenza: {scadenza_nuova}"
                     })
-                    st.success(f"Acquisto completato! {giocatore_scelto} è ora in rosa a {squadra_selezionata}.")
+                    st.success(f"Acquisto completato! {giocatore_scelto} e' ora in rosa a {squadra_selezionata}.")
                     st.rerun()
                 else:
                     st.error("Crediti insufficienti per completare l'acquisto!")
@@ -412,7 +441,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 st.success(f"Cessione avvenuta con successo! Incassati {prezzo_vendita} crediti.")
                 st.rerun()
         else:
-            st.info("La rosa selezionata è vuota.")
+            st.info("La rosa selezionata e' vuota.")
 
     with tab_reg:
         st.subheader("📜 Storico Ufficiale Operazioni di Mercato")
@@ -511,13 +540,11 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
-                    # Assicura colonne
                     if 'Scadenza_Contratto' not in rosa_df.columns:
                         rosa_df['Scadenza_Contratto'] = 'N/D'
                     if 'Squadra_SerieA' not in rosa_df.columns:
                         rosa_df['Squadra_SerieA'] = 'N/D'
                     
-                    # Aggiungi colonna stato
                     def stato_contratto(x):
                         if is_in_scadenza(x):
                             return '🚨 In scadenza'
@@ -528,12 +555,10 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     
                     rosa_df['Stato'] = rosa_df['Scadenza_Contratto'].apply(stato_contratto)
                     
-                    # Riordina colonne
                     cols_pref = ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Costo_Acquisto', 'Scadenza_Contratto', 'Stato']
                     cols_presenti = [c for c in cols_pref if c in rosa_df.columns]
                     rosa_df = rosa_df[cols_presenti + [c for c in rosa_df.columns if c not in cols_pref]]
                     
-                    # Conteggio reparti
                     conti_ruoli = rosa_df["Ruolo"].value_counts().to_dict()
                     p = conti_ruoli.get("P", 0)
                     d = conti_ruoli.get("D", 0)
@@ -541,7 +566,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     a = conti_ruoli.get("A", 0)
                     st.caption(f"Composizione reparto ➔ Portieri: {p} | Difensori: {d} | Centrocampisti: {c} | Attaccanti: {a} (Tot: {len(rosa_df)})")
                     
-                    # Evidenzia righe in scadenza
                     def highlight_scadenza(row):
                         if is_in_scadenza(row.get('Scadenza_Contratto', 'N/D')):
                             return ['background-color: rgba(255, 80, 80, 0.25)'] * len(row)
@@ -550,7 +574,7 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     styled = rosa_df.style.apply(highlight_scadenza, axis=1)
                     st.dataframe(styled, use_container_width=True)
                 else:
-                    st.info("La rosa è attualmente vuota.")
+                    st.info("La rosa e' attualmente vuota.")
 
     with tab_matrice:
         st.subheader("📊 Quadro Generale delle 10 Proprietà")
@@ -589,3 +613,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
         
         df_summary = pd.DataFrame(summary_data)
         st.dataframe(df_summary, use_container_width=True)
+""")
+
+print("File scritto con successo")
