@@ -65,7 +65,7 @@ def init_db():
         scadenza_lunga = (oggi + timedelta(days=4 * 365)).strftime("%Y-%m-%d")
         scadenza_breve = (oggi + timedelta(days=90)).strftime(
             "%Y-%m-%d"
-        )  # Scade tra 3 mesi (Evidenziato)
+        )  # Scade tra 3 mesi
 
         cursor.execute(
             "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 1, ?, ?, 'PROPRIETA')",
