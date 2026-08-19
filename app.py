@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
 import sqlite3
+from datetime import datetime, timedelta
 import pandas as pd
-import streamlit as Streamlit
+import streamlit as st
 
 DB_NAME = "fantacalcio_career.db"
 
@@ -13,26 +13,37 @@ def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS fanta_squadre (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, budget REAL
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            nome TEXT, 
+            budget REAL
         )"""
     )
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS calciatori (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, ruolo TEXT, 
-            squadra_reale TEXT, fantamedia REAL, gol INTEGER, assist INTEGER
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            nome TEXT, 
+            ruolo TEXT, 
+            squadra_reale TEXT, 
+            fantamedia REAL, 
+            gol INTEGER, 
+            assist INTEGER
         )"""
     )
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS rose (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, fanta_squadra_id INTEGER, calciatore_id INTEGER,
-            data_inizio TEXT, data_scadenza TEXT, tipo_possesso TEXT
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            fanta_squadra_id INTEGER, 
+            calciatore_id INTEGER,
+            data_inizio TEXT, 
+            data_scadenza TEXT, 
+            tipo_possesso TEXT
         )"""
     )
 
     cursor.execute("SELECT COUNT(*) FROM calciatori")
-    if cursor.fetchone()[0] == 0:
+    if cursor.fetchone() == 0:
         cursor.executemany(
             "INSERT INTO calciatori (nome, ruolo, squadra_reale, fantamedia, gol, assist) VALUES (?, ?, ?, ?, ?, ?)",
             [
@@ -50,12 +61,11 @@ def init_db():
             [("FantaTeam A", 500.0), ("FantaTeam B", 500.0)],
         )
 
-        # Scadenze simulate per il test
         oggi = datetime.now()
         scadenza_lunga = (oggi + timedelta(days=4 * 365)).strftime("%Y-%m-%d")
         scadenza_breve = (oggi + timedelta(days=90)).strftime(
             "%Y-%m-%d"
-        )  # Tra 3 mesi (allerta)
+        )  # Scade tra 3 mesi (Evidenziato)
 
         cursor.execute(
             "INSERT INTO rose (fanta_squadra_id, calciatore_id, data_inizio, data_scadenza, tipo_possesso) VALUES (1, 1, ?, ?, 'PROPRIETA')",
@@ -73,6 +83,7 @@ def init_db():
 init_db()
 
 # --- INTERFACCIA STREAMLIT ---
+st.set_page_config(page_title="FantaManager Pro", layout="wide")
 st.title("⚽ FantaManager Career Pro")
 
 menu = [
@@ -92,7 +103,7 @@ if scelta == "Visualizza Rose & Scadenze":
     squadra_scelta = st.selectbox(
         "Seleziona la FantaSquadra", squadre["nome"].tolist()
     )
-    squadra_id = squadre[squadre["nome"] == squadron_scelta]["id"].values[0]
+    squadra_id = squadre[squadre["nome"] == squadra_scelta]["id"].values[0]
 
     query = """
         SELECT c.nome, c.ruolo, r.data_scadenza, r.tipo_possesso 
@@ -105,14 +116,20 @@ if scelta == "Visualizza Rose & Scadenze":
         limite_scadenza = datetime.now() + timedelta(days=180)
 
         def evidenzia_scadenza(val):
-            dt = datetime.strptime(val, "%Y-%m-%d")
-            if datetime.now() <= dt <= limite_scadenza:
-                return "background-color: #ffcccc; color: black; font-weight: bold;"  # Rosso soft per scadenze < 6 mesi
+            try:
+                dt = datetime.strptime(val, "%Y-%m-%d")
+                if datetime.now() <= dt <= limite_scadenza:
+                    return "background-color: #ffcccc; color: black; font-weight: bold;"
+            except:
+                pass
             return ""
 
-        st.subheader("Giocatori in Rosa")
+        st.subheader(f"Giocatori in Rosa: {squadra_scelta}")
         st.write("⚠️ I giocatori evidenziati in rosso scadono entro 6 mesi.")
-        st.dataframe(rosa_df.style.map(evidenzia_scadenza, subset=["data_scadenza"]))
+        st.dataframe(
+            rosa_df.style.map(evidenzia_scadenza, subset=["data_scadenza"]),
+            use_container_width=True,
+        )
     else:
         st.info("Questa squadra non ha ancora calciatori in rosa.")
 
@@ -121,9 +138,8 @@ elif scelta == "Acquista Giocatore (4 Anni)":
     st.header("✍️ Nuovo Acquisto Cardine")
     squadre = pd.read_sql_query("SELECT * FROM fanta_squadre", conn)
     squadra_scelta = st.selectbox("Affida a:", squadre["nome"].tolist())
-    squadra_id = squadre[squadre["nome"] == squadron_scelta]["id"].values[0]
+    squadra_id = squadre[squadre["nome"] == squadra_scelta]["id"].values[0]
 
-    # Mostra solo i giocatori svincolati
     svincolati_query = "SELECT * FROM calciatori WHERE id NOT IN (SELECT calciatore_id FROM rose)"
     svincolati_df = pd.read_sql_query(svincolati_query, conn)
 
@@ -150,7 +166,7 @@ elif scelta == "Acquista Giocatore (4 Anni)":
             )
             conn.commit()
             st.success(
-                f"Contratto depositato! {giocatore_scelto} è legato al club fino al {scadenza.strftime('%Y-%m-%d')}."
+                f"Contratto depositato! {giocatore_scelto} è legato a {squadra_scelta} fino al {scadenza.strftime('%Y-%m-%d')}."
             )
             st.rerun()
     else:
@@ -171,7 +187,7 @@ elif scelta == "Mercato & Scambi":
             params=(int(id_a),),
         )
         da_a = st.multiselect(
-            "Giocatori da cedere da A",
+            f"Giocatori da cedere da {sq_a}",
             giocatori_a["nome"].tolist(),
             key="da_a",
         )
@@ -185,7 +201,7 @@ elif scelta == "Mercato & Scambi":
             params=(int(id_b),),
         )
         da_b = st.multiselect(
-            "Giocatori da cedere da B",
+            f"Giocatori da cedere da {sq_b}",
             giocatori_b["nome"].tolist(),
             key="da_b",
         )
@@ -246,11 +262,4 @@ elif scelta == "Mercato & Scambi":
 # 4. SCOUTING E CONFRONTO GIOCATORI
 elif scelta == "Scouting & Confronto":
     st.header("🔬 Area Scouting Head-to-Head")
-    tutti_calciatori = pd.read_sql_query("SELECT * FROM calciatori", conn)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        g1 = st.selectbox(
-            "Seleziona Primo Giocatore", tutti_calciatori["nome"].tolist(), index=0
-        )
-        dati_g1 = tutti_calciatori[tutti_calciatori["nome"] == g1].iloc[0]
+    tutti_calciatori = pd.read_sql_query(
