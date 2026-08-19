@@ -74,11 +74,11 @@ def evidenzia_senza_squadra(row):
         return ['background-color: #fddde6; color: #b71c1c; font-weight: bold;'] * len(row)
     return [''] * len(row)
 
-# --- BARRA LATERALE: GESTIONE FILE ---
+# --- BARRA LATERALE: GESTIONE FILE E CARICAMENTO LISTONE ---
 st.sidebar.title("⚽ Fanta Manager Hub")
 
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
-    st.markdown("Carica il file ufficiale (CSV o Excel).")
+    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel).")
     listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
     
     if listone_file is not None:
@@ -111,7 +111,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             if 'Nome' in df_load.columns:
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
                 
-                # Setup colonne obbligatorie e di fallback
+                # Assegnazione di sicurezza valori di default se assenti nel listone
                 if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
@@ -128,4 +128,3 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita', 'Scadenza']]
