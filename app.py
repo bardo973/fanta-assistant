@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- CONFIGURAZIONE INTERFACCIA ---
 st.set_page_config(
@@ -101,10 +101,23 @@ with st.sidebar.expander("📁 Carica Listone / Rose", expanded=False):
                     g_cost = int(pd.to_numeric(row[cost], errors='coerce') or 1)
                     if team in NOMI_SQUADRE:
                         match = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'].str.lower() == g_name.lower()]
-                        r, s_a, qt, fm = (match.iloc['Ruolo'], match.iloc['Squadra_SerieA'], match.iloc['Quotazione'], match.iloc['FantaMedia']) if not match.empty else ("C", "N/D", 1, 6.0)
+                        if not match.empty:
+                            r = match.iloc[0]['Ruolo']
+                            s_a = match.iloc[0]['Squadra_SerieA']
+                            qt = match.iloc[0]['Quotazione']
+                            fm = match.iloc[0]['FantaMedia']
+                        else:
+                            r, s_a, qt, fm = "C", "N/D", 1, 6.0
+                        
                         st.session_state.squadre[team]["rosa"].append({
-                            "Nome": g_name, "Ruolo": r, "Squadra_SerieA": s_a, "Quotazione": qt, "FantaMedia": fm, "Costo_Acquisto": g_cost,
-                            "Tipo_Contratto": "Proprietà", "Scadenza": ANNO_ATTUALE + DURATA_CONTRATTO_ANNI
+                            "Nome": g_name, 
+                            "Ruolo": r, 
+                            "Squadra_SerieA": s_a, 
+                            "Quotazione": qt, 
+                            "FantaMedia": fm, 
+                            "Costo_Acquisto": g_cost,
+                            "Tipo_Contratto": "Proprietà", 
+                            "Scadenza": ANNO_ATTUALE + DURATA_CONTRATTO_ANNI
                         })
                         st.session_state.squadre[team]["crediti"] -= g_cost
                 st.sidebar.success("Rose sincronizzate con scadenze a 4 anni!")
@@ -132,7 +145,6 @@ if menu == "⏱️ Chiamata & Martello Asta":
             }
             st.rerun()
             
-        # Gestione Grafica del Timer di Attesa
         if st.session_state.chiamata_asta["calciatore"]:
             tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
             if tempo_rimasto > 0:
@@ -145,12 +157,12 @@ if menu == "⏱️ Chiamata & Martello Asta":
 
     with col_assegna:
         st.subheader("🔨 Registrazione e Assegnazione Contratto")
-        g_asta = st.session_state.chiamata_asta["calciatore"] or lista_nomi[0]
+        g_asta = st.session_state.chiamata_asta["calciatore"] if st.session_state.chiamata_asta["calciatore"] else lista_nomi[0]
         st.markdown(f"Calciatore in lavorazione: **{g_asta}**")
         
         riga_g = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'] == g_asta]
         if not riga_g.empty:
-            info_g = riga_g.iloc
+            info_g = riga_g.iloc[0]
             st.info(f"Dettagli: {info_g['Ruolo']} | {info_g['Squadra_SerieA']} | FantaMedia: {info_g['FantaMedia']}")
             
             squadra_acq = st.selectbox("Assegna alla FantaSquadra", NOMI_SQUADRE)
@@ -168,8 +180,3 @@ if menu == "⏱️ Chiamata & Martello Asta":
                 elif len(dati_sq["rosa"]) >= MAX_GIOCATORI:
                     st.error("La rosa della fanta-squadra selezionata è piena.")
                 elif conteggio_ruoli.get(info_g['Ruolo'], 0) >= LIMITI_RUOLI[info_g['Ruolo']]:
-                    st.error(f"Slot esauriti per il ruolo {info_g['Ruolo']}.")
-                else:
-                    dati_sq["rosa"].append({
-                        "Nome": info_g['Nome'], "Ruolo": info_g['Ruolo'], "Squadra_SerieA": info_g['Squadra_SerieA'],
-                        "Quotazione": info_g['Quotazione'], "FantaMedia": info_g['FantaMedia'], "Costo_Acquisto": prezzo_acq,
