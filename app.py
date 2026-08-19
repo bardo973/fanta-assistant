@@ -68,11 +68,10 @@ if 'giocatori_db' not in st.session_state:
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
 # --- FUNZIONE DI STYLING PER EVIDENZIARE GIOCATORI SENZA SQUADRA ---
-defGrid = 'background-color: #fddde6; color: #b71c1c; font-weight: bold;'
 def evidenzia_senza_squadra(row):
     squadra = str(row['Squadra_SerieA']).strip().upper()
     if squadra in ['ALTRO', 'N/D', '']:
-        return [defGrid] * len(row)
+        return ['background-color: #fddde6; color: #b71c1c; font-weight: bold;'] * len(row)
     return [''] * len(row)
 
 # --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
@@ -121,7 +120,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
-                # Sanificazione e cast dati
+                # Sanificazione dati
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
                 df_load['Scadenza'] = pd.to_numeric(df_load['Scadenza'], errors='coerce').fillna(2027).astype(int)
                 
@@ -130,4 +129,4 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Salvataggio finale sicuro nel database di sessione
+                # Salvataggio finale nel database di sessione
