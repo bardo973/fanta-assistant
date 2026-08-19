@@ -158,7 +158,6 @@ if menu == "⏱️ Chiamata & Martello Asta":
         if lista_nomi:
             calciatore_selezionato = st.selectbox("Seleziona Calciatore da lanciare", lista_nomi)
             tempo_attesa = st.slider("Tempo di attesa (secondi)", min_value=10, max_value=120, value=30, step=5)
-            
             if st.button("Avvia Timer Chiamata", type="primary"):
                 st.session_state.chiamata_asta = {
                     "calciatore": calciatore_selezionato,
@@ -168,7 +167,6 @@ if menu == "⏱️ Chiamata & Martello Asta":
         else:
             st.warning("Carica un listone valido nella barra laterale.")
             
-        # BLOCCO RISOLTO: Indentazione riscritta in modo pulito e lineare
         if st.session_state.chiamata_asta.get("calciatore"):
             tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
             if tempo_rimasto > 0:
@@ -180,3 +178,4 @@ if menu == "⏱️ Chiamata & Martello Asta":
                 st.error(f"🚨 TEMPO SCADUTO per {st.session_state.chiamata_asta['calciatore']}!")
 
     with col_assegna:
+        st.subheader("🔨 Registrazione e Assegnazione Contratto")
