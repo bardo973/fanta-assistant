@@ -104,11 +104,16 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             if 'Nome' in df_load.columns:
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
                 
-                if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
-                if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
-                if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
-                if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
-                if 'Scadenza_Contratto' not in df_load.columns: df_load['Scadenza_Contratto'] = datetime.now().year + 1
+                if 'Ruolo' not in df_load.columns: 
+                    df_load['Ruolo'] = 'C'
+                if 'Squadra_SerieA' not in df_load.columns: 
+                    df_load['Squadra_SerieA'] = 'N/D'
+                if 'Quotazione' not in df_load.columns: 
+                    df_load['Quotazione'] = 10
+                if 'FantaMedia' not in df_load.columns: 
+                    df_load['FantaMedia'] = 6.0
+                if 'Scadenza_Contratto' not in df_load.columns: 
+                    df_load['Scadenza_Contratto'] = datetime.now().year + 1
                 
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
                 df_load['Scadenza_Contratto'] = pd.to_numeric(df_load['Scadenza_Contratto'], errors='coerce').fillna(datetime.now().year + 1).astype(int)
@@ -118,5 +123,4 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Salvataggio sicuro dentro giocatori_db e chiusura corretta del blocco try
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Scadenza_Contratto']].copy()
+                # Salvataggio e allineamento colonne finale
