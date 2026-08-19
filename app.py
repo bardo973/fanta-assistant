@@ -21,7 +21,7 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Rosa precaricata di esempio per PECU (se vuota)
+# Rosa precaricata di esempio per PECU (se vuota) con colonna Scadenza_Contratto
 if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
     st.session_state.squadre["PECU"]["rosa"] = [
         {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14, "Scadenza_Contratto": 2027},
@@ -123,4 +123,4 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                # Salvataggio e allineamento colonne finale
+                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Scadenza_Contratto']].copy()
