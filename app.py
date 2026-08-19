@@ -68,10 +68,11 @@ if 'giocatori_db' not in st.session_state:
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
 # --- FUNZIONE DI STYLING PER EVIDENZIARE GIOCATORI SENZA SQUADRA ---
+defGrid = 'background-color: #fddde6; color: #b71c1c; font-weight: bold;'
 def evidenzia_senza_squadra(row):
     squadra = str(row['Squadra_SerieA']).strip().upper()
     if squadra in ['ALTRO', 'N/D', '']:
-        return ['background-color: #fddde6; color: #b71c1c; font-weight: bold;'] * len(row)
+        return [defGrid] * len(row)
     return [''] * len(row)
 
 # --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
@@ -111,12 +112,16 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
             if 'Nome' in df_load.columns:
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
                 
+                # Assegnazione valori di fallback se non presenti nel file
                 if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
                 if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
                 if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
                 if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
                 if 'Scadenza' not in df_load.columns: df_load['Scadenza'] = 2027
+                if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
+                if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 
+                # Sanificazione e cast dati
                 df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
                 df_load['Scadenza'] = pd.to_numeric(df_load['Scadenza'], errors='coerce').fillna(2027).astype(int)
                 
@@ -125,7 +130,4 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                     fm_serie = fm_serie.iloc[:, 0]
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
                 
-                if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
-                if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
-                
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita', 'Scadenza']]
+                # Salvataggio finale sicuro nel database di sessione
