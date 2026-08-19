@@ -44,16 +44,13 @@ if 'giocatori_db' not in st.session_state:
 # --- 3. MOTORE DI LETTURA SPECIFICO PER EXCEL .XLSX ---
 def carica_excel_sicuro(file_oggetto):
     try:
-        # Legge il file .xlsx forzando l'engine openpyxl
         df_excel = pd.read_excel(file_oggetto, engine='openpyxl')
         if df_excel is not None:
-            # Rimuove le righe completamente vuote generate spesso da Excel in fondo al foglio
             df_excel = df_excel.dropna(how='all')
             return df_excel
         return None
     except Exception as e:
         st.sidebar.error(f"⚠️ Impossibile leggere il file Excel (.xlsx): {e}")
-        st.sidebar.info("Verifica che il file non sia corrotto o aperto in un altro programma.")
         return None
 
 # --- 4. BARRA LATERALE: STRUMENTI E IMPORTAZIONI ---
@@ -67,9 +64,7 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
         df = carica_excel_sicuro(file_l)
         if df is not None and not df.empty:
             try:
-                # Normalizzazione colonne Excel
                 df.columns = [str(c).strip().lower() for c in df.columns]
-                
                 mappa = {}
                 for c in df.columns:
                     if any(x in c for x in ['nome', 'giocatore', 'calciatore', 'atleta']): mappa[c] = 'Nome'
@@ -81,13 +76,11 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                 df = df.rename(columns=mappa)
                 
                 if 'Nome' in df.columns:
-                    # Fallback colonne assenti nel file Excel
                     if 'Ruolo' not in df.columns: df['Ruolo'] = 'C'
                     if 'Squadra_SerieA' not in df.columns: df['Squadra_SerieA'] = 'N/D'
                     if 'Quotazione' not in df.columns: df['Quotazione'] = 1
                     if 'FantaMedia' not in df.columns: df['FantaMedia'] = 6.0
                     
-                    # Pulizia e rimozione dei valori nulli (NaN) di Excel
                     df = df.dropna(subset=['Nome'])
                     df['Nome'] = df['Nome'].astype(str).str.strip()
                     df['Ruolo'] = df['Ruolo'].astype(str).str.upper().str.strip().str[0]
@@ -96,7 +89,6 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                     df['FantaMedia'] = pd.to_numeric(df['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
                     
                     df = df.drop_duplicates(subset=['Nome'])
-                    
                     st.session_state.giocatori_db = df[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia']].copy()
                     st.sidebar.success(f"📊 Listone caricato! Importati {len(df)} calciatori dal file Excel.")
                     st.rerun()
@@ -119,13 +111,12 @@ with st.sidebar.expander("📁 Carica Listone / Rose .xlsx", expanded=True):
                     elif any(x in c for x in ['nome', 'giocatore', 'calciatore']): name = c
                 
                 if f_sq and cost and name:
-                    # Reset preventivo
                     for sq in NOMI_SQUADRE: 
                         st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
                     
                     for _, row in df_r.iterrows():
                         if pd.isna(row[name]) or pd.isna(row[f_sq]):
-                            continue # Salta le righe vuote di Excel
+                            continue
                             
                         team = str(row[f_sq]).upper().strip()
                         g_name = str(row[name]).strip()
@@ -177,4 +168,12 @@ if menu == "⏱️ Chiamata & Martello Asta":
         else:
             st.warning("Carica un listone valido nella barra laterale.")
             
+        # CORRETTO: Spostato fuori dal blocco condizionale 'if lista_nomi' e allineato correttamente a 'with col_timer'
         if st.session_state.chiamata_asta.get("calciatore"):
+            tempo_rimasto = int(st.session_state.chiamata_asta["scadenza_timer"] - time.time())
+            if tempo_rimasto > 0:
+                st.warning(f"⏳ IN ATTESA DI OFFERTE: **{st.session_state.chiamata_asta['calciatore']}**")
+                st.metric(label="Tempo Rimasto prima della scadenza", value=f"{tempo_rimasto} secondi")
+                time.sleep(1)
+                st.rerun()
+            else:
