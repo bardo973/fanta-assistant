@@ -2,18 +2,24 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="FantaManager & Scouting Hub 10 Squadre", page_icon="⚽", layout="wide")
+# --- CONFIGURAZIONE INTERFACCIA ---
+st.set_page_config(
+    page_title="FantaManager Pro - 10 Squadre", 
+    page_icon="⚽", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- LISTA DELLE 10 SQUADRE UFFICIALI ---
+# --- 1. CONFIGURAZIONE COSTANTI ---
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
+LIMITI_RUOLI = {"P": 3, "D": 8, "C": 8, "A": 6}
+MAX_GIOCATORI = sum(LIMITI_RUOLI.values()) # 25 giocatori
 
-# --- INIZIALIZZAZIONE SICURA DELLO STATO DELLA SESSIONE ---
-if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
-    st.session_state.squadre = {}
-
-for sq in NOMI_SQUADRE:
-    if sq not in st.session_state.squadre:
-        st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+# --- 2. INIZIALIZZAZIONE STATO DELLA SESSIONE (DATI PERSISTENTI) ---
+if 'squadre' not in st.session_state:
+    st.session_state.squadre = {
+        sq: {"crediti": 500, "rosa": []} for sq in NOMI_SQUADRE
+    }
 
 if 'storico_mercato' not in st.session_state:
     st.session_state.storico_mercato = []
@@ -21,108 +27,173 @@ if 'storico_mercato' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
-# Rosa precaricata di esempio per PECU (se vuota)
-if len(st.session_state.squadre["PECU"]["rosa"]) == 0:
-    st.session_state.squadre["PECU"]["rosa"] = [
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Costo_Acquisto": 14},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Costo_Acquisto": 8},
-        {"Nome": "Gabbia", "Ruolo": "D", "Squadra_SerieA": "Milan", "Quotazione": 6, "FantaMedia": 6.1, "Costo_Acquisto": 6},
-        {"Nome": "Lucumì", "Ruolo": "D", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 6},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Costo_Acquisto": 10},
-        {"Nome": "Biraghi", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 1},
-        {"Nome": "Ranieri L.", "Ruolo": "D", "Squadra_SerieA": "Fiorentina", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 6},
-        {"Nome": "Maripan", "Ruolo": "D", "Squadra_SerieA": "Torino", "Quotazione": 9, "FantaMedia": 6.2, "Costo_Acquisto": 9},
-        {"Nome": "Mina", "Ruolo": "D", "Squadra_SerieA": "Cagliari", "Quotazione": 7, "FantaMedia": 6.1, "Costo_Acquisto": 7},
-        {"Nome": "Juan Jesus", "Ruolo": "D", "Squadra_SerieA": "Napoli", "Quotazione": 6, "FantaMedia": 5.9, "Costo_Acquisto": 4},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Costo_Acquisto": 9},
-        {"Nome": "Aebischer", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 7},
-        {"Nome": "Cristante", "Ruolo": "C", "Squadra_SerieA": "Roma", "Quotazione": 12, "FantaMedia": 6.5, "Costo_Acquisto": 13},
-        {"Nome": "Freuler", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 8, "FantaMedia": 6.3, "Costo_Acquisto": 6},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5, "Costo_Acquisto": 13},
-        {"Nome": "Jashari", "Ruolo": "C", "Squadra_SerieA": "Bologna", "Quotazione": 6, "FantaMedia": 6.0, "Costo_Acquisto": 5},
-        {"Nome": "De Roon", "Ruolo": "C", "Squadra_SerieA": "Atalanta", "Quotazione": 10, "FantaMedia": 6.4, "Costo_Acquisto": 9},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 14, "FantaMedia": 6.7, "Costo_Acquisto": 13},
-        {"Nome": "Mandragora", "Ruolo": "C", "Squadra_SerieA": "Fiorentina", "Quotazione": 11, "FantaMedia": 6.3, "Costo_Acquisto": 18},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 15, "FantaMedia": 6.9, "Costo_Acquisto": 18},
-        {"Nome": "Buksa", "Ruolo": "A", "Squadra_SerieA": "Udinese", "Quotazione": 9, "FantaMedia": 6.5, "Costo_Acquisto": 7},
-        {"Nome": "Dallinga", "Ruolo": "A", "Squadra_SerieA": "Bologna", "Quotazione": 12, "FantaMedia": 6.6, "Costo_Acquisto": 7},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Atalanta", "Quotazione": 13, "FantaMedia": 6.8, "Costo_Acquisto": 11},
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 25, "FantaMedia": 7.8, "Costo_Acquisto": 27},
-        {"Nome": "Camarda", "Ruolo": "A", "Squadra_SerieA": "Milan", "Quotazione": 8, "FantaMedia": 6.2, "Costo_Acquisto": 3},
-        {"Nome": "Meister", "Ruolo": "A", "Squadra_SerieA": "Altro", "Quotazione": 7, "FantaMedia": 6.0, "Costo_Acquisto": 6}
-    ]
-
 if 'giocatori_db' not in st.session_state:
-    data_iniziale = [
-        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 27, "FantaMedia": 7.8, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "Vardy", "Ruolo": "A", "Squadra_SerieA": "Cremonese", "Quotazione": 16, "FantaMedia": 7.2, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Boga", "Ruolo": "A", "Squadra_SerieA": "Juventus", "Quotazione": 11, "FantaMedia": 6.8, "Potenziale": 4, "Titolarita": 3},
-        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 13, "FantaMedia": 7.5, "Potenziale": 4, "Titolarita": 5},
-        {"Nome": "McKennie", "Ruolo": "C", "Squadra_SerieA": "Juventus", "Quotazione": 18, "FantaMedia": 6.9, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Loftus-Cheek", "Ruolo": "C", "Squadra_SerieA": "Milan", "Quotazione": 13, "FantaMedia": 6.7, "Potenziale": 4, "Titolarita": 4},
-        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6, "Potenziale": 5, "Titolarita": 5},
-        {"Nome": "Gila", "Ruolo": "D", "Squadra_SerieA": "Lazio", "Quotazione": 9, "FantaMedia": 6.3, "Potenziale": 3, "Titolarita": 4},
-        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2, "Potenziale": 3, "Titolarita": 5},
-        {"Nome": "Paleari", "Ruolo": "P", "Squadra_SerieA": "Torino", "Quotazione": 8, "FantaMedia": 5.0, "Potenziale": 2, "Titolarita": 3}
-    ]
-    st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
+    # Database iniziale di emergenza / dimostrativo
+    st.session_state.giocatori_db = pd.DataFrame([
+        {"Nome": "Zaccagni", "Ruolo": "C", "Squadra_SerieA": "Lazio", "Quotazione": 15, "FantaMedia": 7.5},
+        {"Nome": "Cambiaso", "Ruolo": "D", "Squadra_SerieA": "Juventus", "Quotazione": 10, "FantaMedia": 6.6},
+        {"Nome": "Skorupski", "Ruolo": "P", "Squadra_SerieA": "Bologna", "Quotazione": 14, "FantaMedia": 5.2},
+        {"Nome": "Douvikas", "Ruolo": "A", "Squadra_SerieA": "Como", "Quotazione": 25, "FantaMedia": 7.8}
+    ])
 
-# --- BARRA LATERALE: GESTIONE FILE E NAVIGAZIONE ---
-st.sidebar.title("⚽ Fanta Manager Hub")
+# --- 3. BARRA LATERALE: STRUMENTI E CARICAMENTO FILE ---
+st.sidebar.title("⚽ FantaManager Hub")
+st.sidebar.markdown("---")
 
-with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
-    st.markdown("Carica il file ufficiale di Fantagazzetta/FantaMaster (CSV o Excel).")
-    listone_file = st.file_uploader("File Listone", type=["csv", "xlsx"], key="upload_listone")
+# Sezione Caricamento Listone
+with st.sidebar.expander("📁 Importa Listone Calciatori", expanded=False):
+    st.markdown("Carica il file delle quotazioni (Excel o CSV).")
+    listone_file = st.file_uploader("Scegli file", type=["csv", "xlsx"], key="file_picker")
     
     if listone_file is not None:
         try:
             if listone_file.name.endswith('.csv'):
                 df_load = pd.read_csv(listone_file, encoding='utf-8', on_bad_lines='skip')
             else:
-                df_load = pd.read_excel(listone_file)
+                try:
+                    df_load = pd.read_excel(listone_file, engine='openpyxl')
+                except ImportError:
+                    st.error("Errore: Pacchetto 'openpyxl' mancante. Salva il file Excel in formato CSV e ricaricalo!")
+                    df_load = None
             
-            df_load.columns = [str(c).strip() for c in df_load.columns]
-            
-            col_mappa = {}
-            for col in df_load.columns:
-                c_low = str(col).lower()
-                if 'nome' in c_low or 'giocatore' in c_low:
-                    col_mappa[col] = 'Nome'
-                elif c_low in ['r', 'ruolo']:
-                    col_mappa[col] = 'Ruolo'
-                elif 'squadra' in c_low or 'team' in c_low:
-                    col_mappa[col] = 'Squadra_SerieA'
-                elif 'quot' in c_low or 'valore' in c_low or 'fc' in c_low or 'qt' in c_low:
-                    col_mappa[col] = 'Quotazione'
-                elif 'fm' in c_low or 'fantamedia' in c_low or 'media' in c_low:
-                    col_mappa[col] = 'FantaMedia'
+            if df_load is not None:
+                # Normalizzazione colonne
+                df_load.columns = [str(c).strip().lower() for c in df_load.columns]
+                col_mappa = {}
+                for col in df_load.columns:
+                    if 'nome' in col or 'giocatore' in col: col_mappa[col] = 'Nome'
+                    elif col in ['r', 'ruolo']: col_mappa[col] = 'Ruolo'
+                    elif 'squadra' in col or 'team' in col: col_mappa[col] = 'Squadra_SerieA'
+                    elif 'quot' in col or 'valore' in col or 'qt' in col: col_mappa[col] = 'Quotazione'
+                    elif 'fm' in col or 'fantamedia' in col or 'media' in col: col_mappa[col] = 'FantaMedia'
+                
+                df_load = df_load.rename(columns=col_mappa)
+                
+                # Validazione minima colonne obbligatorie
+                if 'Nome' in df_load.columns and 'Ruolo' in df_load.columns:
+                    df_load = df_load.loc[:, ~df_load.columns.duplicated()]
+                    if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
+                    if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 1
+                    if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
                     
-            df_load = df_load.rename(columns=col_mappa)
-            
-            if 'Nome' in df_load.columns:
-                df_load = df_load.loc[:, ~df_load.columns.duplicated()]
-                
-                if 'Ruolo' not in df_load.columns: df_load['Ruolo'] = 'C'
-                if 'Squadra_SerieA' not in df_load.columns: df_load['Squadra_SerieA'] = 'N/D'
-                if 'Quotazione' not in df_load.columns: df_load['Quotazione'] = 10
-                if 'FantaMedia' not in df_load.columns: df_load['FantaMedia'] = 6.0
-                
-                df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                
-                fm_serie = df_load['FantaMedia']
-                if isinstance(fm_serie, pd.DataFrame):
-                    fm_serie = fm_serie.iloc[:, 0]
-                
-                df_load['FantaMedia'] = pd.to_numeric(fm_serie, errors='coerce').fillna(6.0).astype(float)
-                
-                # Salvataggio del nuovo listone pulito
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia']].copy()
-                st.sidebar.success(f"✅ Caricati con successo {len(df_load)} giocatori!")
-            else:
-                st.sidebar.error("❌ Il file non contiene una colonna valida per il 'Nome'.")
+                    # Pulizia formati dati
+                    df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(1).astype(int)
+                    df_load['FantaMedia'] = pd.to_numeric(df_load['FantaMedia'], errors='coerce').fillna(6.0).astype(float)
+                    df_load['Ruolo'] = df_load['Ruolo'].str.upper().str.strip()
+                    
+                    st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia']].copy()
+                    st.success(f"Database aggiornato: {len(df_load)} calciatori pronti.")
+                else:
+                    st.error("Colonne 'Nome' o 'Ruolo' non identificate nel file.")
         except Exception as e:
-            st.sidebar.error(f"⚠️ Errore lettura file: {e}")
+            st.error(f"Errore caricamento: {e}")
 
-# --- PAGINA PRINCIPALE DI VISUALIZZAZIONE (ESEMPIO) ---
-st.title("Hub Statistiche & Database Giocatori")
-st.dataframe(st.session_state.giocatori_db, use_container_width=True)
+# Menu di navigazione principale
+st.sidebar.markdown("### 🗺️ Navigazione")
+scelta_menu = st.sidebar.radio(
+    "Vai alla sezione:",
+    ["🔨 Martello Asta", "📊 Rose & Tabellone", "🔍 Scouting & Listone", "📜 Registro Mercato"]
+)
+
+# --- 4. SEZIONE: MARTELLO ASTA (INSERIMENTO GIOCATORI) ---
+if scelta_menu == "🔨 Martello Asta":
+    st.title("🔨 Pannello di Assegnazione Calciatori")
+    
+    col_sx, col_dx = st.columns([1, 1])
+    
+    with col_sx:
+        st.subheader("Registra un Acquisto")
+        
+        # Selezione rapida del giocatore dal database caricato
+        lista_nomi = sorted(st.session_state.giocatori_db['Nome'].unique())
+        giocatore_scelto = st.selectbox("Cerca Calciatore nel Listone", lista_nomi)
+        
+        # Estrazione info giocatore selezionato
+        info_g = st.session_state.giocatori_db[st.session_state.giocatori_db['Nome'] == giocatore_scelto].iloc[0]
+        
+        st.info(f"Dettagli Selezionato: **{info_g['Ruolo']}** | {info_g['Squadra_SerieA']} | Quotazione: {info_g['Quotazione']} | FantaMedia: {info_g['FantaMedia']}")
+        
+        # Input acquirente e costo
+        squadra_acquirente = st.selectbox("Assegna alla Squadra", NOMI_SQUADRE)
+        prezzo_acquisto = st.number_input("Prezzo d'acquisto (Crediti)", min_value=1, max_value=500, value=int(info_g['Quotazione']))
+        
+        if st.button("Conferma e Salva Acquisto", type="primary"):
+            dati_squadra = st.session_state.squadre[squadra_acquirente]
+            ruolo_g = info_g['Ruolo']
+            
+            # Conteggi attuali della rosa
+            conteggio_ruoli = pd.DataFrame(dati_squadra["rosa"])['Ruolo'].value_counts().to_dict() if dati_squadra["rosa"] else {}
+            num_nel_ruolo = conteggio_ruoli.get(ruolo_g, 0)
+            
+            # Controlli di validità dell'acquisto
+            if dati_squadra["crediti"] < prezzo_acquisto:
+                st.error(f"Fondi insufficienti! {squadra_acquirente} ha solo {dati_squadra['crediti']} crediti disponibili.")
+            elif len(dati_squadra["rosa"]) >= MAX_GIOCATORI:
+                st.error(f"Rosa piena! Massimo {MAX_GIOCATORI} giocatori totali.")
+            elif num_nel_ruolo >= LIMITI_RUOLI.get(ruolo_g, 99):
+                st.error(f"Slot esauriti! La squadra ha già {num_nel_ruolo} giocatori nel ruolo {ruolo_g} (Max {LIMITI_RUOLI[ruolo_g]}).")
+            else:
+                # Esecuzione transazione
+                nuovo_calciatore = {
+                    "Nome": info_g['Nome'],
+                    "Ruolo": ruolo_g,
+                    "Squadra_SerieA": info_g['Squadra_SerieA'],
+                    "Quotazione": info_g['Quotazione'],
+                    "FantaMedia": info_g['FantaMedia'],
+                    "Costo_Acquisto": prezzo_acquisto
+                }
+                dati_squadra["rosa"].append(nuovo_calciatore)
+                dati_squadra["crediti"] -= prezzo_acquisto
+                
+                # Scrittura nel registro storico
+                st.session_state.storico_mercato.append({
+                    "Orario": datetime.now().strftime("%H:%M:%S"),
+                    "Squadra": squadra_acquirente,
+                    "Giocatore": info_g['Nome'],
+                    "Ruolo": ruolo_g,
+                    "Costo": prezzo_acquisto,
+                    "Tipo": "Acquisto Asta"
+                })
+                st.success(f"🔥 {info_g['Nome']} assegnato a {squadra_acquirente} per {prezzo_acquisto} crediti!")
+                st.rerun()
+
+    with col_dx:
+        st.subheader("Svincola un Calciatore")
+        squadra_svincolo = st.selectbox("Seleziona Squadra per Svincolo", NOMI_SQUADRE, key="svincolo_sq")
+        rosa_attuale = st.session_state.squadre[squadra_svincolo]["rosa"]
+        
+        if rosa_attuale:
+            nomi_rosa = [g["Nome"] for g in rosa_attuale]
+            giocatore_da_svincolare = st.selectbox("Seleziona Calciatore da rimuovere", nomi_rosa)
+            
+            recupero_crediti = st.checkbox("Recupera i crediti spesi per l'acquisto", value=True)
+            
+            if st.button("Rimuovi dalla Rosa", type="secondary"):
+                # Trova e rimuovi il giocatore
+                for i, g in enumerate(rosa_attuale):
+                    if g["Nome"] == giocatore_da_svincolare:
+                        if recupero_crediti:
+                            st.session_state.squadre[squadra_svincolo]["crediti"] += g["Costo_Acquisto"]
+                        
+                        st.session_state.storico_mercato.append({
+                            "Orario": datetime.now().strftime("%H:%M:%S"),
+                            "Squadra": squadra_svincolo,
+                            "Giocatore": g["Nome"],
+                            "Ruolo": g["Ruolo"],
+                            "Costo": g["Costo_Acquisto"] if recupero_crediti else 0,
+                            "Tipo": "Svincolo"
+                        })
+                        
+                        rosa_attuale.pop(i)
+                        st.warning(f"Svincolato {giocatore_da_svincolare} da {squadra_svincolo}.")
+                        st.rerun()
+                        break
+        else:
+            st.info("Questa squadra non ha ancora registrato calciatori in rosa.")
+
+# --- 5. SEZIONE: ROSE & TABELLONE COMPLETO ---
+elif scelta_menu == "📊 Rose & Tabellone":
+    st.title("📊 Situazione Finanziaria e Rose Ufficiali")
+    
+    # Vista Generale KPI Riassuntivi
+    dati_riassunto = []
