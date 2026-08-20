@@ -412,23 +412,81 @@ if menu == "🔍 Scouting & Database":
             giocatori_assegnati[g["Nome"].lower()] = sq
     df["Proprietario"] = df["Nome"].apply(lambda x: giocatori_assegnati.get(x.lower(), "Svincolato 🟢"))
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        ruoli = df["Ruolo"].unique() if "Ruolo" in df.columns else ["P", "D", "C", "A"]
-        filtro_ruolo = st.multiselect("Filtra per Ruolo", options=ruoli, default=ruoli)
-    with col2:
-        min_fm = st.slider("FantaMedia Minima", 4.0, 10.0, 5.0, 0.1)
-    with col3:
-        solo_svincolati = st.checkbox("Mostra solo Svincolati", value=False)
-    with col4:
-        search_nome = st.text_input("Cerca per Nome")
+    # ─── FILTRI AVANZATI ───
+    with st.expander("🔧 Filtri Avanzati", expanded=True):
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            ruoli = df["Ruolo"].unique() if "Ruolo" in df.columns else ["P", "D", "C", "A"]
+            filtro_ruolo = st.multiselect("Ruolo", options=ruoli, default=ruoli)
+        with c2:
+            squadre_sa = sorted(df["Squadra_SerieA"].dropna().unique()) if "Squadra_SerieA" in df.columns else []
+            filtro_sa = st.multiselect("Squadra Serie A", options=squadre_sa, default=[])
+        with c3:
+            min_q, max_q = int(df["Quotazione"].min()), int(df["Quotazione"].max())
+            filtro_q = st.slider("Range Quotazione", min_q, max_q, (min_q, max_q))
+        with c4:
+            min_fm = st.slider("FantaMedia Minima", 4.0, 10.0, 5.0, 0.1)
 
+        c5, c6, c7, c8 = st.columns(4)
+        with c5:
+            solo_svincolati = st.checkbox("Solo Svincolati", value=False)
+        with c6:
+            solo_stats = st.checkbox("Solo con Stats Storiche", value=False)
+        with c7:
+            solo_scadenza = st.checkbox("Solo in Scadenza (≤6 mesi)", value=False)
+        with c8:
+            search_nome = st.text_input("Cerca Nome")
+
+        c9, c10 = st.columns([3, 1])
+        with c9:
+            sort_by = st.selectbox("Ordina per", [
+                "Indice_Affare ↓", "Indice_Affare ↑",
+                "FantaMedia ↓", "FantaMedia ↑",
+                "Quotazione ↓", "Quotazione ↑",
+                "Affidabilità % ↓", "Affidabilità % ↑"
+            ])
+        with c10:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 Reset Filtri", use_container_width=True):
+                st.rerun()
+
+    # Applica filtri
     df_filtrato = df[(df["Ruolo"].isin(filtro_ruolo)) & (df["FantaMedia"] >= min_fm)]
+    df_filtrato = df_filtrato[(df_filtrato["Quotazione"] >= filtro_q[0]) & (df_filtrato["Quotazione"] <= filtro_q[1])]
+    if filtro_sa:
+        df_filtrato = df_filtrato[df_filtrato["Squadra_SerieA"].isin(filtro_sa)]
     if solo_svincolati:
         df_filtrato = df_filtrato[df_filtrato["Proprietario"] == "Svincolato 🟢"]
+    if solo_stats:
+        df_filtrato = df_filtrato[df_filtrato["📊 Stats"] == "✅"]
+    if solo_scadenza:
+        # Aggiungi colonna scadenza se non c'è
+        def _in_scadenza_listone(row):
+            # Cerca nelle rose
+            for sq, dati in st.session_state.squadre.items():
+                for g in dati.get("rosa", []):
+                    if g["Nome"].lower() == row["Nome"].lower():
+                        return is_in_scadenza(g.get("Scadenza_Contratto", "N/D"))
+            return False
+        df_filtrato["_in_scad"] = df_filtrato.apply(_in_scadenza_listone, axis=1)
+        df_filtrato = df_filtrato[df_filtrato["_in_scad"] == True]
+        df_filtrato = df_filtrato.drop(columns=["_in_scad"])
     if search_nome:
         df_filtrato = df_filtrato[df_filtrato["Nome"].str.contains(search_nome, case=False, na=False)]
-    df_filtrato = df_filtrato.sort_values(by="Indice_Affare", ascending=False)
+
+    # Ordinamento
+    sort_map = {
+        "Indice_Affare ↓": ("Indice_Affare", False),
+        "Indice_Affare ↑": ("Indice_Affare", True),
+        "FantaMedia ↓": ("FantaMedia", False),
+        "FantaMedia ↑": ("FantaMedia", True),
+        "Quotazione ↓": ("Quotazione", False),
+        "Quotazione ↑": ("Quotazione", True),
+        "Affidabilità % ↓": ("Affidabilità %", False),
+        "Affidabilità % ↑": ("Affidabilità %", True),
+    }
+    col_sort, asc_sort = sort_map.get(sort_by, ("Indice_Affare", False))
+    df_filtrato = df_filtrato.sort_values(by=col_sort, ascending=asc_sort)
 
     st.subheader(f"Risultati Scouting ({len(df_filtrato)} trovati)")
     display_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Indice_Affare", "📊 Stats", "Affidabilità %", "Proprietario"]
@@ -486,6 +544,32 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             info_g = svincolati[svincolati["Nome"] == giocatore_scelto].iloc[0]
             prezzo_consigliato = int(info_g["Quotazione"])
             st.write(f"Ruolo: **{info_g['Ruolo']}** | Squadra Serie A: **{info_g['Squadra_SerieA']}** | Quotazione: **{prezzo_consigliato}** | FantaMedia: **{info_g['FantaMedia']}**")
+
+            # ─── COMPOSIZIONE ROSA & SUGGERIMENTO ───
+            TARGET = {"P": 3, "D": 9, "C": 9, "A": 7}
+            conti_rosa = {}
+            for g in st.session_state.squadre[squadra_selezionata]["rosa"]:
+                r = g.get("Ruolo", "C")
+                conti_rosa[r] = conti_rosa.get(r, 0) + 1
+            ruolo_target = info_g['Ruolo']
+            mancanti_ruolo = max(0, TARGET[ruolo_target] - conti_rosa.get(ruolo_target, 0))
+            posti_rim_ruolo = 25 - rosa_attuale_len
+            budget_ruolo = crediti_disponibili / posti_rim_ruolo if posti_rim_ruolo > 0 else 0
+            prezzo_suggerito = min(prezzo_consigliato, int(budget_ruolo * 1.2)) if posti_rim_ruolo > 0 else prezzo_consigliato
+
+            cols_comp = st.columns(3)
+            with cols_comp[0]:
+                colore = "🟢" if mancanti_ruolo == 0 else "🟡" if mancanti_ruolo <= 2 else "🔴"
+                st.metric(f"{colore} {ruolo_target} in rosa", f"{conti_rosa.get(ruolo_target, 0)}/{TARGET[ruolo_target]}", f"mancano {mancanti_ruolo}")
+            with cols_comp[1]:
+                st.metric("Prezzo Suggerito", f"{prezzo_suggerito} 🪙", f"budget/ruolo: {budget_ruolo:.1f}")
+            with cols_comp[2]:
+                if mancanti_ruolo == 0:
+                    st.warning(f"⚠️ Hai già {TARGET[ruolo_target]} {ruolo_target}. Acquisto sconsigliato.")
+                elif mancanti_ruolo <= 2:
+                    st.info(f"💡 Mancano solo {mancanti_ruolo} {ruolo_target}. Non spendere più di {prezzo_suggerito} 🪙")
+                else:
+                    st.success(f"✅ Mancano {mancanti_ruolo} {ruolo_target}. Budget consigliato: {prezzo_suggerito} 🪙")
 
             # ─── PARAGONE ROSA ───
             rosa_sq = st.session_state.squadre[squadra_selezionata]["rosa"]
@@ -797,11 +881,40 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                             st.success("Crediti aggiornati!")
                             st.rerun()
 
+                # ─── RIEPILOGO ACQUISTI MANCANTI ───
+                rosa_list = dati.get("rosa", [])
+                TARGET = {"P": 3, "D": 9, "C": 9, "A": 7}
+                conti = {}
+                for g in rosa_list:
+                    r = g.get("Ruolo", "C")
+                    conti[r] = conti.get(r, 0) + 1
+                posti_rim = 25 - len(rosa_list)
+                budget_medio = dati['crediti'] / posti_rim if posti_rim > 0 else 0
+
+                with st.expander("📊 Acquisti Mancanti & Budget", expanded=True):
+                    cols_r = st.columns(4)
+                    ruoli_ord = ["P", "D", "C", "A"]
+                    ruoli_nomi = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
+                    for idx_r, ruolo in enumerate(ruoli_ord):
+                        with cols_r[idx_r]:
+                            attuali = conti.get(ruolo, 0)
+                            mancanti = max(0, TARGET[ruolo] - attuali)
+                            colore = "🟢" if mancanti == 0 else "🟡" if mancanti <= 2 else "🔴"
+                            st.metric(f"{colore} {ruoli_nomi[ruolo]}", f"{attuali}/{TARGET[ruolo]}", f"mancano {mancanti}")
+                    st.caption(f"Posti liberi: **{posti_rim}** | Budget medio/slot: **{budget_medio:.1f}** 🪙")
+                    if posti_rim > 0:
+                        suggerimenti = []
+                        for ruolo in ruoli_ord:
+                            mancanti = max(0, TARGET[ruolo] - conti.get(ruolo, 0))
+                            if mancanti > 0:
+                                suggerimenti.append(f"**{mancanti} {ruoli_nomi[ruolo]}**")
+                        if suggerimenti:
+                            st.info(f"🎯 Priorità: acquista {', '.join(suggerimenti)}")
+
                 # Aggiorna Squadra_SerieA dal listone (precedenza listone)
                 dati["rosa"] = aggiorna_sa_rosa(dati["rosa"])
                 dati["prestiti_ceduti"] = aggiorna_sa_rosa(dati.get("prestiti_ceduti", []))
 
-                rosa_list = dati.get("rosa", [])
                 prestiti_list = dati.get("prestiti_ceduti", [])
                 rosa_df = pd.DataFrame(rosa_list) if rosa_list else pd.DataFrame()
                 prestiti_df = pd.DataFrame(prestiti_list) if prestiti_list else pd.DataFrame()
