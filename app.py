@@ -802,40 +802,26 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 if is_prestito:
                     st.info(f"ℹ️ {nome_pulito} è in prestito. Vendendolo, tornerà al proprietario originale e non al listone.")
 
-                # ─── PREZZO DI VENDITA & IMPATTO ───
+                # ─── PREZZO DI VENDITA (FANTAGAZZETTA) ───
                 st.markdown("---")
-                st.subheader("💵 Definisci Prezzo di Vendita")
+                st.subheader("💵 Prezzo di Vendita — Fantagazzetta")
 
-                # Calcola suggerimenti
+                # Il prezzo di vendita è FISSO = quotazione attuale (valore di mercato)
+                prezzo_vendita = int(quotazione)
                 crediti_attuali = st.session_state.squadre[sq_vendi]["crediti"]
                 rosa_dopo = len(rosa_sq) - 1
-                posti_dopo = 25 - rosa_dopo
-                crediti_dopo = crediti_attuali + costo_acq  # se vendi a costo
-
-                # Prezzo suggerito: max tra costo acquisto e quotazione attuale (non puoi perdere)
-                prezzo_minimo = max(1, min(costo_acq, quotazione))
-                prezzo_suggerito = max(costo_acq, quotazione)
 
                 col_p1, col_p2, col_p3 = st.columns(3)
                 with col_p1:
                     st.metric("Costo Acquisto", f"{costo_acq} 🪙")
                 with col_p2:
-                    st.metric("Quotazione Attuale", f"{quotazione} 🪙")
+                    st.metric("Quotazione Fantagazzetta", f"{prezzo_vendita} 🪙")
                 with col_p3:
-                    delta_valore = quotazione - costo_acq
+                    delta_valore = prezzo_vendita - costo_acq
                     col_delta = "normal" if delta_valore >= 0 else "inverse"
                     st.metric("Plus/Minus Valore", f"{delta_valore:+d} 🪙", delta_color=col_delta)
 
-                # Slider prezzo
-                prezzo_vendita = st.slider(
-                    "Prezzo di vendita (crediti)",
-                    min_value=0,
-                    max_value=max(quotazione * 2, costo_acq * 2, 50),
-                    value=prezzo_suggerito,
-                    step=1,
-                    key="slider_prezzo_vend"
-                )
-                st.caption(f"💡 Suggerimento: vendi a **{prezzo_suggerito}** 🪙 (max tra costo e quotazione attuale)")
+                st.info(f"ℹ️ Il prezzo di vendita è bloccato alla **quotazione Fantagazzetta** ({prezzo_vendita} 🪙). Non puoi modificarlo.")
 
                 # Impatto vendita
                 st.markdown("#### 📊 Impatto sulla Rosa")
