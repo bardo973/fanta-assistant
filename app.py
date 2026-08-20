@@ -548,18 +548,18 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if st.button("Conferma Acquisto"):
                 if crediti_disponibili >= prezzo_acquisto:
                     # Copia profonda
-                    squadre_copy = {k: dict(v) for k, v in st.session_state.squadre.items()}
-                    for k in squadre_copy:
-                        squadre_copy[k]["rosa"] = list(squadre_copy[k]["rosa"])
-                        squadre_copy[k]["prestiti_ceduti"] = list(squadre_copy[k].get("prestiti_ceduti", []))
+                    squadre_temp = {k: dict(v) for k, v in st.session_state.squadre.items()}
+                    for k in squadre_temp:
+                        squadre_temp[k]["rosa"] = list(squadre_temp[k]["rosa"])
+                        squadre_temp[k]["prestiti_ceduti"] = list(squadre_temp[k].get("prestiti_ceduti", []))
 
-                    squadre_copy[squadra_selezionata]["crediti"] -= prezzo_acquisto
-                    squadre_copy[squadra_selezionata]["rosa"].append({
+                    squadre_temp[squadra_selezionata]["crediti"] -= prezzo_acquisto
+                    squadre_temp[squadra_selezionata]["rosa"].append({
                         "Nome": giocatore_scelto, "Ruolo": info_g["Ruolo"], "Squadra_SerieA": info_g["Squadra_SerieA"],
                         "Quotazione": info_g["Quotazione"], "FantaMedia": info_g["FantaMedia"],
                         "Costo_Acquisto": prezzo_acquisto, "Scadenza_Contratto": scadenza_nuova
                     })
-                    st.session_state.squadre = squadre_copy
+                    st.session_state.squadre = squadre_temp
 
                     st.session_state.storico_mercato.insert(0, {
                         "Orario": datetime.now().strftime("%H:%M:%S"), "Operazione": "ACQUISTO",
@@ -595,43 +595,34 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 if st.button("Conferma Vendita", key="btn_vendita"):
                     try:
                         nome_pulito = giocatore_da_vendere.split(" (in prestito da ")[0].strip()
-
-                        # --- RIMOZIONE DALLA ROSA (pattern Streamlit-safe) ---
-                        sq_data = dict(st.session_state.squadre[sq_vendi])
-                        rosa_attuale = list(sq_data.get("rosa", []))
-                        prestiti_attuali = list(sq_data.get("prestiti_ceduti", []))
+                        # Pattern Streamlit-safe: copia esplicita dell'intero dizionario
+                        squadre_temp = {k: dict(v) for k, v in st.session_state.squadre.items()}
+                        for k in squadre_temp:
+                            squadre_temp[k]["rosa"] = list(squadre_temp[k]["rosa"])
+                            squadre_temp[k]["prestiti_ceduti"] = list(squadre_temp[k].get("prestiti_ceduti", []))
 
                         # Filtra via il giocatore dalla rosa
-                        nuova_rosa = [g for g in rosa_attuale if g["Nome"] != giocatore_da_vendere]
+                        nuova_rosa = [g for g in squadre_temp[sq_vendi]["rosa"] if g["Nome"] != giocatore_da_vendere]
+                        squadre_temp[sq_vendi]["rosa"] = nuova_rosa
+                        squadre_temp[sq_vendi]["crediti"] += int(prezzo_vendita)
 
                         # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti della squadra proprietaria
                         if "(in prestito da " in giocatore_da_vendere:
                             parte_prestito = giocatore_da_vendere.split("(in prestito da ")[1].replace(")", "").strip()
                             for sq_prop in NOMI_SQUADRE:
                                 if sq_prop.lower() in parte_prestito.lower():
-                                    prop_data = dict(st.session_state.squadre[sq_prop])
-                                    prop_prestiti = list(prop_data.get("prestiti_ceduti", []))
+                                    prop_prestiti = list(squadre_temp[sq_prop].get("prestiti_ceduti", []))
                                     prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
-                                    prop_data["prestiti_ceduti"] = prop_prestiti
-                                    st.session_state.squadre[sq_prop] = prop_data
+                                    squadre_temp[sq_prop]["prestiti_ceduti"] = prop_prestiti
                                     break
 
-                        # Aggiorna crediti
-                        nuovi_crediti = sq_data["crediti"] + int(prezzo_vendita)
+                        st.session_state.squadre = squadre_temp
 
-                        # Riassegna l'intero dizionario della squadra (forza update Streamlit)
-                        st.session_state.squadre[sq_vendi] = {
-                            "crediti": nuovi_crediti,
-                            "rosa": nuova_rosa,
-                            "prestiti_ceduti": prestiti_attuali
-                        }
-
-                        # --- GESTIONE LISTONE ---
+                        # Gestione listone in base alla squadra di Serie A
                         db_g = st.session_state.giocatori_db.copy()
                         mask = db_g["Nome"].str.lower() == nome_pulito.lower()
                         squadra_sa = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
 
-                        # Se è ancora in Serie A (squadra valida), reinserisci/aggiorna nel listone
                         if squadra_sa and squadra_sa not in ["Altro", "N/D", "N", ""]:
                             if mask.any():
                                 idx = db_g[mask].index[0]
@@ -652,13 +643,11 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                             st.session_state.giocatori_db = db_g
                             msg_listone = f" Rimesso nel listone svincolati ({squadra_sa})."
                         else:
-                            # Se è all'estero o senza squadra, rimuovi dal listone se esiste
                             if mask.any():
                                 db_g = db_g[~mask].reset_index(drop=True)
                                 st.session_state.giocatori_db = db_g
                             msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
 
-                        # Storico
                         st.session_state.storico_mercato.insert(0, {
                             "Orario": datetime.now().strftime("%H:%M:%S"),
                             "Operazione": "SVINCOLO",
@@ -709,41 +698,41 @@ elif menu == "🤝 Scambi tra Proprietà":
             st.error(f"{sq2} senza crediti.")
         else:
             # Copia profonda
-            squadre_copy = {k: dict(v) for k, v in st.session_state.squadre.items()}
-            for k in squadre_copy:
-                squadre_copy[k]["rosa"] = list(squadre_copy[k]["rosa"])
-                squadre_copy[k]["prestiti_ceduti"] = list(squadre_copy[k].get("prestiti_ceduti", []))
+            squadre_temp = {k: dict(v) for k, v in st.session_state.squadre.items()}
+            for k in squadre_temp:
+                squadre_temp[k]["rosa"] = list(squadre_temp[k]["rosa"])
+                squadre_temp[k]["prestiti_ceduti"] = list(squadre_temp[k].get("prestiti_ceduti", []))
 
-            squadre_copy[sq1]["crediti"] += -denaro_sq1 + denaro_sq2
-            squadre_copy[sq2]["crediti"] += -denaro_sq2 + denaro_sq1
+            squadre_temp[sq1]["crediti"] += -denaro_sq1 + denaro_sq2
+            squadre_temp[sq2]["crediti"] += -denaro_sq2 + denaro_sq1
 
-            oggetti_sq1 = [g for g in squadre_copy[sq1]["rosa"] if g["Nome"] in giocatori_sq1_scelti]
-            squadre_copy[sq1]["rosa"] = [g for g in squadre_copy[sq1]["rosa"] if g["Nome"] not in giocatori_sq1_scelti]
-            oggetti_sq2 = [g for g in squadre_copy[sq2]["rosa"] if g["Nome"] in giocatori_sq2_scelti]
-            squadre_copy[sq2]["rosa"] = [g for g in squadre_copy[sq2]["rosa"] if g["Nome"] not in giocatori_sq2_scelti]
+            oggetti_sq1 = [g for g in squadre_temp[sq1]["rosa"] if g["Nome"] in giocatori_sq1_scelti]
+            squadre_temp[sq1]["rosa"] = [g for g in squadre_temp[sq1]["rosa"] if g["Nome"] not in giocatori_sq1_scelti]
+            oggetti_sq2 = [g for g in squadre_temp[sq2]["rosa"] if g["Nome"] in giocatori_sq2_scelti]
+            squadre_temp[sq2]["rosa"] = [g for g in squadre_temp[sq2]["rosa"] if g["Nome"] not in giocatori_sq2_scelti]
 
             if tipo_operazione == "Scambio Definitivo":
-                squadre_copy[sq1]["rosa"].extend(oggetti_sq2)
-                squadre_copy[sq2]["rosa"].extend(oggetti_sq1)
+                squadre_temp[sq1]["rosa"].extend(oggetti_sq2)
+                squadre_temp[sq2]["rosa"].extend(oggetti_sq1)
                 msg = f"Scambio definitivo {sq1} ↔ {sq2}."
                 st.success(f"🎉 {msg}")
             else:
                 for g in oggetti_sq1:
                     gc = g.copy(); gc["Prestito_A"] = sq2
-                    squadre_copy[sq1]["prestiti_ceduti"].append(gc)
+                    squadre_temp[sq1]["prestiti_ceduti"].append(gc)
                 for g in oggetti_sq2:
                     gc = g.copy(); gc["Prestito_A"] = sq1
-                    squadre_copy[sq2]["prestiti_ceduti"].append(gc)
+                    squadre_temp[sq2]["prestiti_ceduti"].append(gc)
                 for g in oggetti_sq2:
                     gp = g.copy(); gp["Nome"] = f"{gp['Nome']} (in prestito da {sq2})"; gp["Prestito"] = "ricevuto"; gp["Prestito_Da"] = sq2
-                    squadre_copy[sq1]["rosa"].append(gp)
+                    squadre_temp[sq1]["rosa"].append(gp)
                 for g in oggetti_sq1:
                     gp = g.copy(); gp["Nome"] = f"{gp['Nome']} (in prestito da {sq1})"; gp["Prestito"] = "ricevuto"; gp["Prestito_Da"] = sq1
-                    squadre_copy[sq2]["rosa"].append(gp)
+                    squadre_temp[sq2]["rosa"].append(gp)
                 msg = f"Prestito {sq1} ↔ {sq2}."
                 st.success(f"🤝 {msg}")
 
-            st.session_state.squadre = squadre_copy
+            st.session_state.squadre = squadre_temp
             st.session_state.storico_mercato.insert(0, {"Orario": datetime.now().strftime("%H:%M:%S"), "Operazione": "SCAMBIO", "Dettagli": msg})
             st.rerun()
 
@@ -767,12 +756,12 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     with st.popover("✏️ Modifica crediti"):
                         nuovi_cred = st.number_input("Nuovo saldo", value=int(dati['crediti']), min_value=0, step=1, key=f"mod_cred_{nome_sq}")
                         if st.button("Salva crediti", key=f"btn_cred_{nome_sq}"):
-                            squadre_copy = {k: dict(v) for k, v in st.session_state.squadre.items()}
-                            for k in squadre_copy:
-                                squadre_copy[k]["rosa"] = list(squadre_copy[k]["rosa"])
-                                squadre_copy[k]["prestiti_ceduti"] = list(squadre_copy[k].get("prestiti_ceduti", []))
-                            squadre_copy[nome_sq]['crediti'] = int(nuovi_cred)
-                            st.session_state.squadre = squadre_copy
+                            squadre_temp = {k: dict(v) for k, v in st.session_state.squadre.items()}
+                            for k in squadre_temp:
+                                squadre_temp[k]["rosa"] = list(squadre_temp[k]["rosa"])
+                                squadre_temp[k]["prestiti_ceduti"] = list(squadre_temp[k].get("prestiti_ceduti", []))
+                            squadre_temp[nome_sq]['crediti'] = int(nuovi_cred)
+                            st.session_state.squadre = squadre_temp
                             st.success("Crediti aggiornati!")
                             st.rerun()
 
