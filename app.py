@@ -94,6 +94,40 @@ def indice_affidabilita(nome):
     if not pres:
         return None
     return round((sum(pres) / len(pres)) / 38 * 100, 1)
+def gestisci_listone_dopo_svincolo(nome_pulito, g_obj):
+    """Rimuove il giocatore dalla rosa e aggiorna il listone.
+    Se il giocatore ha una squadra Serie A valida, lo aggiunge/aggiorna nel listone.
+    Altrimenti lo rimuove dal listone."""
+    db_g = st.session_state.giocatori_db.copy()
+    mask = db_g["Nome"].str.lower() == nome_pulito.lower()
+    squadra_sa_clean = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
+
+    serie_a_valida = squadra_sa_clean and squadra_sa_clean.lower() not in ["altro", "n/d", "n", "", "none", "nan"]
+
+    if serie_a_valida:
+        if mask.any():
+            idx = db_g[mask].index[0]
+            for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                if col in g_obj and col in db_g.columns:
+                    db_g.at[idx, col] = g_obj[col]
+        else:
+            new_row = {
+                "Nome": nome_pulito,
+                "Ruolo": g_obj.get("Ruolo", "C"),
+                "Squadra_SerieA": squadra_sa_clean,
+                "Quotazione": int(g_obj.get("Quotazione", 10)),
+                "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
+                "Potenziale": 3,
+                "Titolarita": 3
+            }
+            db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+        st.session_state.giocatori_db = db_g
+        return f" Rimesso nel listone svincolati ({squadra_sa_clean})."
+    else:
+        if mask.any():
+            st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
+        return " Rimosso dal listone (all'estero / non in Serie A)."
+
 
 # ─── HELPER CALENDARIO SCADENZE ───
 def calendario_scadenze():
@@ -989,33 +1023,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                                 st.session_state.squadre = squadre_new
 
                                 # ─── GESTIONE LISTONE ───
-                                db_g = st.session_state.giocatori_db.copy()
-                                mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-                                squadra_sa_clean = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
-
-                                if squadra_sa_clean and squadra_sa_clean not in ["Altro", "N/D", "N", ""]:
-                                    if mask.any():
-                                        idx = db_g[mask].index[0]
-                                        for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                                            if col in g_obj and col in db_g.columns:
-                                                db_g.at[idx, col] = g_obj[col]
-                                    else:
-                                        new_row = {
-                                            "Nome": nome_pulito,
-                                            "Ruolo": g_obj.get("Ruolo", "C"),
-                                            "Squadra_SerieA": squadra_sa_clean,
-                                            "Quotazione": int(g_obj.get("Quotazione", 10)),
-                                            "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                                            "Potenziale": 3,
-                                            "Titolarita": 3
-                                        }
-                                        db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                                    st.session_state.giocatori_db = db_g
-                                    msg_listone = f" Rimesso nel listone svincolati ({squadra_sa_clean})."
-                                else:
-                                    if mask.any():
-                                        st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
-                                    msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
+                                msg_listone = gestisci_listone_dopo_svincolo(nome_pulito, g_obj)
 
                                 # Storico
                                 st.session_state.storico_mercato.insert(0, {
@@ -1253,16 +1261,6 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                                     g_dati = g
                                     break
 
-                            sa_gioc = str(g_dati.get("Squadra_SerieA", "N/D")).strip() if g_dati else "N/D"
-                            in_serie_a = sa_gioc and sa_gioc not in ["Altro", "N/D", "N", ""]
-
-                            azione = st.radio(
-                                "Cosa fare?",
-                                ["Rimuovi e metti nel listone svincolati", "Rimuovi definitivamente (non in Serie A)"],
-                                index=0 if in_serie_a else 1,
-                                key=f"azione_rimuovi_{nome_sq}"
-                            )
-
                             if st.button(f"❌ Esegui Rimozione", key=f"btn_rimuovi_{nome_sq}_{g_rimuovi}", type="primary"):
                                 try:
                                     import copy
@@ -1284,34 +1282,8 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                                         squadre_new[nome_sq]["rosa"] = rosa_filtrata
                                         st.session_state.squadre = squadre_new
 
-                                        # Gestione listone
-                                        if "metti nel listone" in azione and g_dati:
-                                            db_g = st.session_state.giocatori_db.copy()
-                                            mask = db_g["Nome"].str.lower() == g_rimuovi.lower()
-                                            if mask.any():
-                                                idx = db_g[mask].index[0]
-                                                for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                                                    if col in g_dati and col in db_g.columns:
-                                                        db_g.at[idx, col] = g_dati[col]
-                                            else:
-                                                new_row = {
-                                                    "Nome": g_rimuovi,
-                                                    "Ruolo": g_dati.get("Ruolo", "C"),
-                                                    "Squadra_SerieA": sa_gioc,
-                                                    "Quotazione": int(g_dati.get("Quotazione", 10)),
-                                                    "FantaMedia": float(g_dati.get("FantaMedia", 6.0)),
-                                                    "Potenziale": 3,
-                                                    "Titolarita": 3
-                                                }
-                                                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                                            st.session_state.giocatori_db = db_g
-                                            msg_listone = " Rimesso nel listone svincolati."
-                                        else:
-                                            db_g = st.session_state.giocatori_db.copy()
-                                            mask = db_g["Nome"].str.lower() == g_rimuovi.lower()
-                                            if mask.any():
-                                                st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
-                                            msg_listone = " Rimosso definitivamente."
+                                        # Gestione listone automatica
+                                        msg_listone = gestisci_listone_dopo_svincolo(g_rimuovi, g_dati) if g_dati else ""
 
                                         st.session_state.storico_mercato.insert(0, {
                                             "Orario": datetime.now().strftime("%H:%M:%S"),
