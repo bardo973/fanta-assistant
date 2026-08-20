@@ -1145,6 +1145,45 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         return [''] * len(row)
 
                     st.dataframe(full_df.style.apply(color_rows, axis=1), use_container_width=True)
+
+                    # ─── RIMOZIONE MANUALE ───
+                    st.markdown("---")
+                    with st.expander("🗑️ Rimozione Manuale dalla Rosa"):
+                        st.caption("Rimuovi un giocatore dalla rosa SENZA ricevere crediti e SENZA metterlo nel listone. Utile per correzioni.")
+                        giocatori_rimovibili = [g["Nome"] for g in rosa_list if g.get("Tipo_Vista") != "Prestato"]
+                        if giocatori_rimovibili:
+                            g_rimuovi = st.selectbox(f"Giocatore da rimuovere da {nome_sq}", giocatori_rimovibili, key=f"rimuovi_{nome_sq}")
+                            if st.button(f"❌ Rimuovi {g_rimuovi}", key=f"btn_rimuovi_{nome_sq}_{g_rimuovi}"):
+                                try:
+                                    import copy
+                                    # Deep copy di tutte le squadre
+                                    squadre_new = {}
+                                    for sq_name in NOMI_SQUADRE:
+                                        old = st.session_state.squadre[sq_name]
+                                        squadre_new[sq_name] = {
+                                            "crediti": int(old.get("crediti", 0)),
+                                            "rosa": [copy.deepcopy(g) for g in old.get("rosa", [])],
+                                            "prestiti_ceduti": [copy.deepcopy(g) for g in old.get("prestiti_ceduti", [])]
+                                        }
+
+                                    # Rimuovi dalla rosa
+                                    rosa_filtrata = [g for g in squadre_new[nome_sq]["rosa"] if g["Nome"] != g_rimuovi]
+                                    if len(rosa_filtrata) == len(squadre_new[nome_sq]["rosa"]):
+                                        st.warning(f"{g_rimuovi} non trovato nella rosa.")
+                                    else:
+                                        squadre_new[nome_sq]["rosa"] = rosa_filtrata
+                                        st.session_state.squadre = squadre_new
+                                        st.session_state.storico_mercato.insert(0, {
+                                            "Orario": datetime.now().strftime("%H:%M:%S"),
+                                            "Operazione": "RIMOZIONE_MANUALE",
+                                            "Dettagli": f"{nome_sq} rimuove manualmente {g_rimuovi} dalla rosa"
+                                        })
+                                        st.success(f"✅ {g_rimuovi} rimosso manualmente dalla rosa di {nome_sq}")
+                                        st.rerun()
+                                except Exception as e:
+                                    st.error(f"Errore rimozione: {e}")
+                        else:
+                            st.info("Nessun giocatore rimovibile (tutti in prestito o rosa vuota).")
                 else:
                     st.info("Rosa vuota.")
 
