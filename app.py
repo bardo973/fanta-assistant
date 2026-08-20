@@ -595,22 +595,43 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 if st.button("Conferma Vendita", key="btn_vendita"):
                     try:
                         nome_pulito = giocatore_da_vendere.split(" (in prestito da ")[0].strip()
-                        # Copia profonda forzata
-                        squadre_copy = {k: dict(v) for k, v in st.session_state.squadre.items()}
-                        for k in squadre_copy:
-                            squadre_copy[k]["rosa"] = list(squadre_copy[k]["rosa"])
-                            squadre_copy[k]["prestiti_ceduti"] = list(squadre_copy[k].get("prestiti_ceduti", []))
-                        nuova_rosa = [g for g in squadre_copy[sq_vendi]["rosa"] if g["Nome"] != giocatore_da_vendere]
-                        squadre_copy[sq_vendi]["rosa"] = nuova_rosa
-                        squadre_copy[sq_vendi]["crediti"] += int(prezzo_vendita)
-                        st.session_state.squadre = squadre_copy
 
-                        # Gestione listone in base alla squadra di Serie A
+                        # --- RIMOZIONE DALLA ROSA (pattern Streamlit-safe) ---
+                        sq_data = dict(st.session_state.squadre[sq_vendi])
+                        rosa_attuale = list(sq_data.get("rosa", []))
+                        prestiti_attuali = list(sq_data.get("prestiti_ceduti", []))
+
+                        # Filtra via il giocatore dalla rosa
+                        nuova_rosa = [g for g in rosa_attuale if g["Nome"] != giocatore_da_vendere]
+
+                        # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti della squadra proprietaria
+                        if "(in prestito da " in giocatore_da_vendere:
+                            parte_prestito = giocatore_da_vendere.split("(in prestito da ")[1].replace(")", "").strip()
+                            for sq_prop in NOMI_SQUADRE:
+                                if sq_prop.lower() in parte_prestito.lower():
+                                    prop_data = dict(st.session_state.squadre[sq_prop])
+                                    prop_prestiti = list(prop_data.get("prestiti_ceduti", []))
+                                    prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
+                                    prop_data["prestiti_ceduti"] = prop_prestiti
+                                    st.session_state.squadre[sq_prop] = prop_data
+                                    break
+
+                        # Aggiorna crediti
+                        nuovi_crediti = sq_data["crediti"] + int(prezzo_vendita)
+
+                        # Riassegna l'intero dizionario della squadra (forza update Streamlit)
+                        st.session_state.squadre[sq_vendi] = {
+                            "crediti": nuovi_crediti,
+                            "rosa": nuova_rosa,
+                            "prestiti_ceduti": prestiti_attuali
+                        }
+
+                        # --- GESTIONE LISTONE ---
                         db_g = st.session_state.giocatori_db.copy()
                         mask = db_g["Nome"].str.lower() == nome_pulito.lower()
                         squadra_sa = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
 
-                        # Se è ancora in Serie A (squadra valida e non "Altro"/"N"/""), reinserisci/aggiorna nel listone
+                        # Se è ancora in Serie A (squadra valida), reinserisci/aggiorna nel listone
                         if squadra_sa and squadra_sa not in ["Altro", "N/D", "N", ""]:
                             if mask.any():
                                 idx = db_g[mask].index[0]
