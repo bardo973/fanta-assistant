@@ -742,7 +742,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             st.warning("Nessuno svincolato disponibile.")
 
     with tab_vend:
-        st.subheader("Vendi / Svincola")
+        st.subheader("💰 Vendi / Svincola Giocatore")
         sq_vendi = st.selectbox("Seleziona Squadra", NOMI_SQUADRE, key="vendi_sq")
         rosa_sq = list(st.session_state.squadre[sq_vendi]["rosa"])
         if len(rosa_sq) == 0:
@@ -758,92 +758,188 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if g_obj is None:
                 st.error("Giocatore non trovato in rosa.")
             else:
-                prezzo_base = int(g_obj.get("Costo_Acquisto", 10))
-                st.write(f"Ruolo: **{g_obj['Ruolo']}** | Squadra Serie A: **{g_obj.get('Squadra_SerieA', 'N/D')}** | Scadenza: **{g_obj.get('Scadenza_Contratto', 'N/D')}**")
-                prezzo_vendita = st.number_input("Prezzo di vendita (crediti)", min_value=0, value=prezzo_base, key="input_prezzo_vend")
-                if st.button("Conferma Vendita", key="btn_vendita"):
-                    try:
-                        nome_pulito = giocatore_da_vendere.split(" (in prestito da ")[0].strip()
+                # ─── DATI GIOCATORE ───
+                ruolo = g_obj.get("Ruolo", "C")
+                squadra_sa = g_obj.get("Squadra_SerieA", "N/D")
+                scadenza = g_obj.get("Scadenza_Contratto", "N/D")
+                costo_acq = int(g_obj.get("Costo_Acquisto", 0))
+                quotazione = int(g_obj.get("Quotazione", 0))
+                fm = float(g_obj.get("FantaMedia", 0))
+                is_prestito = "(in prestito da " in giocatore_da_vendere
+                nome_pulito = giocatore_da_vendere.split(" (in prestito da ")[0].strip() if is_prestito else giocatore_da_vendere
 
-                        # --- RIMOZIONE DALLA ROSA ---
-                        # Leggi dati attuali
-                        sq_old = st.session_state.squadre[sq_vendi]
-                        rosa_vecchia = list(sq_old.get("rosa", []))
-                        prestiti_vecchi = list(sq_old.get("prestiti_ceduti", []))
-                        crediti_vecchi = int(sq_old.get("crediti", 0))
+                # Card info
+                st.markdown("---")
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("Ruolo", ruolo)
+                c2.metric("Squadra SA", squadra_sa)
+                c3.metric("FantaMedia", f"{fm}")
+                c4.metric("Quotazione", f"{quotazione} 🪙")
+                c5.metric("Scadenza", scadenza)
 
-                        # Filtra via il giocatore
-                        rosa_nuova = [g for g in rosa_vecchia if g["Nome"] != giocatore_da_vendere]
+                # Stats storiche
+                st.markdown("#### 📈 Dati Storici")
+                s1, s2, s3, s4 = st.columns(4)
+                fm_3y = calcola_media_stats(nome_pulito, "FantaMedia")
+                pres_3y = calcola_media_stats(nome_pulito, "Presenze")
+                gol_3y = calcola_media_stats(nome_pulito, "Gol")
+                affid = indice_affidabilita(nome_pulito)
+                with s1:
+                    st.metric("FM Media 3Y", f"{fm_3y:.2f}" if fm_3y else "N/D")
+                with s2:
+                    st.metric("Presenze Media", f"{pres_3y:.1f}" if pres_3y else "N/D")
+                with s3:
+                    st.metric("Gol Media", f"{gol_3y:.1f}" if gol_3y else "N/D")
+                with s4:
+                    st.metric("Affidabilità", f"{affid}%" if affid else "N/D")
 
-                        # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti del proprietario
-                        if "(in prestito da " in giocatore_da_vendere:
-                            parte_prestito = giocatore_da_vendere.split("(in prestito da ")[1].replace(")", "").strip()
-                            for sq_prop in NOMI_SQUADRE:
-                                if sq_prop.lower() in parte_prestito.lower():
-                                    prop_old = st.session_state.squadre[sq_prop]
-                                    prop_prestiti = list(prop_old.get("prestiti_ceduti", []))
-                                    prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
-                                    st.session_state.squadre[sq_prop] = {
-                                        "crediti": int(prop_old.get("crediti", 0)),
-                                        "rosa": list(prop_old.get("rosa", [])),
-                                        "prestiti_ceduti": prop_prestiti
+                # Alert scadenza
+                if is_in_scadenza(scadenza):
+                    st.error(f"🚨 ATTENZIONE: {nome_pulito} è in scadenza entro 6 mesi ({scadenza}). Considera di svincolarlo a 0 o venderlo al più presto.")
+                elif parse_scadenza(scadenza) and parse_scadenza(scadenza) < datetime.now():
+                    st.warning(f"⏳ Il contratto di {nome_pulito} è già scaduto ({scadenza}).")
+
+                if is_prestito:
+                    st.info(f"ℹ️ {nome_pulito} è in prestito. Vendendolo, tornerà al proprietario originale e non al listone.")
+
+                # ─── PREZZO DI VENDITA & IMPATTO ───
+                st.markdown("---")
+                st.subheader("💵 Definisci Prezzo di Vendita")
+
+                # Calcola suggerimenti
+                crediti_attuali = st.session_state.squadre[sq_vendi]["crediti"]
+                rosa_dopo = len(rosa_sq) - 1
+                posti_dopo = 25 - rosa_dopo
+                crediti_dopo = crediti_attuali + costo_acq  # se vendi a costo
+
+                # Prezzo suggerito: max tra costo acquisto e quotazione attuale (non puoi perdere)
+                prezzo_minimo = max(1, min(costo_acq, quotazione))
+                prezzo_suggerito = max(costo_acq, quotazione)
+
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    st.metric("Costo Acquisto", f"{costo_acq} 🪙")
+                with col_p2:
+                    st.metric("Quotazione Attuale", f"{quotazione} 🪙")
+                with col_p3:
+                    delta_valore = quotazione - costo_acq
+                    col_delta = "normal" if delta_valore >= 0 else "inverse"
+                    st.metric("Plus/Minus Valore", f"{delta_valore:+d} 🪙", delta_color=col_delta)
+
+                # Slider prezzo
+                prezzo_vendita = st.slider(
+                    "Prezzo di vendita (crediti)",
+                    min_value=0,
+                    max_value=max(quotazione * 2, costo_acq * 2, 50),
+                    value=prezzo_suggerito,
+                    step=1,
+                    key="slider_prezzo_vend"
+                )
+                st.caption(f"💡 Suggerimento: vendi a **{prezzo_suggerito}** 🪙 (max tra costo e quotazione attuale)")
+
+                # Impatto vendita
+                st.markdown("#### 📊 Impatto sulla Rosa")
+                imp1, imp2, imp3 = st.columns(3)
+                with imp1:
+                    st.metric("Crediti dopo vendita", f"{crediti_attuali + prezzo_vendita} 🪙", f"+{prezzo_vendita}")
+                with imp2:
+                    st.metric("Giocatori in rosa dopo", f"{rosa_dopo} / 25")
+                with imp3:
+                    plusminus = prezzo_vendita - costo_acq
+                    col_pm = "normal" if plusminus >= 0 else "inverse"
+                    st.metric("Guadagno/Perdita", f"{plusminus:+d} 🪙", delta_color=col_pm)
+
+                # Composizione dopo vendita per ruolo
+                TARGET = {"P": 3, "D": 9, "C": 9, "A": 7}
+                conti_dopo = {}
+                for g in rosa_sq:
+                    if g["Nome"] != giocatore_da_vendere:
+                        r = g.get("Ruolo", "C")
+                        conti_dopo[r] = conti_dopo.get(r, 0) + 1
+                st.markdown("**Composizione per ruolo dopo la cessione:**")
+                cols_imp = st.columns(4)
+                for idx_r, r in enumerate(["P", "D", "C", "A"]):
+                    with cols_imp[idx_r]:
+                        have = conti_dopo.get(r, 0)
+                        need = TARGET[r]
+                        colore = "🟢" if have >= need else "🟡" if have >= need - 2 else "🔴"
+                        st.caption(f"{colore} {r}: {have}/{need}")
+
+                # Bottone conferma
+                st.markdown("---")
+                col_btn, col_spacer = st.columns([1, 3])
+                with col_btn:
+                    if st.button("🚀 Conferma Vendita", key="btn_vendita", type="primary", use_container_width=True):
+                        try:
+                            # --- RIMOZIONE DALLA ROSA ---
+                            sq_old = st.session_state.squadre[sq_vendi]
+                            rosa_vecchia = list(sq_old.get("rosa", []))
+                            prestiti_vecchi = list(sq_old.get("prestiti_ceduti", []))
+                            crediti_vecchi = int(sq_old.get("crediti", 0))
+                            rosa_nuova = [g for g in rosa_vecchia if g["Nome"] != giocatore_da_vendere]
+
+                            # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti del proprietario
+                            if "(in prestito da " in giocatore_da_vendere:
+                                parte_prestito = giocatore_da_vendere.split("(in prestito da ")[1].replace(")", "").strip()
+                                for sq_prop in NOMI_SQUADRE:
+                                    if sq_prop.lower() in parte_prestito.lower():
+                                        prop_old = st.session_state.squadre[sq_prop]
+                                        prop_prestiti = list(prop_old.get("prestiti_ceduti", []))
+                                        prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
+                                        st.session_state.squadre[sq_prop] = {
+                                            "crediti": int(prop_old.get("crediti", 0)),
+                                            "rosa": list(prop_old.get("rosa", [])),
+                                            "prestiti_ceduti": prop_prestiti
+                                        }
+                                        break
+
+                            crediti_nuovi = crediti_vecchi + int(prezzo_vendita)
+                            st.session_state.squadre[sq_vendi] = {
+                                "crediti": crediti_nuovi,
+                                "rosa": rosa_nuova,
+                                "prestiti_ceduti": prestiti_vecchi
+                            }
+
+                            # --- GESTIONE LISTONE ---
+                            db_g = st.session_state.giocatori_db.copy()
+                            mask = db_g["Nome"].str.lower() == nome_pulito.lower()
+                            squadra_sa_clean = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
+
+                            if squadra_sa_clean and squadra_sa_clean not in ["Altro", "N/D", "N", ""]:
+                                if mask.any():
+                                    idx = db_g[mask].index[0]
+                                    for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                                        if col in g_obj and col in db_g.columns:
+                                            db_g.at[idx, col] = g_obj[col]
+                                else:
+                                    new_row = {
+                                        "Nome": nome_pulito,
+                                        "Ruolo": g_obj.get("Ruolo", "C"),
+                                        "Squadra_SerieA": squadra_sa_clean,
+                                        "Quotazione": int(g_obj.get("Quotazione", 10)),
+                                        "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
+                                        "Potenziale": 3,
+                                        "Titolarita": 3
                                     }
-                                    break
-
-                        # Aggiorna crediti
-                        crediti_nuovi = crediti_vecchi + int(prezzo_vendita)
-
-                        # RIASSEGNA l'intero dizionario della squadra (forza update Streamlit)
-                        st.session_state.squadre[sq_vendi] = {
-                            "crediti": crediti_nuovi,
-                            "rosa": rosa_nuova,
-                            "prestiti_ceduti": prestiti_vecchi
-                        }
-
-                        # --- GESTIONE LISTONE ---
-                        db_g = st.session_state.giocatori_db.copy()
-                        mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-                        squadra_sa = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
-
-                        # Se è ancora in Serie A (squadra valida), reinserisci/aggiorna nel listone
-                        if squadra_sa and squadra_sa not in ["Altro", "N/D", "N", ""]:
-                            if mask.any():
-                                idx = db_g[mask].index[0]
-                                for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                                    if col in g_obj and col in db_g.columns:
-                                        db_g.at[idx, col] = g_obj[col]
-                            else:
-                                new_row = {
-                                    "Nome": nome_pulito,
-                                    "Ruolo": g_obj.get("Ruolo", "C"),
-                                    "Squadra_SerieA": squadra_sa,
-                                    "Quotazione": int(g_obj.get("Quotazione", 10)),
-                                    "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                                    "Potenziale": 3,
-                                    "Titolarita": 3
-                                }
-                                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                            st.session_state.giocatori_db = db_g
-                            msg_listone = f" Rimesso nel listone svincolati ({squadra_sa})."
-                        else:
-                            # Se è all'estero o senza squadra, rimuovi dal listone se esiste
-                            if mask.any():
-                                db_g = db_g[~mask].reset_index(drop=True)
+                                    db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
                                 st.session_state.giocatori_db = db_g
-                            msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
+                                msg_listone = f" Rimesso nel listone svincolati ({squadra_sa_clean})."
+                            else:
+                                if mask.any():
+                                    st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
+                                msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
 
-                        # Storico
-                        st.session_state.storico_mercato.insert(0, {
-                            "Orario": datetime.now().strftime("%H:%M:%S"),
-                            "Operazione": "SVINCOLO",
-                            "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr.{msg_listone}"
-                        })
-                        st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.{msg_listone}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Errore durante lo svincolo: {e}")
-                        import traceback
-                        st.code(traceback.format_exc())
+                            st.session_state.storico_mercato.insert(0, {
+                                "Orario": datetime.now().strftime("%H:%M:%S"),
+                                "Operazione": "SVINCOLO",
+                                "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr.{msg_listone}"
+                            })
+                            st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.{msg_listone}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Errore durante lo svincolo: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
 
     with tab_reg:
         st.subheader("📜 Storico Operazioni")
