@@ -95,6 +95,87 @@ def indice_affidabilita(nome):
         return None
     return round((sum(pres) / len(pres)) / 38 * 100, 1)
 
+# ─── HELPER CALENDARIO SCADENZE ───
+def calendario_scadenze():
+    """Restituisce DataFrame con tutti i giocatori in scadenza ordinati per data."""
+    rows = []
+    for sq in NOMI_SQUADRE:
+        for g in st.session_state.squadre[sq].get("rosa", []):
+            scad = g.get("Scadenza_Contratto", "N/D")
+            dt = parse_scadenza(scad)
+            if dt:
+                rows.append({
+                    "Squadra_Fanta": sq,
+                    "Nome": g["Nome"],
+                    "Ruolo": g.get("Ruolo", "C"),
+                    "Squadra_SerieA": g.get("Squadra_SerieA", "N/D"),
+                    "Scadenza": scad,
+                    "Data_Scadenza": dt,
+                    "Giorni_Rimanenti": (dt - datetime.now()).days,
+                    "Costo_Acquisto": g.get("Costo_Acquisto", 0),
+                    "FantaMedia": g.get("FantaMedia", 0)
+                })
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df = df.sort_values("Data_Scadenza")
+    return df
+
+# ─── HELPER CONFRONTO GIOCATORI ───
+def confronto_giocatori(nomi):
+    """Restituisce DataFrame comparativo per una lista di nomi."""
+    db = st.session_state.giocatori_db
+    stats_db = st.session_state.statistiche_db
+    rows = []
+    for nome in nomi:
+        row = {"Nome": nome}
+        # Dati listone
+        match = db[db["Nome"].str.lower() == nome.lower()]
+        if not match.empty:
+            m = match.iloc[0]
+            row["Ruolo"] = m.get("Ruolo", "C")
+            row["Squadra_SerieA"] = m.get("Squadra_SerieA", "N/D")
+            row["Quotazione"] = m.get("Quotazione", 0)
+            row["FantaMedia_Listone"] = m.get("FantaMedia", 0)
+            row["Indice_Affare"] = round(m.get("FantaMedia", 0) / max(m.get("Quotazione", 1), 1), 2)
+        else:
+            row["Ruolo"] = "?"
+            row["Squadra_SerieA"] = "N/D"
+            row["Quotazione"] = 0
+            row["FantaMedia_Listone"] = 0
+            row["Indice_Affare"] = 0
+        # Stats storiche
+        if nome in stats_db:
+            stagioni = stats_db[nome]
+            fm_vals = [stagioni[s]["FantaMedia"] for s in stagioni if "FantaMedia" in stagioni[s]]
+            mv_vals = [stagioni[s]["MediaVoto"] for s in stagioni if "MediaVoto" in stagioni[s]]
+            gol_vals = [stagioni[s]["Gol"] for s in stagioni if "Gol" in stagioni[s]]
+            pres_vals = [stagioni[s]["Presenze"] for s in stagioni if "Presenze" in stagioni[s]]
+            row["FM_Media_3Y"] = round(sum(fm_vals)/len(fm_vals), 2) if fm_vals else None
+            row["MV_Media_3Y"] = round(sum(mv_vals)/len(mv_vals), 2) if mv_vals else None
+            row["Gol_Media_3Y"] = round(sum(gol_vals)/len(gol_vals), 1) if gol_vals else None
+            row["Pres_Media_3Y"] = round(sum(pres_vals)/len(pres_vals), 1) if pres_vals else None
+            row["Affidabilità %"] = indice_affidabilita(nome)
+            row["Delta_FM"] = round(row["FantaMedia_Listone"] - row["FM_Media_3Y"], 2) if row["FM_Media_3Y"] else None
+        else:
+            row["FM_Media_3Y"] = None
+            row["MV_Media_3Y"] = None
+            row["Gol_Media_3Y"] = None
+            row["Pres_Media_3Y"] = None
+            row["Affidabilità %"] = None
+            row["Delta_FM"] = None
+        # Proprietario
+        prop = None
+        for sq, dati in st.session_state.squadre.items():
+            for g in dati["rosa"]:
+                if g["Nome"].lower() == nome.lower() or nome.lower() in g["Nome"].lower():
+                    prop = sq
+                    break
+            if prop: break
+        row["Proprietario"] = prop if prop else "Svincolato"
+        rows.append(row)
+    return pd.DataFrame(rows)
+
 # ─── INIT SESSION STATE ───
 if 'squadre' not in st.session_state or not isinstance(st.session_state.squadre, dict):
     st.session_state.squadre = {}
@@ -391,7 +472,11 @@ menu = st.sidebar.selectbox("Navigazione", [
     "🛒 Mercato (Acquisti/Vendite)",
     "🤝 Scambi tra Proprietà",
     "📋 Rose e Crediti (10 Squadre)",
-    "📈 Statistiche & Trend 3 Anni"
+    "📈 Statistiche & Trend 3 Anni",
+    "📅 Calendario Scadenze",
+    "⚖️ Confronto Giocatori",
+    "🎯 Affari & Opportunità",
+    "🏟️ Simulazione Formazione"
 ])
 
 # ==========================================
@@ -1120,3 +1205,300 @@ elif menu == "📈 Statistiche & Trend 3 Anni":
                 }
                 st.success(f"Statistiche {f_nome} - {f_stag} salvate!")
                 st.rerun()
+
+# ==========================================
+# 6. CALENDARIO SCADENZE
+# ==========================================
+elif menu == "📅 Calendario Scadenze":
+    st.header("📅 Calendario Scadenze Contratti")
+
+    df_scad = calendario_scadenze()
+    if df_scad.empty:
+        st.info("Nessun giocatore con scadenza valida trovata.")
+    else:
+        # Filtri
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            filtro_sq_scad = st.multiselect("Squadra Fanta", options=NOMI_SQUADRE, default=NOMI_SQUADRE)
+        with c2:
+            filtro_ruolo_scad = st.multiselect("Ruolo", options=["P", "D", "C", "A"], default=["P", "D", "C", "A"])
+        with c3:
+            mesi_prossimi = st.slider("Prossimi mesi", 1, 24, 12)
+
+        df_scad = df_scad[df_scad["Squadra_Fanta"].isin(filtro_sq_scad)]
+        df_scad = df_scad[df_scad["Ruolo"].isin(filtro_ruolo_scad)]
+        df_scad = df_scad[df_scad["Giorni_Rimanenti"] <= mesi_prossimi * 30]
+
+        if df_scad.empty:
+            st.info("Nessun giocatore nei filtri selezionati.")
+        else:
+            # Colora righe
+            def colora_scadenza(row):
+                gg = row["Giorni_Rimanenti"]
+                if gg <= 90:
+                    return ['background-color: rgba(255, 0, 0, 0.25)'] * len(row)
+                elif gg <= 180:
+                    return ['background-color: rgba(255, 165, 0, 0.25)'] * len(row)
+                return [''] * len(row)
+
+            st.subheader(f"📊 {len(df_scad)} giocatori in scadenza")
+            st.dataframe(df_scad[["Squadra_Fanta", "Nome", "Ruolo", "Squadra_SerieA", "Scadenza", "Giorni_Rimanenti", "Costo_Acquisto", "FantaMedia"]].style.apply(colora_scadenza, axis=1), use_container_width=True)
+
+            # Grafico timeline
+            st.subheader("📉 Timeline Scadenze")
+            timeline = df_scad.groupby("Scadenza").size().reset_index(name="Count")
+            timeline["Data"] = timeline["Scadenza"].apply(parse_scadenza)
+            timeline = timeline.dropna(subset=["Data"]).sort_values("Data")
+            st.bar_chart(timeline.set_index("Scadenza")["Count"], use_container_width=True)
+
+            # Alert critici
+            critici = df_scad[df_scad["Giorni_Rimanenti"] <= 90]
+            if not critici.empty:
+                st.subheader("🚨 Scadenze Critiche (≤3 mesi)")
+                for _, row in critici.iterrows():
+                    st.warning(f"**{row['Nome']}** ({row['Ruolo']}) — {row['Squadra_Fanta']} → scade **{row['Scadenza']}** ({row['Giorni_Rimanenti']} gg) | Costo: {row['Costo_Acquisto']}cr | FM: {row['FantaMedia']}")
+
+# ==========================================
+# 7. CONFRONTO GIOCATORI
+# ==========================================
+elif menu == "⚖️ Confronto Giocatori":
+    st.header("⚖️ Confronto Diretto Giocatori")
+
+    db = st.session_state.giocatori_db
+    tutti_nomi = sorted(db["Nome"].unique()) if not db.empty else []
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        nomi_sel = st.multiselect("Seleziona giocatori da confrontare (2-5)", options=tutti_nomi, max_selections=5)
+    with col2:
+        if st.button("🔄 Reset", use_container_width=True):
+            st.rerun()
+
+    if len(nomi_sel) < 2:
+        st.info("Seleziona almeno 2 giocatori per il confronto.")
+    else:
+        df_comp = confronto_giocatori(nomi_sel)
+
+        # Card visive
+        st.subheader("📊 Schede Riassuntive")
+        cols = st.columns(len(nomi_sel))
+        for idx, row in df_comp.iterrows():
+            with cols[idx]:
+                delta = row.get("Delta_FM")
+                delta_str = f"{delta:+.2f}" if delta is not None else "N/D"
+                delta_col = "inverse" if delta and delta > 0 else "normal" if delta and delta < 0 else "off"
+                st.metric(
+                    label=f"{row['Nome']} ({row['Ruolo']})",
+                    value=f"FM {row['FantaMedia_Listone']}",
+                    delta=f"Δ vs 3Y: {delta_str}",
+                    delta_color=delta_col
+                )
+                st.caption(f"{row['Squadra_SerieA']} | Quot: {row['Quotazione']} | {row['Proprietario']}")
+                affid = row.get("Affidabilità %")
+                if affid:
+                    st.progress(min(affid / 100, 1.0), text=f"Affidabilità: {affid}%")
+
+        # Tabella comparativa
+        st.subheader("📋 Tabella Comparativa")
+        display_comp = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia_Listone", "FM_Media_3Y", "Delta_FM", "MV_Media_3Y", "Gol_Media_3Y", "Pres_Media_3Y", "Affidabilità %", "Proprietario"]
+        display_comp = [c for c in display_comp if c in df_comp.columns]
+        st.dataframe(df_comp[display_comp], use_container_width=True, hide_index=True)
+
+        # Grafico radar se ci sono stats
+        if "FM_Media_3Y" in df_comp.columns and df_comp["FM_Media_3Y"].notna().any():
+            st.subheader("📈 Confronto FantaMedia Storiche")
+            chart_data = df_comp[["Nome", "FantaMedia_Listone", "FM_Media_3Y"]].set_index("Nome")
+            chart_data.columns = ["FM Listone", "FM Media 3Y"]
+            st.bar_chart(chart_data, use_container_width=True)
+
+# ==========================================
+# 8. AFFARI & OPPORTUNITÀ
+# ==========================================
+elif menu == "🎯 Affari & Opportunità":
+    st.header("🎯 Affari, Sovravalutazioni e Opportunità di Mercato")
+
+    db = st.session_state.giocatori_db.copy()
+    stats_db = st.session_state.statistiche_db
+
+    # Tab
+    tab_affari, tab_scad, tab_squadra = st.tabs(["💰 Sottovalutati/Sovravalutati", "⏳ Scadenze Prossime", "🔔 Cambio Squadra Serie A"])
+
+    with tab_affari:
+        st.subheader("📉 Analisi Quotazione vs Performance Storica")
+        affari_rows = []
+        for _, row in db.iterrows():
+            nome = row["Nome"]
+            fm_listone = row.get("FantaMedia", 0)
+            quot = row.get("Quotazione", 1)
+            if nome in stats_db:
+                fm_vals = [stats_db[nome][s]["FantaMedia"] for s in stats_db[nome] if "FantaMedia" in stats_db[nome][s]]
+                if fm_vals:
+                    fm_media = sum(fm_vals) / len(fm_vals)
+                    delta = fm_listone - fm_media
+                    affid = indice_affidabilita(nome)
+                    prop = None
+                    for sq, dati in st.session_state.squadre.items():
+                        for g in dati["rosa"]:
+                            if g["Nome"].lower() == nome.lower():
+                                prop = sq
+                                break
+                        if prop: break
+                    affari_rows.append({
+                        "Nome": nome, "Ruolo": row.get("Ruolo", "C"), "Squadra_SerieA": row.get("Squadra_SerieA", "N/D"),
+                        "Quotazione": quot, "FM_Listone": fm_listone, "FM_Media_3Y": round(fm_media, 2),
+                        "Delta_FM": round(delta, 2), "Affidabilità %": affid,
+                        "Indice_Affare": round(fm_listone / max(quot, 1), 2),
+                        "Proprietario": prop if prop else "Svincolato"
+                    })
+        if affari_rows:
+            df_aff = pd.DataFrame(affari_rows)
+
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                st.subheader("🟢 POSSIBILI AFFARI (FM listone sotto media)")
+                affari = df_aff[df_aff["Delta_FM"] < -0.5].sort_values("Delta_FM")
+                if not affari.empty:
+                    st.dataframe(affari[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FM_Listone", "FM_Media_3Y", "Delta_FM", "Affidabilità %", "Proprietario"]], use_container_width=True)
+                else:
+                    st.info("Nessun giocatore sottovalutato trovato.")
+            with col_f2:
+                st.subheader("🔴 ATTENZIONE SOVRAQUOTATI (FM listone sopra media)")
+                sovra = df_aff[df_aff["Delta_FM"] > 0.5].sort_values("Delta_FM", ascending=False)
+                if not sovra.empty:
+                    st.dataframe(sovra[["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FM_Listone", "FM_Media_3Y", "Delta_FM", "Affidabilità %", "Proprietario"]], use_container_width=True)
+                else:
+                    st.info("Nessun giocatore sovraquotato trovato.")
+
+            st.subheader("⭐ Top Indice Affare (FM/Quotazione)")
+            top_affare = df_aff.sort_values("Indice_Affare", ascending=False).head(15)
+            st.dataframe(top_affare[["Nome", "Ruolo", "Quotazione", "FM_Listone", "Indice_Affare", "Affidabilità %", "Proprietario"]], use_container_width=True)
+        else:
+            st.info("Importa statistiche storiche per vedere gli affari.")
+
+    with tab_scad:
+        st.subheader("⏳ Giocatori in Scadenza nei prossimi 6 mesi")
+        df_scad = calendario_scadenze()
+        if not df_scad.empty:
+            prossimi = df_scad[df_scad["Giorni_Rimanenti"] <= 180]
+            if not prossimi.empty:
+                st.dataframe(prossimi[["Squadra_Fanta", "Nome", "Ruolo", "Squadra_SerieA", "Scadenza", "Giorni_Rimanenti", "Costo_Acquisto", "FantaMedia"]], use_container_width=True)
+                st.info("💡 I giocatori in scadenza potrebbero essere svincolati a fine stagione. Valuta se venderli ora.")
+            else:
+                st.info("Nessun giocatore in scadenza nei prossimi 6 mesi.")
+        else:
+            st.info("Nessuna scadenza trovata.")
+
+    with tab_squadra:
+        st.subheader("🔔 Giocatori che hanno cambiato Squadra Serie A")
+        cambi = []
+        for sq in NOMI_SQUADRE:
+            for g in st.session_state.squadre[sq].get("rosa", []):
+                nome = g["Nome"]
+                sa_rosa = g.get("Squadra_SerieA", "N/D")
+                sa_listone = get_squadra_sa_da_listone(nome)
+                if sa_listone and sa_listone != sa_rosa:
+                    cambi.append({
+                        "Squadra_Fanta": sq, "Nome": nome, "Ruolo": g.get("Ruolo", "C"),
+                        "Squadra_Rosa": sa_rosa, "Squadra_Listone": sa_listone,
+                        "Scadenza": g.get("Scadenza_Contratto", "N/D")
+                    })
+        if cambi:
+            st.warning(f"⚠️ {len(cambi)} giocatori hanno cambiato squadra in Serie A rispetto al listone!")
+            st.dataframe(pd.DataFrame(cambi), use_container_width=True)
+            st.info("Aggiorna il listone o verifica i trasferimenti reali.")
+        else:
+            st.success("✅ Tutti i giocatori in rosa hanno la squadra Serie A aggiornata.")
+
+# ==========================================
+# 9. SIMULAZIONE FORMAZIONE
+# ==========================================
+elif menu == "🏟️ Simulazione Formazione":
+    st.header("🏟️ Simulazione Formazione & Analisi Rosa")
+
+    sq_form = st.selectbox("Seleziona Squadra", NOMI_SQUADRE, key="form_sq")
+    rosa_form = st.session_state.squadre[sq_form]["rosa"]
+
+    if not rosa_form:
+        st.info("Rosa vuota.")
+    else:
+        # Modulo selector
+        st.subheader("📐 Seleziona Modulo")
+        moduli = {
+            "3-4-3": {"P": 1, "D": 3, "C": 4, "A": 3},
+            "3-5-2": {"P": 1, "D": 3, "C": 5, "A": 2},
+            "4-3-3": {"P": 1, "D": 4, "C": 3, "A": 3},
+            "4-4-2": {"P": 1, "D": 4, "C": 4, "A": 2},
+            "4-5-1": {"P": 1, "D": 4, "C": 5, "A": 1},
+            "5-3-2": {"P": 1, "D": 5, "C": 3, "A": 2},
+            "5-4-1": {"P": 1, "D": 5, "C": 4, "A": 1},
+        }
+        modulo = st.selectbox("Modulo", list(moduli.keys()), key="sel_modulo")
+        req = moduli[modulo]
+
+        # Conta per ruolo (solo titolari, escludi prestiti ricevuti se vuoi)
+        conti_form = {"P": 0, "D": 0, "C": 0, "A": 0}
+        for g in rosa_form:
+            r = g.get("Ruolo", "C")
+            if r in conti_form:
+                conti_form[r] += 1
+
+        # Verifica copertura
+        st.subheader(f"📊 Copertura Modulo {modulo}")
+        cols_mod = st.columns(4)
+        ruoli_nomi = {"P": "Portiere", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
+        manca_modulo = False
+        for idx_r, (r, needed) in enumerate(req.items()):
+            if r == "P":
+                continue  # portiere gestito separatamente
+            with cols_mod[idx_r - 1]:
+                have = conti_form.get(r, 0)
+                ok = have >= needed
+                colore = "🟢" if ok else "🔴"
+                st.metric(f"{colore} {ruoli_nomi[r]}", f"{have}/{needed}")
+                if not ok:
+                    manca_modulo = True
+                    st.error(f"Mancano {needed - have} {ruoli_nomi[r]}!")
+
+        # Portiere
+        portieri = conti_form.get("P", 0)
+        st.metric("🧤 Portieri", f"{portieri}/1")
+        if portieri < 1:
+            st.error("Manca il portiere titolare!")
+            manca_modulo = True
+
+        if not manca_modulo:
+            st.success(f"✅ La rosa di {sq_form} copre il modulo {modulo}")
+        else:
+            st.warning(f"⚠️ La rosa di {sq_form} NON copre il modulo {modulo}. Acquista i giocatori mancanti.")
+
+        # Migliori per ruolo
+        st.subheader("🏆 Migliori per Ruolo in Rosa")
+        for r in ["P", "D", "C", "A"]:
+            giocatori_r = [g for g in rosa_form if g.get("Ruolo") == r]
+            if giocatori_r:
+                giocatori_r_sorted = sorted(giocatori_r, key=lambda x: x.get("FantaMedia", 0), reverse=True)
+                top3 = giocatori_r_sorted[:3]
+                nomi_top = ", ".join([f"**{g['Nome']}** ({g.get('FantaMedia', 0)})" for g in top3])
+                st.markdown(f"**{ruoli_nomi[r]}**: {nomi_top}")
+
+        # Consiglio modulo
+        st.subheader("💡 Modulo Consigliato")
+        # Trova il modulo che meglio si adatta alla rosa attuale
+        best_modulo = None
+        best_score = -1
+        for mod_name, mod_req in moduli.items():
+            score = 0
+            valid = True
+            for r, needed in mod_req.items():
+                have = conti_form.get(r, 0)
+                if have < needed:
+                    valid = False
+                    break
+                score += min(have, needed + 2)  # bonus per riserve
+            if valid and score > best_score:
+                best_score = score
+                best_modulo = mod_name
+        if best_modulo:
+            st.info(f"🏅 Il modulo più adatto alla rosa attuale è **{best_modulo}**")
+        else:
+            st.warning("Nessun modulo completamente coperto dalla rosa attuale.")
