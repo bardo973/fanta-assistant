@@ -604,33 +604,46 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         squadre_copy[sq_vendi]["rosa"] = nuova_rosa
                         squadre_copy[sq_vendi]["crediti"] += int(prezzo_vendita)
                         st.session_state.squadre = squadre_copy
-                        # Reinserisci nel listone
+
+                        # Gestione listone in base alla squadra di Serie A
                         db_g = st.session_state.giocatori_db.copy()
                         mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-                        if mask.any():
-                            idx = db_g[mask].index[0]
-                            for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                                if col in g_obj and col in db_g.columns:
-                                    db_g.at[idx, col] = g_obj[col]
+                        squadra_sa = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
+
+                        # Se è ancora in Serie A (squadra valida e non "Altro"/"N"/""), reinserisci/aggiorna nel listone
+                        if squadra_sa and squadra_sa not in ["Altro", "N/D", "N", ""]:
+                            if mask.any():
+                                idx = db_g[mask].index[0]
+                                for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                                    if col in g_obj and col in db_g.columns:
+                                        db_g.at[idx, col] = g_obj[col]
+                            else:
+                                new_row = {
+                                    "Nome": nome_pulito,
+                                    "Ruolo": g_obj.get("Ruolo", "C"),
+                                    "Squadra_SerieA": squadra_sa,
+                                    "Quotazione": int(g_obj.get("Quotazione", 10)),
+                                    "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
+                                    "Potenziale": 3,
+                                    "Titolarita": 3
+                                }
+                                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                            st.session_state.giocatori_db = db_g
+                            msg_listone = f" Rimesso nel listone svincolati ({squadra_sa})."
                         else:
-                            new_row = {
-                                "Nome": nome_pulito,
-                                "Ruolo": g_obj.get("Ruolo", "C"),
-                                "Squadra_SerieA": g_obj.get("Squadra_SerieA", "N/D"),
-                                "Quotazione": int(g_obj.get("Quotazione", 10)),
-                                "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                                "Potenziale": 3,
-                                "Titolarita": 3
-                            }
-                            db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                        st.session_state.giocatori_db = db_g
+                            # Se è all'estero o senza squadra, rimuovi dal listone se esiste
+                            if mask.any():
+                                db_g = db_g[~mask].reset_index(drop=True)
+                                st.session_state.giocatori_db = db_g
+                            msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
+
                         # Storico
                         st.session_state.storico_mercato.insert(0, {
                             "Orario": datetime.now().strftime("%H:%M:%S"),
                             "Operazione": "SVINCOLO",
-                            "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr."
+                            "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr.{msg_listone}"
                         })
-                        st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.")
+                        st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.{msg_listone}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Errore durante lo svincolo: {e}")
