@@ -74,86 +74,6 @@ def aggiorna_sa_rosa(rosa_list):
             g['Squadra_SerieA'] = sa_listone
     return rosa_list
 
-
-def pulisci_nome_prestito(nome):
-    if "(in prestito da " in nome:
-        return nome.split(" (in prestito da ")[0].strip()
-    return nome
-
-def rimuovi_dal_listone(nome_pulito):
-    db_g = st.session_state.giocatori_db.copy()
-    mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-    if mask.any():
-        st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
-
-def gestisci_vendita_listone(g_obj):
-    """Reinserisce nel listone se ha squadra Serie A, altrimenti lo rimuove."""
-    db_g = st.session_state.giocatori_db.copy()
-    nome_pulito = pulisci_nome_prestito(g_obj.get("Nome", ""))
-    mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-    squadra_sa = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
-
-    if squadra_sa and squadra_sa not in ["Altro", "N/D", "N", ""]:
-        if mask.any():
-            idx = db_g[mask].index[0]
-            for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                if col in g_obj and col in db_g.columns:
-                    db_g.at[idx, col] = g_obj[col]
-        else:
-            new_row = {
-                "Nome": nome_pulito,
-                "Ruolo": g_obj.get("Ruolo", "C"),
-                "Squadra_SerieA": squadra_sa,
-                "Quotazione": int(g_obj.get("Quotazione", 10)),
-                "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                "Potenziale": 3,
-                "Titolarita": 3
-            }
-            db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-        st.session_state.giocatori_db = db_g
-        return f" Rimesso nel listone svincolati ({squadra_sa})."
-    else:
-        if mask.any():
-            st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
-        return " Rimosso dal listone (all'estero / non in Serie A)."
-
-def rimuovi_giocatore_da_rosa(sq_nome, giocatore_nome):
-    """Rimuove un giocatore dalla rosa di sq_nome. Gestisce anche i prestiti ceduti del proprietario.
-    Restituisce (g_obj, rosa_nuova, prestiti_vecchi, crediti_vecchi) o (None, None, None, None)."""
-    sq_data = st.session_state.squadre[sq_nome]
-    rosa_vecchia = list(sq_data.get("rosa", []))
-    prestiti_vecchi = list(sq_data.get("prestiti_ceduti", []))
-    crediti_vecchi = int(sq_data.get("crediti", 0))
-
-    g_obj = None
-    for g in rosa_vecchia:
-        if g["Nome"] == giocatore_nome:
-            g_obj = g
-            break
-
-    if g_obj is None:
-        return None, None, None, None
-
-    rosa_nuova = [g for g in rosa_vecchia if g["Nome"] != giocatore_nome]
-
-    # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti del proprietario
-    if "(in prestito da " in giocatore_nome:
-        nome_pulito = giocatore_nome.split(" (in prestito da ")[0].strip()
-        parte_prestito = giocatore_nome.split("(in prestito da ")[1].replace(")", "").strip()
-        for sq_prop in NOMI_SQUADRE:
-            if sq_prop.lower() in parte_prestito.lower():
-                prop_old = st.session_state.squadre[sq_prop]
-                prop_prestiti = list(prop_old.get("prestiti_ceduti", []))
-                prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
-                st.session_state.squadre[sq_prop] = {
-                    "crediti": int(prop_old.get("crediti", 0)),
-                    "rosa": list(prop_old.get("rosa", [])),
-                    "prestiti_ceduti": prop_prestiti
-                }
-                break
-
-    return g_obj, rosa_nuova, prestiti_vecchi, crediti_vecchi
-
 # ─── HELPER STATISTICHE ───
 def calcola_media_stats(nome, campo):
     db = st.session_state.get('statistiche_db', {})
@@ -802,28 +722,30 @@ elif menu == "🤝 Scambi tra Proprietà":
             squadre_temp[sq1]["crediti"] += -denaro_sq1 + denaro_sq2
             squadre_temp[sq2]["crediti"] += -denaro_sq2 + denaro_sq1
 
-            oggetti_sq1 = [g for g in squadre_temp[sq1]["rosa"] if g["Nome"] in giocatori_sq1_scelti]
+            oggetti_sq1 = [g.copy() for g in squadre_temp[sq1]["rosa"] if g["Nome"] in giocatori_sq1_scelti]
             squadre_temp[sq1]["rosa"] = [g for g in squadre_temp[sq1]["rosa"] if g["Nome"] not in giocatori_sq1_scelti]
-            oggetti_sq2 = [g for g in squadre_temp[sq2]["rosa"] if g["Nome"] in giocatori_sq2_scelti]
+            oggetti_sq2 = [g.copy() for g in squadre_temp[sq2]["rosa"] if g["Nome"] in giocatori_sq2_scelti]
             squadre_temp[sq2]["rosa"] = [g for g in squadre_temp[sq2]["rosa"] if g["Nome"] not in giocatori_sq2_scelti]
 
             if tipo_operazione == "Scambio Definitivo":
-                # Pulisci metadati prestito e rimuovi dal listone svincolati
-                for g in oggetti_sq1:
-                    g["Nome"] = pulisci_nome_prestito(g["Nome"])
+                # Pulisci eventuali tracce di prestito
+                for g in oggetti_sq1 + oggetti_sq2:
+                    if "(in prestito da " in g["Nome"]:
+                        g["Nome"] = g["Nome"].split(" (in prestito da ")[0].strip()
                     g.pop("Prestito", None)
                     g.pop("Prestito_Da", None)
                     g.pop("Prestito_A", None)
-                    rimuovi_dal_listone(g["Nome"])
-                for g in oggetti_sq2:
-                    g["Nome"] = pulisci_nome_prestito(g["Nome"])
-                    g.pop("Prestito", None)
-                    g.pop("Prestito_Da", None)
-                    g.pop("Prestito_A", None)
-                    rimuovi_dal_listone(g["Nome"])
 
                 squadre_temp[sq1]["rosa"].extend(oggetti_sq2)
                 squadre_temp[sq2]["rosa"].extend(oggetti_sq1)
+
+                # Rimuovi giocatori scambiati dal listone svincolati
+                for g in oggetti_sq1 + oggetti_sq2:
+                    db_g = st.session_state.giocatori_db.copy()
+                    mask = db_g["Nome"].str.lower() == g["Nome"].lower()
+                    if mask.any():
+                        st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
+
                 msg = f"Scambio definitivo {sq1} ↔ {sq2}."
                 st.success(f"🎉 {msg}")
             else:
