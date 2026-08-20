@@ -467,6 +467,98 @@ with st.sidebar.expander("💾 Salva / Esporta Dati"):
         zf.writestr("storico_mercato.csv", df_storico.to_csv(index=False) if not df_storico.empty else "Orario,Operazione,Dettagli\n")
     st.download_button("📦 Scarica TUTTO (ZIP)", data=buf.getvalue(), file_name="fantamanager_backup.zip", mime="application/zip", key="dl_zip")
 
+# ─── CARICA BACKUP ZIP ───
+with st.sidebar.expander("📦 Carica Backup ZIP"):
+    zip_upload = st.file_uploader("Seleziona file ZIP di backup", type=["zip"], key="upload_zip")
+    if zip_upload is not None:
+        try:
+            import zipfile, io, json
+            with zipfile.ZipFile(zip_upload, 'r') as zf:
+                # Rose
+                if "rose.csv" in zf.namelist():
+                    with zf.open("rose.csv") as f_csv:
+                        df_rose = pd.read_csv(f_csv)
+                    # Reset squadre
+                    for sq in NOMI_SQUADRE:
+                        st.session_state.squadre[sq] = {"crediti": 500, "rosa": [], "prestiti_ceduti": []}
+                    for _, row in df_rose.iterrows():
+                        sq = str(row.get("Squadra", "")).strip()
+                        if sq in NOMI_SQUADRE:
+                            g = {
+                                "Nome": str(row.get("Nome", "")),
+                                "Ruolo": str(row.get("Ruolo", "C")),
+                                "Squadra_SerieA": str(row.get("Squadra_SerieA", "N/D")),
+                                "Quotazione": int(row.get("Quotazione", 10)) if pd.notna(row.get("Quotazione")) else 10,
+                                "FantaMedia": float(row.get("FantaMedia", 6.0)) if pd.notna(row.get("FantaMedia")) else 6.0,
+                                "Costo_Acquisto": int(row.get("Costo_Acquisto", 0)) if pd.notna(row.get("Costo_Acquisto")) else 0,
+                                "Scadenza_Contratto": str(row.get("Scadenza_Contratto", "N/D"))
+                            }
+                            # Crediti dalla rosa (prendiamo il max)
+                            st.session_state.squadre[sq]["rosa"].append(g)
+                    st.sidebar.success(f"✅ Rose caricate: {len(df_rose)} giocatori")
+
+                # Listone
+                if "listone.csv" in zf.namelist():
+                    with zf.open("listone.csv") as f_csv:
+                        df_list = pd.read_csv(f_csv)
+                    st.session_state.giocatori_db = df_list
+                    st.sidebar.success(f"✅ Listone caricato: {len(df_list)} giocatori")
+
+                # Statistiche
+                if "statistiche.json" in zf.namelist():
+                    with zf.open("statistiche.json") as f_json:
+                        st.session_state.statistiche_db = json.load(f_json)
+                    st.sidebar.success("✅ Statistiche caricate")
+
+                # Storico
+                if "storico_mercato.csv" in zf.namelist():
+                    with zf.open("storico_mercato.csv") as f_csv:
+                        df_stor = pd.read_csv(f_csv)
+                    if not df_stor.empty and 'Orario' in df_stor.columns:
+                        st.session_state.storico_mercato = df_stor.to_dict('records')
+                        st.sidebar.success(f"✅ Storico caricato: {len(df_stor)} operazioni")
+
+                # Ricalcola crediti dalle rose
+                for sq in NOMI_SQUADRE:
+                    spesa = sum(g.get("Costo_Acquisto", 0) for g in st.session_state.squadre[sq]["rosa"])
+                    st.session_state.squadre[sq]["crediti"] = max(0, 500 - spesa)
+
+                st.sidebar.success("🎉 Backup ripristinato! Ricarica la pagina.")
+                st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Errore caricamento ZIP: {e}")
+
+# ─── AGGIUNGI GIOCATORE AL LISTONE MANUALMENTE ───
+with st.sidebar.expander("➕ Aggiungi Giocatore al Listone"):
+    nome_new = st.text_input("Nome", key="new_nome")
+    ruolo_new = st.selectbox("Ruolo", ["P", "D", "C", "A"], key="new_ruolo")
+    sa_new = st.text_input("Squadra Serie A", value="N/D", key="new_sa")
+    quot_new = st.number_input("Quotazione", min_value=1, value=10, key="new_quot")
+    fm_new = st.number_input("FantaMedia", min_value=0.0, max_value=15.0, value=6.0, step=0.1, key="new_fm")
+    pot_new = st.slider("Potenziale", 1, 5, 3, key="new_pot")
+    tit_new = st.slider("Titolarità", 1, 5, 3, key="new_tit")
+    if st.button("Aggiungi al Listone", key="btn_add_listone"):
+        if nome_new.strip() == "":
+            st.sidebar.error("Inserisci il nome")
+        else:
+            db_g = st.session_state.giocatori_db.copy()
+            if nome_new.strip().lower() in db_g["Nome"].str.lower().values:
+                st.sidebar.warning("Giocatore già presente nel listone")
+            else:
+                new_row = {
+                    "Nome": nome_new.strip(),
+                    "Ruolo": ruolo_new,
+                    "Squadra_SerieA": sa_new.strip() if sa_new.strip() else "N/D",
+                    "Quotazione": int(quot_new),
+                    "FantaMedia": float(fm_new),
+                    "Potenziale": int(pot_new),
+                    "Titolarita": int(tit_new)
+                }
+                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                st.session_state.giocatori_db = db_g
+                st.sidebar.success(f"✅ {nome_new} aggiunto al listone!")
+                st.rerun()
+
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database",
     "🛒 Mercato (Acquisti/Vendite)",
@@ -1149,11 +1241,29 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                     # ─── RIMOZIONE MANUALE ───
                     st.markdown("---")
                     with st.expander("🗑️ Rimozione Manuale dalla Rosa"):
-                        st.caption("Rimuovi un giocatore dalla rosa SENZA ricevere crediti e SENZA metterlo nel listone. Utile per correzioni.")
+                        st.caption("Rimuovi un giocatore dalla rosa. Scegli se reinserirlo nel listone o cancellarlo definitivamente.")
                         giocatori_rimovibili = [g["Nome"] for g in rosa_list if g.get("Tipo_Vista") != "Prestato"]
                         if giocatori_rimovibili:
                             g_rimuovi = st.selectbox(f"Giocatore da rimuovere da {nome_sq}", giocatori_rimovibili, key=f"rimuovi_{nome_sq}")
-                            if st.button(f"❌ Rimuovi {g_rimuovi}", key=f"btn_rimuovi_{nome_sq}_{g_rimuovi}"):
+
+                            # Trova i dati del giocatore
+                            g_dati = None
+                            for g in rosa_list:
+                                if g["Nome"] == g_rimuovi:
+                                    g_dati = g
+                                    break
+
+                            sa_gioc = str(g_dati.get("Squadra_SerieA", "N/D")).strip() if g_dati else "N/D"
+                            in_serie_a = sa_gioc and sa_gioc not in ["Altro", "N/D", "N", ""]
+
+                            azione = st.radio(
+                                "Cosa fare?",
+                                ["Rimuovi e metti nel listone svincolati", "Rimuovi definitivamente (non in Serie A)"],
+                                index=0 if in_serie_a else 1,
+                                key=f"azione_rimuovi_{nome_sq}"
+                            )
+
+                            if st.button(f"❌ Esegui Rimozione", key=f"btn_rimuovi_{nome_sq}_{g_rimuovi}", type="primary"):
                                 try:
                                     import copy
                                     # Deep copy di tutte le squadre
@@ -1173,12 +1283,42 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                                     else:
                                         squadre_new[nome_sq]["rosa"] = rosa_filtrata
                                         st.session_state.squadre = squadre_new
+
+                                        # Gestione listone
+                                        if "metti nel listone" in azione and g_dati:
+                                            db_g = st.session_state.giocatori_db.copy()
+                                            mask = db_g["Nome"].str.lower() == g_rimuovi.lower()
+                                            if mask.any():
+                                                idx = db_g[mask].index[0]
+                                                for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                                                    if col in g_dati and col in db_g.columns:
+                                                        db_g.at[idx, col] = g_dati[col]
+                                            else:
+                                                new_row = {
+                                                    "Nome": g_rimuovi,
+                                                    "Ruolo": g_dati.get("Ruolo", "C"),
+                                                    "Squadra_SerieA": sa_gioc,
+                                                    "Quotazione": int(g_dati.get("Quotazione", 10)),
+                                                    "FantaMedia": float(g_dati.get("FantaMedia", 6.0)),
+                                                    "Potenziale": 3,
+                                                    "Titolarita": 3
+                                                }
+                                                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                                            st.session_state.giocatori_db = db_g
+                                            msg_listone = " Rimesso nel listone svincolati."
+                                        else:
+                                            db_g = st.session_state.giocatori_db.copy()
+                                            mask = db_g["Nome"].str.lower() == g_rimuovi.lower()
+                                            if mask.any():
+                                                st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
+                                            msg_listone = " Rimosso definitivamente."
+
                                         st.session_state.storico_mercato.insert(0, {
                                             "Orario": datetime.now().strftime("%H:%M:%S"),
                                             "Operazione": "RIMOZIONE_MANUALE",
-                                            "Dettagli": f"{nome_sq} rimuove manualmente {g_rimuovi} dalla rosa"
+                                            "Dettagli": f"{nome_sq} rimuove manualmente {g_rimuovi}.{msg_listone}"
                                         })
-                                        st.success(f"✅ {g_rimuovi} rimosso manualmente dalla rosa di {nome_sq}")
+                                        st.success(f"✅ {g_rimuovi} rimosso dalla rosa di {nome_sq}.{msg_listone}")
                                         st.rerun()
                                 except Exception as e:
                                     st.error(f"Errore rimozione: {e}")
