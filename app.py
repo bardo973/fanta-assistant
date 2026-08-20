@@ -806,7 +806,6 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 st.markdown("---")
                 st.subheader("💵 Prezzo di Vendita — Fantagazzetta")
 
-                # Il prezzo di vendita è FISSO = quotazione attuale (valore di mercato)
                 prezzo_vendita = int(quotazione)
                 crediti_attuali = st.session_state.squadre[sq_vendi]["crediti"]
                 rosa_dopo = len(rosa_sq) - 1
@@ -857,71 +856,80 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 with col_btn:
                     if st.button("🚀 Conferma Vendita", key="btn_vendita", type="primary", use_container_width=True):
                         try:
-                            # --- RIMOZIONE DALLA ROSA ---
-                            sq_old = st.session_state.squadre[sq_vendi]
-                            rosa_vecchia = list(sq_old.get("rosa", []))
-                            prestiti_vecchi = list(sq_old.get("prestiti_ceduti", []))
-                            crediti_vecchi = int(sq_old.get("crediti", 0))
-                            rosa_nuova = [g for g in rosa_vecchia if g["Nome"] != giocatore_da_vendere]
+                            # ─── RIMOZIONE ROBUSTA DALLA ROSA ───
+                            # Ricostruisci TUTTO lo stato per evitare riferimenti sporchi
+                            squadre_new = {}
+                            for sq_name in NOMI_SQUADRE:
+                                old = st.session_state.squadre[sq_name]
+                                squadre_new[sq_name] = {
+                                    "crediti": int(old.get("crediti", 0)),
+                                    "rosa": [dict(g) for g in old.get("rosa", [])],
+                                    "prestiti_ceduti": [dict(g) for g in old.get("prestiti_ceduti", [])]
+                                }
+
+                            # Rimuovi dalla rosa del venditore
+                            rosa_filtrata = [g for g in squadre_new[sq_vendi]["rosa"] if g["Nome"] != giocatore_da_vendere]
 
                             # Se era un prestito ricevuto, rimuovi anche dai prestiti ceduti del proprietario
                             if "(in prestito da " in giocatore_da_vendere:
                                 parte_prestito = giocatore_da_vendere.split("(in prestito da ")[1].replace(")", "").strip()
                                 for sq_prop in NOMI_SQUADRE:
                                     if sq_prop.lower() in parte_prestito.lower():
-                                        prop_old = st.session_state.squadre[sq_prop]
-                                        prop_prestiti = list(prop_old.get("prestiti_ceduti", []))
-                                        prop_prestiti = [g for g in prop_prestiti if g.get("Nome", "").lower() != nome_pulito.lower()]
-                                        st.session_state.squadre[sq_prop] = {
-                                            "crediti": int(prop_old.get("crediti", 0)),
-                                            "rosa": list(prop_old.get("rosa", [])),
-                                            "prestiti_ceduti": prop_prestiti
-                                        }
+                                        squadre_new[sq_prop]["prestiti_ceduti"] = [
+                                            g for g in squadre_new[sq_prop]["prestiti_ceduti"]
+                                            if g.get("Nome", "").lower() != nome_pulito.lower()
+                                        ]
                                         break
 
-                            crediti_nuovi = crediti_vecchi + int(prezzo_vendita)
-                            st.session_state.squadre[sq_vendi] = {
-                                "crediti": crediti_nuovi,
-                                "rosa": rosa_nuova,
-                                "prestiti_ceduti": prestiti_vecchi
-                            }
+                            # Aggiorna crediti
+                            squadre_new[sq_vendi]["crediti"] += int(prezzo_vendita)
+                            squadre_new[sq_vendi]["rosa"] = rosa_filtrata
 
-                            # --- GESTIONE LISTONE ---
-                            db_g = st.session_state.giocatori_db.copy()
-                            mask = db_g["Nome"].str.lower() == nome_pulito.lower()
-                            squadra_sa_clean = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
-
-                            if squadra_sa_clean and squadra_sa_clean not in ["Altro", "N/D", "N", ""]:
-                                if mask.any():
-                                    idx = db_g[mask].index[0]
-                                    for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
-                                        if col in g_obj and col in db_g.columns:
-                                            db_g.at[idx, col] = g_obj[col]
-                                else:
-                                    new_row = {
-                                        "Nome": nome_pulito,
-                                        "Ruolo": g_obj.get("Ruolo", "C"),
-                                        "Squadra_SerieA": squadra_sa_clean,
-                                        "Quotazione": int(g_obj.get("Quotazione", 10)),
-                                        "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
-                                        "Potenziale": 3,
-                                        "Titolarita": 3
-                                    }
-                                    db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                                st.session_state.giocatori_db = db_g
-                                msg_listone = f" Rimesso nel listone svincolati ({squadra_sa_clean})."
+                            # Verifica che sia stato rimosso
+                            rimasti = [g["Nome"] for g in squadre_new[sq_vendi]["rosa"] if g["Nome"] == giocatore_da_vendere]
+                            if rimasti:
+                                st.error(f"ERRORE CRITICO: {giocatore_da_vendere} è ancora in rosa dopo il filtro!")
                             else:
-                                if mask.any():
-                                    st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
-                                msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
+                                # Salva tutto
+                                st.session_state.squadre = squadre_new
 
-                            st.session_state.storico_mercato.insert(0, {
-                                "Orario": datetime.now().strftime("%H:%M:%S"),
-                                "Operazione": "SVINCOLO",
-                                "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr.{msg_listone}"
-                            })
-                            st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.{msg_listone}")
-                            st.rerun()
+                                # ─── GESTIONE LISTONE ───
+                                db_g = st.session_state.giocatori_db.copy()
+                                mask = db_g["Nome"].str.lower() == nome_pulito.lower()
+                                squadra_sa_clean = str(g_obj.get("Squadra_SerieA", "N/D")).strip()
+
+                                if squadra_sa_clean and squadra_sa_clean not in ["Altro", "N/D", "N", ""]:
+                                    if mask.any():
+                                        idx = db_g[mask].index[0]
+                                        for col in ["Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia"]:
+                                            if col in g_obj and col in db_g.columns:
+                                                db_g.at[idx, col] = g_obj[col]
+                                    else:
+                                        new_row = {
+                                            "Nome": nome_pulito,
+                                            "Ruolo": g_obj.get("Ruolo", "C"),
+                                            "Squadra_SerieA": squadra_sa_clean,
+                                            "Quotazione": int(g_obj.get("Quotazione", 10)),
+                                            "FantaMedia": float(g_obj.get("FantaMedia", 6.0)),
+                                            "Potenziale": 3,
+                                            "Titolarita": 3
+                                        }
+                                        db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                                    st.session_state.giocatori_db = db_g
+                                    msg_listone = f" Rimesso nel listone svincolati ({squadra_sa_clean})."
+                                else:
+                                    if mask.any():
+                                        st.session_state.giocatori_db = db_g[~mask].reset_index(drop=True)
+                                    msg_listone = " Rimosso dal listone (all'estero / non in Serie A)."
+
+                                # Storico
+                                st.session_state.storico_mercato.insert(0, {
+                                    "Orario": datetime.now().strftime("%H:%M:%S"),
+                                    "Operazione": "SVINCOLO",
+                                    "Dettagli": f"{sq_vendi} svincola {nome_pulito}, +{prezzo_vendita} cr.{msg_listone}"
+                                })
+                                st.success(f"✅ {nome_pulito} svincolato da {sq_vendi}! +{prezzo_vendita} crediti.{msg_listone}")
+                                st.rerun()
                         except Exception as e:
                             st.error(f"Errore durante lo svincolo: {e}")
                             import traceback
