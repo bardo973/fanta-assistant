@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import re
 from datetime import datetime
 
 st.set_page_config(page_title="FantaManager 2026/27 - 10 Squadre", page_icon="⚽", layout="wide")
@@ -18,6 +19,10 @@ MESE_DEFAULT_SCADENZA = 9
 MESI_NOMI = {1:"gen", 2:"feb", 3:"mar", 4:"apr", 5:"mag", 6:"giu",
              7:"lug", 8:"ago", 9:"set", 10:"ott", 11:"nov", 12:"dic"}
 
+MESI_NOMI_INV = {v:k for k,v in MESI_NOMI.items()}
+MESI_NOMI_INV["sett"] = 9
+MESI_NOMI_INV["set"] = 9
+
 def fmt_scadenza(mese, anno):
     if mese is not None and anno is not None:
         try:
@@ -27,6 +32,51 @@ def fmt_scadenza(mese, anno):
     elif anno is not None:
         return f"'{str(int(anno))[-2:]}"
     return "N/D"
+
+def parse_scadenza(val):
+    """Parsa vari formati di scadenza: 'set\'29', 'sett\'29', '09/2029', '2029-09', 'giu\'28', ecc."""
+    if pd.isna(val) or val is None:
+        return None, None
+    s = str(val).strip().lower()
+    if not s or s in ['nan','none','null','']:
+        return None, None
+
+    # Pattern tipo "set'29" o "sett'29" o "giu'28"
+    m = re.match(r"^(gen|feb|mar|apr|mag|giu|lug|ago|set|sett|ott|nov|dic)[\'\s]*([0-9]{2,4})$", s)
+    if m:
+        mese_str = m.group(1)
+        anno_str = m.group(2)
+        mese = MESI_NOMI_INV.get(mese_str)
+        anno = int(anno_str)
+        if anno < 100:
+            anno = 2000 + anno
+        return mese, anno
+
+    # Pattern tipo "09/2029" o "9/2029"
+    m = re.match(r"^([0-9]{1,2})[/\-\.]([0-9]{4})$", s)
+    if m:
+        mese = int(m.group(1))
+        anno = int(m.group(2))
+        return mese, anno
+
+    # Pattern tipo "2029/09" o "2029-09"
+    m = re.match(r"^([0-9]{4})[/\-\.]([0-9]{1,2})$", s)
+    if m:
+        anno = int(m.group(1))
+        mese = int(m.group(2))
+        return mese, anno
+
+    # Pattern tipo "2029" (solo anno)
+    m = re.match(r"^([0-9]{4})$", s)
+    if m:
+        return None, int(m.group(1))
+
+    # Pattern tipo "29" (solo anno a 2 cifre)
+    m = re.match(r"^([0-9]{2})$", s)
+    if m:
+        return None, 2000 + int(m.group(1))
+
+    return None, None
 
 # ============================================================
 # LISTONE DEFAULT 2026/2027
@@ -212,12 +262,78 @@ with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
         except Exception as e:
             st.sidebar.error(f"Errore: {e}")
 
+# --- IMPORTA QUOTAZIONI ULTIMA GIORNATA 2026 ---
+with st.sidebar.expander("📊 Importa Quotazioni Ultima Giornata 2026"):
+    st.markdown("""
+    Carica il file con le quotazioni dell'ultima giornata della stagione 2025/26.
+    Utile per giocatori non piu presenti nel listone attuale.
+
+    **Colonne attese:** Nome, Ruolo, Squadra, Quotazione, FantaMedia (opzionali)
+    I giocatori nuovi verranno aggiunti al database. I giocatori esistenti verranno aggiornati.
+    """)
+    up_quot = st.file_uploader("File Quotazioni Ultima Giornata", type=["csv","xlsx"], key="uq")
+    if up_quot is not None:
+        try:
+            if up_quot.name.endswith('.csv'):
+                df_q = pd.read_csv(up_quot, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_q = pd.read_excel(up_quot)
+            df_q.columns = [str(c).strip() for c in df_q.columns]
+            col_mappa_q = {}
+            for col in df_q.columns:
+                cl = str(col).lower()
+                if 'nome' in cl or 'giocatore' in cl: col_mappa_q[col] = 'Nome'
+                elif cl in ['r','ruolo']: col_mappa_q[col] = 'Ruolo'
+                elif 'squadra' in cl or 'team' in cl: col_mappa_q[col] = 'Squadra_SerieA'
+                elif 'quot' in cl or 'valore' in cl or 'fc' in cl or 'qt' in cl: col_mappa_q[col] = 'Quotazione'
+                elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_mappa_q[col] = 'FantaMedia'
+                elif 'consiglio' in cl or 'fascia' in cl: col_mappa_q[col] = 'Consiglio'
+                elif 'note' in cl or 'commento' in cl: col_mappa_q[col] = 'Note'
+            df_q = df_q.rename(columns=col_mappa_q)
+            if 'Nome' in df_q.columns:
+                df_q = df_q.loc[:, ~df_q.columns.duplicated()]
+                for c, d in [('Ruolo','C'),('Squadra_SerieA','N/D'),('Quotazione',10),('FantaMedia',6.0),('Consiglio','consigliato'),('Note','')]:
+                    if c not in df_q.columns: df_q[c] = d
+                df_q['Quotazione'] = pd.to_numeric(df_q['Quotazione'], errors='coerce').fillna(10).astype(int)
+                fm = df_q['FantaMedia']
+                if isinstance(fm, pd.DataFrame): fm = fm.iloc[:,0]
+                df_q['FantaMedia'] = pd.to_numeric(fm.astype(str).str.replace(',','.',regex=False), errors='coerce').fillna(6.0)
+
+                db = st.session_state.giocatori_db.copy()
+                aggiunti = 0
+                aggiornati = 0
+                for _, row in df_q.iterrows():
+                    nome = str(row['Nome']).strip()
+                    if not nome or nome.lower() in ['nan','none','null']:
+                        continue
+                    mask = db['Nome'].str.lower() == nome.lower()
+                    if mask.any():
+                        idx = db[mask].index[0]
+                        for col in ['Ruolo','Squadra_SerieA','Quotazione','FantaMedia','Consiglio','Note']:
+                            if col in df_q.columns and pd.notna(row[col]) and str(row[col]).strip() not in ['','nan','none']:
+                                db.at[idx, col] = row[col]
+                        aggiornati += 1
+                    else:
+                        new_row = {col: row.get(col, d) for col, d in [('Nome',nome),('Ruolo','C'),('Squadra_SerieA','N/D'),('Quotazione',10),('FantaMedia',6.0),('Consiglio','consigliato'),('Note','')]}
+                        db = pd.concat([db, pd.DataFrame([new_row])], ignore_index=True)
+                        aggiunti += 1
+
+                st.session_state.giocatori_db = db
+                save_state()
+                st.sidebar.success(f"✅ Quotazioni importate! {aggiornati} aggiornati, {aggiunti} nuovi giocatori.")
+            else:
+                st.sidebar.error("Colonna 'Nome' mancante.")
+        except Exception as e:
+            st.sidebar.error(f"Errore: {e}")
+
 # --- IMPORTA ROSE CON ANTEPRIMA E SCADENZE ---
 with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
     st.markdown("""
     **Colonne attese:** Squadra, Nome, Ruolo, Costo
 
     **Opzionali per scadenze:** Scadenza_Anno, Scadenza_Mese (es. 2028, 6)
+
+    **Oppure colonna Scadenza testuale** (es. `set'29`, `giu'28`, `09/2029`)
     Se mancano, il contratto parte da 2026 per 4 anni.
     """)
 
@@ -259,8 +375,11 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
             col_cs = st.selectbox("Colonna COSTO (opzionale)", cols,
                                    index=cols.index(find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore'])) if find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore']) in cols else 0,
                                    key="map_cs")
-            col_scad_a = st.selectbox("Colonna SCADENZA ANNO (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto'])) if find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto']) in cols else 0,
+            col_scad_str = st.selectbox("Colonna SCADENZA TESTUALE (es. set'29)", cols,
+                                   index=cols.index(find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto'])) if find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto']) in cols else 0,
+                                   key="map_scad_str")
+            col_scad_a = st.selectbox("Colonna SCADENZA ANNO (opzionale, se hai gia la testuale)", cols,
+                                   index=cols.index(find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza'])) if find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza']) in cols else 0,
                                    key="map_scad_a")
             col_scad_m = st.selectbox("Colonna SCADENZA MESE (opzionale)", cols,
                                    index=cols.index(find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine'])) if find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine']) in cols else 0,
@@ -271,6 +390,7 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                 preview_cols = [col_sq, col_nm]
                 if col_rl and col_rl != "": preview_cols.append(col_rl)
                 if col_cs and col_cs != "": preview_cols.append(col_cs)
+                if col_scad_str and col_scad_str != "": preview_cols.append(col_scad_str)
                 if col_scad_a and col_scad_a != "": preview_cols.append(col_scad_a)
                 if col_scad_m and col_scad_m != "": preview_cols.append(col_scad_m)
                 st.dataframe(df_r[preview_cols].head(10), use_container_width=True)
@@ -311,19 +431,27 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 except:
                                     g_costo = 1
 
-                            scad_anno = None
+                            # --- Parsing scadenza ---
                             scad_mese = None
-                            if col_scad_a and col_scad_a != "" and pd.notna(row[col_scad_a]):
+                            scad_anno = None
+
+                            # Priorita alla colonna testuale
+                            if col_scad_str and col_scad_str != "" and pd.notna(row[col_scad_str]):
+                                scad_mese, scad_anno = parse_scadenza(row[col_scad_str])
+
+                            # Se non ha funzionato o non c'e, prova colonne separate
+                            if scad_anno is None and col_scad_a and col_scad_a != "" and pd.notna(row[col_scad_a]):
                                 try:
                                     scad_anno = int(float(row[col_scad_a]))
                                 except:
                                     scad_anno = None
-                            if col_scad_m and col_scad_m != "" and pd.notna(row[col_scad_m]):
+                            if scad_mese is None and col_scad_m and col_scad_m != "" and pd.notna(row[col_scad_m]):
                                 try:
                                     scad_mese = int(float(row[col_scad_m]))
                                 except:
                                     scad_mese = None
 
+                            # Cerca info nel listone
                             db_g = st.session_state.giocatori_db
                             match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
                             sq_sa = "N/D"
@@ -343,12 +471,17 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
                                 continue
 
+                            # Calcola contratto
                             if scad_anno:
                                 contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
                                 anno_acq = ANNO_CORRENTE
                             else:
                                 contratto_durata = CONTRATTO_ANNI
                                 anno_acq = ANNO_CORRENTE
+                                scad_anno = anno_acq + contratto_durata
+
+                            if scad_mese is None:
+                                scad_mese = MESE_DEFAULT_SCADENZA
 
                             st.session_state.squadre[sq_match]["crediti"] -= g_costo
                             entry = {
@@ -360,23 +493,17 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 "Costo_Acquisto": g_costo,
                                 "Anno_Acquisto": anno_acq,
                                 "Contratto_Anni": contratto_durata,
+                                "Scadenza_Anno": scad_anno,
+                                "Scadenza_Mese": scad_mese,
                             }
-                            if scad_anno:
-                                entry["Scadenza_Anno"] = scad_anno
-                            else:
-                                entry["Scadenza_Anno"] = anno_acq + contratto_durata
-                            if scad_mese:
-                                entry["Scadenza_Mese"] = scad_mese
-                            else:
-                                entry["Scadenza_Mese"] = MESE_DEFAULT_SCADENZA
 
                             st.session_state.squadre[sq_match]["rosa"].append(entry)
                             st.session_state.contratti[g_nome] = {
                                 "squadra": sq_match,
                                 "anno": anno_acq,
                                 "durata": contratto_durata,
-                                "scadenza_anno": entry["Scadenza_Anno"],
-                                "scadenza_mese": entry["Scadenza_Mese"]
+                                "scadenza_anno": scad_anno,
+                                "scadenza_mese": scad_mese
                             }
                             count += 1
 
@@ -891,13 +1018,14 @@ elif menu == "📈 Statistiche Storiche":
     st.header("📈 Statistiche Storiche — Ultimi 3 Anni")
 
     st.markdown("""
-    Carica un file CSV/Excel con le statistiche storiche dei giocatori.
+    Carica i file CSV/Excel con le statistiche storiche dei giocatori.
+    Puoi caricare **piu file diversi** (es. uno per stagione) — i dati verranno uniti automaticamente.
 
     **Colonne attese:** Nome, Stagione, Gol, Assist, FantaMedia, Partite, Rigori, Ammonizioni, Espulsioni
     (puoi aggiungere altre colonne, verranno mostrate automaticamente)
     """)
 
-    up_stats = st.file_uploader("File Statistiche Storiche", type=["csv","xlsx"], key="us")
+    up_stats = st.file_uploader("File Statistiche Storiche (carica piu file)", type=["csv","xlsx"], key="us")
     if up_stats is not None:
         try:
             if up_stats.name.endswith('.csv'):
@@ -918,9 +1046,23 @@ elif menu == "📈 Statistiche Storiche":
                 elif 'amm' in cl or 'yellow' in cl: col_map[col] = 'Ammonizioni'
                 elif 'esp' in cl or 'red' in cl: col_map[col] = 'Espulsioni'
             df_s = df_s.rename(columns=col_map)
-            st.session_state.stats_storiche = df_s
+
+            # Append invece di sovrascrivere
+            existing = st.session_state.stats_storiche.copy()
+            if existing.empty:
+                st.session_state.stats_storiche = df_s
+            else:
+                combined = pd.concat([existing, df_s], ignore_index=True)
+                # Se c'e Stagione, rimuovi duplicati per Nome+Stagione
+                if "Stagione" in combined.columns and "Nome" in combined.columns:
+                    combined = combined.drop_duplicates(subset=["Nome", "Stagione"], keep="last")
+                else:
+                    combined = combined.drop_duplicates(keep="last")
+                st.session_state.stats_storiche = combined
+
             save_state()
-            st.success(f"✅ Caricate statistiche per {len(df_s)} righe!")
+            total_rows = len(st.session_state.stats_storiche)
+            st.success(f"✅ Caricato file con {len(df_s)} righe! Totale statistiche in archivio: {total_rows} righe.")
         except Exception as e:
             st.error(f"Errore: {e}")
 
@@ -951,7 +1093,7 @@ elif menu == "📈 Statistiche Storiche":
         st.subheader("📋 Tabella completa")
         st.dataframe(df_stats, use_container_width=True)
 
-        if st.button("🗑️ Cancella statistiche storiche"):
+        if st.button("🗑️ Cancella TUTTE le statistiche storiche"):
             st.session_state.stats_storiche = pd.DataFrame()
             save_state()
             st.rerun()
