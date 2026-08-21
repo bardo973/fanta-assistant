@@ -78,7 +78,7 @@ def aggiorna_sa_rosa(rosa_list):
 def sincronizza_rose_listone():
     """Assicura che ogni giocatore in rosa esista nel listone con dati aggiornati."""
     db_g = st.session_state.giocatori_db.copy()
-    modificato = False
+    nuove_righe = []
     for sq in NOMI_SQUADRE:
         for g in st.session_state.squadre[sq].get("rosa", []):
             nome = str(g.get("Nome", "")).strip()
@@ -91,7 +91,7 @@ def sincronizza_rose_listone():
                     if col in g and col in db_g.columns and pd.notna(g.get(col)):
                         db_g.at[idx, col] = g[col]
             else:
-                new_row = {
+                nuove_righe.append({
                     "Nome": nome,
                     "Ruolo": g.get("Ruolo", "C"),
                     "Squadra_SerieA": g.get("Squadra_SerieA", "N/D") if g.get("Squadra_SerieA", "N/D") not in ["", "None", "nan"] else "N/D",
@@ -99,10 +99,9 @@ def sincronizza_rose_listone():
                     "FantaMedia": float(g.get("FantaMedia", 6.0)) if pd.notna(g.get("FantaMedia")) else 6.0,
                     "Potenziale": 3,
                     "Titolarita": 3
-                }
-                db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
-                modificato = True
-    if modificato:
+                })
+    if nuove_righe:
+        db_g = pd.concat([db_g, pd.DataFrame(nuove_righe)], ignore_index=True)
         st.session_state.giocatori_db = db_g
 
 # ─── HELPER STATISTICHE ───
@@ -347,8 +346,7 @@ if 'giocatori_db' not in st.session_state:
     ]
     st.session_state.giocatori_db = pd.DataFrame(data_iniziale)
 
-# Sincronizza subito all'avvio
-sincronizza_rose_listone()
+
 
 # ─── SIDEBAR ───
 st.sidebar.title("⚽ Fanta Manager Hub")
@@ -466,6 +464,8 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                                 "Titolarita": 3
                             }
                             db_g = pd.concat([db_g, pd.DataFrame([new_row])], ignore_index=True)
+                            # Ricrea match_db per il prossimo giro
+                            match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
 
                         if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
                             st.session_state.squadre[sq_match]["rosa"].append({
