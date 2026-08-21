@@ -1001,14 +1001,22 @@ elif menu == "🤝 Scambi & Prestiti":
 
         if tipo == "Scambio Definitivo":
             # Dal punto di vista di sq1
-            if delta_q > 10 and delta_fm >= 0:
+            if delta_q > 10 and delta_fm >= -0.1:
                 st.success(f"🟢 **{sq1} ci guadagna!** +{delta_q}cr in quotazione, +{delta_fm} in FantaMedia media.")
-            elif delta_q < -10 and delta_fm <= 0:
+            elif delta_q < -10 and delta_fm <= 0.1:
                 st.error(f"🔴 **{sq1} ci perde!** {delta_q}cr in quotazione, {delta_fm} in FantaMedia media.")
-            elif delta_q > 5 or delta_fm > 0.2:
+            elif delta_q > 5 and delta_fm >= 0:
                 st.success(f"🟢 **{sq1} in leggero vantaggio** (+{delta_q}cr, +{delta_fm} FM)")
-            elif delta_q < -5 or delta_fm < -0.2:
+            elif delta_q < -5 and delta_fm <= 0:
                 st.error(f"🔴 **{sq1} in leggero svantaggio** ({delta_q}cr, {delta_fm} FM)")
+            elif delta_q > 5 and delta_fm < 0:
+                st.info(f"⚪ **{sq1} vantaggio quotazione ma svantaggio FM** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
+            elif delta_q < -5 and delta_fm > 0:
+                st.info(f"⚪ **{sq1} svantaggio quotazione ma vantaggio FM** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
+            elif delta_fm > 0.2:
+                st.success(f"🟢 **{sq1} vantaggio FantaMedia** (+{delta_fm} FM)")
+            elif delta_fm < -0.2:
+                st.error(f"🔴 **{sq1} svantaggio FantaMedia** ({delta_fm} FM)")
             else:
                 st.info(f"⚪ **Scambio equilibrato** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
 
@@ -1227,11 +1235,18 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 if rosa_proprieta:
                     st.markdown("**🛡️ Giocatori di proprietà**")
                     df_prop = pd.DataFrame(rosa_proprieta)
+                    # Rinomina e riordina colonne
+                    if "Squadra_SerieA" in df_prop.columns:
+                        df_prop = df_prop.rename(columns={"Squadra_SerieA": "Squadra"})
                     df_prop["Flag"] = df_prop.apply(lambda r: "🟠 Scadenza" if is_scadenza_prossima(r) else "", axis=1)
                     if "Scadenza_Anno" in df_prop.columns:
                         df_prop["Scadenza"] = df_prop.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
                     elif "Anno_Acquisto" in df_prop.columns and "Contratto_Anni" in df_prop.columns:
                         df_prop["Scadenza"] = df_prop["Anno_Acquisto"] + df_prop["Contratto_Anni"]
+                    # Riordina: Nome, Ruolo, Squadra, FantaMedia, Quotazione, Costo_Acquisto, Scadenza, Flag + altre
+                    preferred = ["Nome", "Ruolo", "Squadra", "FantaMedia", "Quotazione", "Costo_Acquisto", "Scadenza", "Flag"]
+                    cols = [c for c in preferred if c in df_prop.columns] + [c for c in df_prop.columns if c not in preferred]
+                    df_prop = df_prop[cols]
                     conti_prop = df_prop["Ruolo"].value_counts().to_dict()
                     st.caption(f"Proprietà: P: {conti_prop.get('P',0)} | D: {conti_prop.get('D',0)} | C: {conti_prop.get('C',0)} | A: {conti_prop.get('A',0)} | Tot: {len(df_prop)}")
                     st.dataframe(df_prop, use_container_width=True)
@@ -1246,8 +1261,13 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 if rosa_prestito:
                     st.markdown("**🔴 In prestito (non contano per i vincoli)**")
                     df_prest = pd.DataFrame(rosa_prestito)
+                    if "Squadra_SerieA" in df_prest.columns:
+                        df_prest = df_prest.rename(columns={"Squadra_SerieA": "Squadra"})
                     if "Scadenza_Anno" in df_prest.columns:
                         df_prest["Scadenza"] = df_prest.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
+                    preferred = ["Nome", "Ruolo", "Squadra", "FantaMedia", "Quotazione", "Costo_Acquisto", "Scadenza"]
+                    cols = [c for c in preferred if c in df_prest.columns] + [c for c in df_prest.columns if c not in preferred]
+                    df_prest = df_prest[cols]
                     conti_prest = df_prest["Ruolo"].value_counts().to_dict()
                     st.caption(f"Prestiti: P: {conti_prest.get('P',0)} | D: {conti_prest.get('D',0)} | C: {conti_prest.get('C',0)} | A: {conti_prest.get('A',0)} | Tot: {len(df_prest)}")
                     st.dataframe(df_prest, use_container_width=True)
