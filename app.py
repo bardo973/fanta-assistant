@@ -1210,58 +1210,52 @@ elif menu == "📋 Rose, Crediti & Contratti":
                             st.success("Crediti aggiornati!")
                             st.rerun()
 
-                # --- Riepilogo vincoli ---
+                # --- Riepilogo vincoli (solo di proprietà) ---
                 c_rosa = conteggio_rosa(dati["rosa"])
                 vincoli_parts = []
                 for r in ["P", "D", "C", "A"]:
                     mancano = max(0, VINCOLI_ROSA[r] - c_rosa[r])
                     emoji = "✅" if c_rosa[r] >= VINCOLI_ROSA[r] else "⚠️" if mancano <= 2 else "❌"
                     vincoli_parts.append(f"{emoji} {r}: {c_rosa[r]}/{VINCOLI_ROSA[r]}")
-                st.caption("Vincoli rosa: " + " | ".join(vincoli_parts))
+                st.caption("Vincoli rosa (di proprietà): " + " | ".join(vincoli_parts))
 
-                rosa_df = pd.DataFrame(dati["rosa"])
-                if not rosa_df.empty:
-                    # Aggiungi colonne Flag
-                    def flag_row(r):
-                        nome = r.get("Nome", "")
-                        if "(PRESTITO da" in nome:
-                            return "🔴 Prestito"
-                        if is_scadenza_prossima(r):
-                            return "🟠 Scadenza prossima"
-                        return ""
-                    rosa_df["Flag"] = rosa_df.apply(flag_row, axis=1)
+                # Separa proprietà da prestiti
+                rosa_proprieta = [g for g in dati["rosa"] if "(PRESTITO da" not in g.get("Nome", "")]
+                rosa_prestito = [g for g in dati["rosa"] if "(PRESTITO da" in g.get("Nome", "")]
 
-                    conti = rosa_df["Ruolo"].value_counts().to_dict()
-                    st.caption(f"Totale in rosa: P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+                # --- Giocatori DI PROPRIETÀ ---
+                if rosa_proprieta:
+                    st.markdown("**🛡️ Giocatori di proprietà**")
+                    df_prop = pd.DataFrame(rosa_proprieta)
+                    df_prop["Flag"] = df_prop.apply(lambda r: "🟠 Scadenza" if is_scadenza_prossima(r) else "", axis=1)
+                    if "Scadenza_Anno" in df_prop.columns:
+                        df_prop["Scadenza"] = df_prop.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
+                    elif "Anno_Acquisto" in df_prop.columns and "Contratto_Anni" in df_prop.columns:
+                        df_prop["Scadenza"] = df_prop["Anno_Acquisto"] + df_prop["Contratto_Anni"]
+                    conti_prop = df_prop["Ruolo"].value_counts().to_dict()
+                    st.caption(f"Proprietà: P: {conti_prop.get('P',0)} | D: {conti_prop.get('D',0)} | C: {conti_prop.get('C',0)} | A: {conti_prop.get('A',0)} | Tot: {len(df_prop)}")
+                    st.dataframe(df_prop, use_container_width=True)
 
-                    display = rosa_df.copy()
-                    if "Scadenza_Anno" in display.columns:
-                        display["Scadenza"] = display.apply(
-                            lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")),
-                            axis=1
-                        )
-                    elif "Anno_Acquisto" in display.columns and "Contratto_Anni" in display.columns:
-                        display["Scadenza"] = display["Anno_Acquisto"] + display["Contratto_Anni"]
-
-                    # Riordina colonne per mettere Flag prima
-                    cols = list(display.columns)
-                    if "Flag" in cols:
-                        cols.insert(0, cols.pop(cols.index("Flag")))
-                        display = display[cols]
-
-                    st.dataframe(display, use_container_width=True)
-
-                    # Evidenzia giocatori in scadenza
-                    in_scadenza = [g for g in dati["rosa"] if is_scadenza_prossima(g) and "(PRESTITO da" not in g.get("Nome", "")]
+                    in_scadenza = [g for g in rosa_proprieta if is_scadenza_prossima(g)]
                     if in_scadenza:
-                        st.warning("🟠 **Giocatori in scadenza entro 6 mesi:** " + ", ".join([g["Nome"] for g in in_scadenza]))
+                        st.warning("🟠 **In scadenza entro 6 mesi:** " + ", ".join([g["Nome"] for g in in_scadenza]))
                 else:
-                    st.info("Rosa vuota.")
+                    st.info("Nessun giocatore di proprietà.")
 
-                # --- Prestiti ceduti da questa squadra ---
+                # --- Giocatori IN PRESTITO (entrata) ---
+                if rosa_prestito:
+                    st.markdown("**🔴 In prestito (non contano per i vincoli)**")
+                    df_prest = pd.DataFrame(rosa_prestito)
+                    if "Scadenza_Anno" in df_prest.columns:
+                        df_prest["Scadenza"] = df_prest.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
+                    conti_prest = df_prest["Ruolo"].value_counts().to_dict()
+                    st.caption(f"Prestiti: P: {conti_prest.get('P',0)} | D: {conti_prest.get('D',0)} | C: {conti_prest.get('C',0)} | A: {conti_prest.get('A',0)} | Tot: {len(df_prest)}")
+                    st.dataframe(df_prest, use_container_width=True)
+
+                # --- Prestiti CEDUTI da questa squadra ---
                 prestati = giocatori_prestati_da(sq)
                 if prestati:
-                    st.success("🟢 **Giocatori ceduti in prestito:**")
+                    st.markdown("**🟢 Ceduti in prestito ad altre squadre**")
                     df_prest_ced = pd.DataFrame(prestati)
                     st.dataframe(df_prest_ced, use_container_width=True)
 
@@ -1279,7 +1273,19 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 elif r=="C": c+=1
                 elif r=="A": a+=1
                 spesa += g.get("Costo_Acquisto",0)
-            summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, "Tot":len(rosa), "P":p, "D":d, "C":c, "A":a})
+            # Conteggio SOLO giocatori di proprietà (esclusi prestiti in entrata)
+            rosa_prop = [g for g in rosa if "(PRESTITO da" not in g.get("Nome", "")]
+            p=d=c=a=spesa=0
+            for g in rosa_prop:
+                r = g.get("Ruolo","C")
+                if r=="P": p+=1
+                elif r=="D": d+=1
+                elif r=="C": c+=1
+                elif r=="A": a+=1
+                spesa += g.get("Costo_Acquisto",0)
+            n_prestiti = len(rosa) - len(rosa_prop)
+            summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, 
+                          "Proprietà":len(rosa_prop), "P":p, "D":d, "C":c, "A":a, "Prestiti":n_prestiti})
             df_summary = pd.DataFrame(summary)
             def stato_vincoli(row):
                 sq_n = row["Squadra"]
