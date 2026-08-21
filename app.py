@@ -1,642 +1,641 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-FantaManager 2026/27 - Gestione Fantacalcio
-===========================================
-App Python per gestire rose, acquisti, scambi, prestiti e consigli
-per la stagione di Fantacalcio 2026/2027.
-
-Funzionalità:
-- Gestione squadre e rose
-- Listone giocatori Serie A con consigli
-- Acquisti (contratto automatico 4 anni)
-- Scambi tra squadre (con denaro)
-- Prestiti (6 mesi o 1 anno, con denaro)
-- Consigli per l'asta per ruolo
-- Salvataggio/caricamento dati su file JSON
-
-Uso:
-    python fantamanager.py
-"""
-
+import streamlit as st
+import pandas as pd
 import json
 import os
 from datetime import datetime
-from typing import List, Dict, Optional
 
-DATA_FILE = "fantamanager_data.json"
+st.set_page_config(page_title="FantaManager 2026/27 - 10 Squadre", page_icon="⚽", layout="wide")
 
 # ============================================================
-# DATI DI DEFAULT - Listone Serie A 2026/2027
+# CONFIG
 # ============================================================
-DEFAULT_PLAYERS = [
-    # PORTIERI
-    {"id": "p1", "nome": "Butez", "ruolo": "P", "squadra": "Como", "prezzo": 32, "consiglio": "top", "note": "19 clean sheet, miglior difesa"},
-    {"id": "p2", "nome": "Maignan", "ruolo": "P", "squadra": "Milan", "prezzo": 34, "consiglio": "top", "note": "13 clean sheet, 2 rigori parati"},
-    {"id": "p3", "nome": "Svilar", "ruolo": "P", "squadra": "Roma", "prezzo": 38, "consiglio": "top", "note": "18 clean sheet, fantamedia 6"},
-    {"id": "p4", "nome": "Martinez", "ruolo": "P", "squadra": "Inter", "prezzo": 29, "consiglio": "consigliato", "note": "Nuovo titolare, ex Genoa"},
-    {"id": "p5", "nome": "Meret", "ruolo": "P", "squadra": "Napoli", "prezzo": 30, "consiglio": "consigliato", "note": "Titolare con Allegri"},
-    {"id": "p6", "nome": "Carnesecchi", "ruolo": "P", "squadra": "Atalanta", "prezzo": 34, "consiglio": "consigliato", "note": "Miglior fantamedia, 13 clean sheet"},
-    {"id": "p7", "nome": "De Gea", "ruolo": "P", "squadra": "Fiorentina", "prezzo": 24, "consiglio": "consigliato", "note": "Stagione del riscatto"},
-    {"id": "p8", "nome": "Falcone", "ruolo": "P", "squadra": "Lecce", "prezzo": 17, "consiglio": "scommessa", "note": "Media voto 6.41, low cost"},
-    {"id": "p9", "nome": "Stankovic", "ruolo": "P", "squadra": "Venezia", "prezzo": 13, "consiglio": "scommessa", "note": "Torna in Serie A"},
-    # DIFENSORI
-    {"id": "d1", "nome": "Dimarco", "ruolo": "D", "squadra": "Inter", "prezzo": 45, "consiglio": "top", "note": "Top assoluto, vale un +3 a giornata"},
-    {"id": "d2", "nome": "Bremer", "ruolo": "D", "squadra": "Juventus", "prezzo": 38, "consiglio": "top", "note": "4 gol, 3 assist, fantamedia alta"},
-    {"id": "d3", "nome": "Bisseck", "ruolo": "D", "squadra": "Inter", "prezzo": 35, "consiglio": "top", "note": "Voti alti e bonus"},
-    {"id": "d4", "nome": "Mancini", "ruolo": "D", "squadra": "Roma", "prezzo": 32, "consiglio": "top", "note": "4 gol, leader difesa Gasperini"},
-    {"id": "d5", "nome": "Wesley", "ruolo": "D", "squadra": "Roma", "prezzo": 28, "consiglio": "top", "note": "5 gol, potenziale stagione alla Gosens"},
-    {"id": "d6", "nome": "Pavlovic", "ruolo": "D", "squadra": "Milan", "prezzo": 33, "consiglio": "consigliato", "note": "5 gol, media 6.24"},
-    {"id": "d7", "nome": "Ostigard", "ruolo": "D", "squadra": "Napoli", "prezzo": 28, "consiglio": "consigliato", "note": "5 gol, centrale prolifico"},
-    {"id": "d8", "nome": "Cambiaso", "ruolo": "D", "squadra": "Juventus", "prezzo": 29, "consiglio": "consigliato", "note": "3 gol, 4 assist"},
-    {"id": "d9", "nome": "Spinazzola", "ruolo": "D", "squadra": "Roma", "prezzo": 27, "consiglio": "consigliato", "note": "Sottovalutato, bonus garantiti"},
-    {"id": "d10", "nome": "Zappacosta", "ruolo": "D", "squadra": "Atalanta", "prezzo": 32, "consiglio": "consigliato", "note": "Gran gamba, qualità offensiva"},
-    {"id": "d11", "nome": "Stones", "ruolo": "D", "squadra": "Inter", "prezzo": 30, "consiglio": "consigliato", "note": "Ex City, rotazioni Chivu"},
-    {"id": "d12", "nome": "Rensch", "ruolo": "D", "squadra": "Roma", "prezzo": 18, "consiglio": "scommessa", "note": "1 gol, 4 assist in 19 partite"},
-    {"id": "d13", "nome": "Doekhi", "ruolo": "D", "squadra": "Lazio", "prezzo": 22, "consiglio": "scommessa", "note": "7 gol in Europa, sostituto Gila"},
-    {"id": "d14", "nome": "Jimenez", "ruolo": "D", "squadra": "Fiorentina", "prezzo": 21, "consiglio": "scommessa", "note": "Torna in Serie A, jolly tattico"},
-    {"id": "d15", "nome": "Kaiki", "ruolo": "D", "squadra": "Como", "prezzo": 14, "consiglio": "scommessa", "note": "Nuovo titolare sinistra"},
-    # CENTROCAMPISTI
-    {"id": "c1", "nome": "Frattesi", "ruolo": "C", "squadra": "Lazio", "prezzo": 48, "consiglio": "top", "note": "Potenziale top, alla Milinkovic-Savic"},
-    {"id": "c2", "nome": "Pulisic", "ruolo": "C", "squadra": "Milan", "prezzo": 57, "consiglio": "top", "note": "Cambio ruolo, più appetibile"},
-    {"id": "c3", "nome": "Orsolini", "ruolo": "C", "squadra": "Bologna", "prezzo": 53, "consiglio": "top", "note": "Cambio ruolo, bonus garantiti"},
-    {"id": "c4", "nome": "Vlasic", "ruolo": "C", "squadra": "Torino", "prezzo": 52, "consiglio": "consigliato", "note": "8 gol, 3 assist, rigorista"},
-    {"id": "c5", "nome": "Zaniolo", "ruolo": "C", "squadra": "Udinese", "prezzo": 48, "consiglio": "consigliato", "note": "5 gol, 6 assist, attaccante aggiunto"},
-    {"id": "c6", "nome": "Modric", "ruolo": "C", "squadra": "Inter", "prezzo": 43, "consiglio": "consigliato", "note": "Rendimento garantito"},
-    {"id": "c7", "nome": "Koné", "ruolo": "C", "squadra": "Juventus", "prezzo": 40, "consiglio": "consigliato", "note": "Media 6.26, mai sotto sufficienza"},
-    {"id": "c8", "nome": "Perrone", "ruolo": "C", "squadra": "Como", "prezzo": 35, "consiglio": "consigliato", "note": "3 gol, 4 assist, voti alti"},
-    {"id": "c9", "nome": "Bernardeschi", "ruolo": "C", "squadra": "Bologna", "prezzo": 38, "consiglio": "consigliato", "note": "Da prendere con Rowe"},
-    {"id": "c10", "nome": "Rowe", "ruolo": "C", "squadra": "Bologna", "prezzo": 36, "consiglio": "consigliato", "note": "3 gol, 3 assist, può crescere"},
-    {"id": "c11", "nome": "Thorstvedt", "ruolo": "C", "squadra": "Sassuolo", "prezzo": 30, "consiglio": "consigliato", "note": "5-6 gol potenziali"},
-    {"id": "c12", "nome": "Alajbegovic", "ruolo": "C", "squadra": "Juventus", "prezzo": 33, "consiglio": "scommessa", "note": "Talentino trequarti, attenzione hype"},
-    {"id": "c13", "nome": "Gaetano", "ruolo": "C", "squadra": "Atalanta", "prezzo": 19, "consiglio": "scommessa", "note": "Sarri lo vuole, grande intuizione"},
-    {"id": "c14", "nome": "Stankovic A.", "ruolo": "C", "squadra": "Inter", "prezzo": 18, "consiglio": "scommessa", "note": "Fiducia Chivu, sostituto Calhanoglu"},
-    {"id": "c15", "nome": "Calò", "ruolo": "C", "squadra": "Frosinone", "prezzo": 22, "consiglio": "scommessa", "note": "10 gol, 14 assist in Serie B"},
-    {"id": "c16", "nome": "Milla", "ruolo": "C", "squadra": "Como", "prezzo": 20, "consiglio": "scommessa", "note": "Solo Yamal più assist in Liga"},
-    # ATTACCANTI
-    {"id": "a1", "nome": "Lautaro", "ruolo": "A", "squadra": "Inter", "prezzo": 88, "consiglio": "top", "note": "Capocannoniere 17 gol, 6 assist"},
-    {"id": "a2", "nome": "Malen", "ruolo": "A", "squadra": "Roma", "prezzo": 84, "consiglio": "top", "note": "14 gol in mezzo campionato, vice-cannonieri"},
-    {"id": "a3", "nome": "Thuram", "ruolo": "A", "squadra": "Inter", "prezzo": 74, "consiglio": "top", "note": "13 gol, 6 assist"},
-    {"id": "a4", "nome": "Hojlund", "ruolo": "A", "squadra": "Napoli", "prezzo": 78, "consiglio": "top", "note": "Tornato in Serie A, obiettivo 15 gol"},
-    {"id": "a5", "nome": "Goncalo Ramos", "ruolo": "A", "squadra": "Milan", "prezzo": 78, "consiglio": "top", "note": "Colpo da 70M, titolare Amorim"},
-    {"id": "a6", "nome": "Kolo Muani", "ruolo": "A", "squadra": "Juventus", "prezzo": 76, "consiglio": "top", "note": "Tornato alla Juve, Spalletti lo vuole"},
-    {"id": "a7", "nome": "Kean", "ruolo": "A", "squadra": "Fiorentina", "prezzo": 65, "consiglio": "consigliato", "note": "Doppia cifra garantita"},
-    {"id": "a8", "nome": "Yildiz", "ruolo": "A", "squadra": "Juventus", "prezzo": 70, "consiglio": "consigliato", "note": "10 gol, 6 assist, centro progetto"},
-    {"id": "a9", "nome": "Douvikas", "ruolo": "A", "squadra": "Como", "prezzo": 65, "consiglio": "consigliato", "note": "14 gol, sorpresa 2024-25"},
-    {"id": "a10", "nome": "Dybala", "ruolo": "A", "squadra": "Roma", "prezzo": 58, "consiglio": "consigliato", "note": "Sempre utile, momento della differenza"},
-    {"id": "a11", "nome": "Davis", "ruolo": "A", "squadra": "Udinese", "prezzo": 61, "consiglio": "consigliato", "note": "10 gol, rigorista"},
-    {"id": "a12", "nome": "Scamacca", "ruolo": "A", "squadra": "Atalanta", "prezzo": 55, "consiglio": "consigliato", "note": "Attenzione infortuni"},
-    {"id": "a13", "nome": "Simeone", "ruolo": "A", "squadra": "Napoli", "prezzo": 50, "consiglio": "consigliato", "note": "11 gol, conferma"},
-    {"id": "a14", "nome": "Dovbyk", "ruolo": "A", "squadra": "Bologna", "prezzo": 48, "consiglio": "consigliato", "note": "Doppia cifra a Bologna"},
-    {"id": "a15", "nome": "Colombo", "ruolo": "A", "squadra": "Roma", "prezzo": 35, "consiglio": "consigliato", "note": "7 gol, obiettivo doppia cifra"},
-    {"id": "a16", "nome": "Alajbegovic K.", "ruolo": "A", "squadra": "Juventus", "prezzo": 33, "consiglio": "scommessa", "note": "Colpo di mercato, trequarti"},
-    {"id": "a17", "nome": "Ekhator", "ruolo": "A", "squadra": "Juventus", "prezzo": 20, "consiglio": "scommessa", "note": "Low cost, potenziale"},
-    {"id": "a18", "nome": "Mendy", "ruolo": "A", "squadra": "Cagliari", "prezzo": 15, "consiglio": "scommessa", "note": "2 gol in 8 partite, 2007"},
-    {"id": "a19", "nome": "Camarda", "ruolo": "A", "squadra": "Milan", "prezzo": 12, "consiglio": "scommessa", "note": "Vice Ramos, a 1 credito ci sta"},
-    {"id": "a20", "nome": "Ratkov", "ruolo": "A", "squadra": "Lazio", "prezzo": 20, "consiglio": "scommessa", "note": "Gattuso lo rilancia"},
+SAVE_FILE = "fantamanager_save.json"
+NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
+ANNO_CORRENTE = 2026
+CONTRATTO_ANNI = 4
+
+# ============================================================
+# LISTONE DEFAULT 2026/2027
+# ============================================================
+LISTONE_DEFAULT = [
+    {"Nome":"Butez","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":32,"FantaMedia":5.8,"Consiglio":"top","Note":"19 clean sheet, miglior difesa"},
+    {"Nome":"Maignan","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":34,"FantaMedia":5.9,"Consiglio":"top","Note":"13 clean sheet, 2 rigori parati"},
+    {"Nome":"Svilar","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":38,"FantaMedia":6.0,"Consiglio":"top","Note":"18 clean sheet, fantamedia 6"},
+    {"Nome":"Martinez","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":29,"FantaMedia":5.7,"Consiglio":"consigliato","Note":"Nuovo titolare, ex Genoa"},
+    {"Nome":"Meret","Ruolo":"P","Squadra_SerieA":"Napoli","Quotazione":30,"FantaMedia":5.8,"Consiglio":"consigliato","Note":"Titolare con Allegri"},
+    {"Nome":"Carnesecchi","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":34,"FantaMedia":6.1,"Consiglio":"consigliato","Note":"Miglior fantamedia, 13 clean sheet"},
+    {"Nome":"De Gea","Ruolo":"P","Squadra_SerieA":"Fiorentina","Quotazione":24,"FantaMedia":5.6,"Consiglio":"consigliato","Note":"Stagione del riscatto"},
+    {"Nome":"Falcone","Ruolo":"P","Squadra_SerieA":"Lecce","Quotazione":17,"FantaMedia":5.5,"Consiglio":"scommessa","Note":"Media voto 6.41, low cost"},
+    {"Nome":"Stankovic","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":13,"FantaMedia":5.3,"Consiglio":"scommessa","Note":"Torna in Serie A"},
+    {"Nome":"Dimarco","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":45,"FantaMedia":7.2,"Consiglio":"top","Note":"Top assoluto, vale un +3 a giornata"},
+    {"Nome":"Bremer","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":38,"FantaMedia":6.9,"Consiglio":"top","Note":"4 gol, 3 assist, fantamedia alta"},
+    {"Nome":"Bisseck","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":35,"FantaMedia":6.8,"Consiglio":"top","Note":"Voti alti e bonus"},
+    {"Nome":"Mancini","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":32,"FantaMedia":6.7,"Consiglio":"top","Note":"4 gol, leader difesa Gasperini"},
+    {"Nome":"Wesley","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":28,"FantaMedia":6.6,"Consiglio":"top","Note":"5 gol, potenziale stagione alla Gosens"},
+    {"Nome":"Pavlovic","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":33,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"5 gol, media 6.24"},
+    {"Nome":"Ostigard","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":28,"FantaMedia":6.4,"Consiglio":"consigliato","Note":"5 gol, centrale prolifico"},
+    {"Nome":"Cambiaso","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":29,"FantaMedia":6.6,"Consiglio":"consigliato","Note":"3 gol, 4 assist"},
+    {"Nome":"Spinazzola","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":27,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Sottovalutato, bonus garantiti"},
+    {"Nome":"Zappacosta","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":32,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"Gran gamba, qualità offensiva"},
+    {"Nome":"Stones","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":30,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"Ex City, rotazioni Chivu"},
+    {"Nome":"Rensch","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"1 gol, 4 assist in 19 partite"},
+    {"Nome":"Doekhi","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":22,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"7 gol in Europa, sostituto Gila"},
+    {"Nome":"Jimenez","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":21,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Torna in Serie A, jolly tattico"},
+    {"Nome":"Kaiki","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":14,"FantaMedia":5.9,"Consiglio":"scommessa","Note":"Nuovo titolare sinistra"},
+    {"Nome":"Frattesi","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":48,"FantaMedia":7.5,"Consiglio":"top","Note":"Potenziale top, alla Milinkovic-Savic"},
+    {"Nome":"Pulisic","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":57,"FantaMedia":7.8,"Consiglio":"top","Note":"Cambio ruolo, più appetibile"},
+    {"Nome":"Orsolini","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":53,"FantaMedia":7.6,"Consiglio":"top","Note":"Cambio ruolo, bonus garantiti"},
+    {"Nome":"Vlasic","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":52,"FantaMedia":7.4,"Consiglio":"consigliato","Note":"8 gol, 3 assist, rigorista"},
+    {"Nome":"Zaniolo","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":48,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"5 gol, 6 assist, attaccante aggiunto"},
+    {"Nome":"Modric","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":43,"FantaMedia":7.1,"Consiglio":"consigliato","Note":"Rendimento garantito"},
+    {"Nome":"Koné","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":40,"FantaMedia":6.9,"Consiglio":"consigliato","Note":"Media 6.26, mai sotto sufficienza"},
+    {"Nome":"Perrone","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":35,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"3 gol, 4 assist, voti alti"},
+    {"Nome":"Bernardeschi","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":38,"FantaMedia":6.8,"Consiglio":"consigliato","Note":"Da prendere con Rowe"},
+    {"Nome":"Rowe","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":36,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"3 gol, 3 assist, può crescere"},
+    {"Nome":"Thorstvedt","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":30,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"5-6 gol potenziali"},
+    {"Nome":"Alajbegovic","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":33,"FantaMedia":6.6,"Consiglio":"scommessa","Note":"Talentino trequarti, attenzione hype"},
+    {"Nome":"Gaetano","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":19,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Sarri lo vuole, grande intuizione"},
+    {"Nome":"Stankovic A.","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Fiducia Chivu, sostituto Calhanoglu"},
+    {"Nome":"Calò","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":22,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"10 gol, 14 assist in Serie B"},
+    {"Nome":"Milla","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":20,"FantaMedia":6.4,"Consiglio":"scommessa","Note":"Solo Yamal più assist in Liga"},
+    {"Nome":"Lautaro","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":88,"FantaMedia":8.5,"Consiglio":"top","Note":"Capocannoniere 17 gol, 6 assist"},
+    {"Nome":"Malen","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":84,"FantaMedia":8.2,"Consiglio":"top","Note":"14 gol in mezzo campionato, vice-cannonieri"},
+    {"Nome":"Thuram","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":74,"FantaMedia":7.9,"Consiglio":"top","Note":"13 gol, 6 assist"},
+    {"Nome":"Hojlund","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":78,"FantaMedia":8.0,"Consiglio":"top","Note":"Tornato in Serie A, obiettivo 15 gol"},
+    {"Nome":"Goncalo Ramos","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":78,"FantaMedia":8.0,"Consiglio":"top","Note":"Colpo da 70M, titolare Amorim"},
+    {"Nome":"Kolo Muani","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":76,"FantaMedia":7.9,"Consiglio":"top","Note":"Tornato alla Juve, Spalletti lo vuole"},
+    {"Nome":"Kean","Ruolo":"A","Squadra_SerieA":"Fiorentina","Quotazione":65,"FantaMedia":7.5,"Consiglio":"consigliato","Note":"Doppia cifra garantita"},
+    {"Nome":"Yildiz","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":70,"FantaMedia":7.7,"Consiglio":"consigliato","Note":"10 gol, 6 assist, centro progetto"},
+    {"Nome":"Douvikas","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":65,"FantaMedia":7.8,"Consiglio":"consigliato","Note":"14 gol, sorpresa 2024-25"},
+    {"Nome":"Dybala","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":58,"FantaMedia":7.4,"Consiglio":"consigliato","Note":"Sempre utile, momento della differenza"},
+    {"Nome":"Davis","Ruolo":"A","Squadra_SerieA":"Udinese","Quotazione":61,"FantaMedia":7.5,"Consiglio":"consigliato","Note":"10 gol, rigorista"},
+    {"Nome":"Scamacca","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":55,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Attenzione infortuni"},
+    {"Nome":"Simeone","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":50,"FantaMedia":7.2,"Consiglio":"consigliato","Note":"11 gol, conferma"},
+    {"Nome":"Dovbyk","Ruolo":"A","Squadra_SerieA":"Bologna","Quotazione":48,"FantaMedia":7.1,"Consiglio":"consigliato","Note":"Doppia cifra a Bologna"},
+    {"Nome":"Colombo","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":35,"FantaMedia":6.8,"Consiglio":"consigliato","Note":"7 gol, obiettivo doppia cifra"},
+    {"Nome":"Alajbegovic K.","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":33,"FantaMedia":6.7,"Consiglio":"scommessa","Note":"Colpo di mercato, trequarti"},
+    {"Nome":"Ekhator","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":20,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Low cost, potenziale"},
+    {"Nome":"Mendy","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":15,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"2 gol in 8 partite, 2007"},
+    {"Nome":"Camarda","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":12,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Vice Ramos, a 1 credito ci sta"},
+    {"Nome":"Ratkov","Ruolo":"A","Squadra_SerieA":"Lazio","Quotazione":20,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Gattuso lo rilancia"},
 ]
 
-CONSIGLI_DATA = {
-    "Portieri": {
-        "top": ["Butez (Como) - 19 clean sheet, miglior difesa", "Svilar (Roma) - 18 clean sheet, fantamedia 6", "Maignan (Milan) - 13 clean sheet, 2 rigori parati"],
-        "consigliati": ["Martinez (Inter) - nuovo titolare, ex Genoa", "Meret (Napoli) - titolare Allegri", "Carnesecchi (Atalanta) - miglior fantamedia", "De Gea (Fiorentina) - stagione del riscatto"],
-        "scommesse": ["Falcone (Lecce) - media voto 6.41, low cost", "Stankovic (Venezia) - torna in Serie A", "Perri (Torino) - nuovo titolare"]
-    },
-    "Difensori": {
-        "top": ["Dimarco (Inter) - top assoluto, +3 a giornata", "Bremer (Juve) - 4 gol, 3 assist", "Bisseck (Inter) - voti alti e bonus", "Mancini (Roma) - 4 gol, leader", "Wesley (Roma) - 5 gol, potenziale Gosens"],
-        "consigliati": ["Pavlovic (Milan) - 5 gol, media 6.24", "Ostigard (Napoli) - 5 gol", "Cambiaso (Juve) - 3 gol, 4 assist", "Spinazzola (Roma) - sottovalutato", "Zappacosta (Atalanta) - gran gamba", "Stones (Inter) - ex City"],
-        "scommesse": ["Rensch (Roma) - 1 gol, 4 assist in 19g", "Doekhi (Lazio) - 7 gol in Europa", "Jimenez (Fiorentina) - jolly tattico", "Kaiki (Como) - titolare sinistra", "Ahanor (Atalanta) - terzino sinistro Sarri"]
-    },
-    "Centrocampisti": {
-        "top": ["Frattesi (Lazio) - potenziale alla Milinkovic", "Pulisic (Milan) - cambio ruolo, più appetibile", "Orsolini (Bologna) - cambio ruolo, bonus garantiti"],
-        "consigliati": ["Vlasic (Torino) - 8 gol, rigorista", "Zaniolo (Udinese) - 5 gol, 6 assist", "Modric (Inter) - rendimento garantito", "Koné (Juve) - media 6.26", "Perrone (Como) - 3 gol, 4 assist", "Bernardeschi+Rowe (Bologna) - da prendere insieme"],
-        "scommesse": ["Alajbegovic (Juve) - talento trequarti", "Gaetano (Atalanta) - Sarri lo vuole", "Stankovic A. (Inter) - fiducia Chivu", "Calò (Frosinone) - 10 gol, 14 assist in B", "Milla (Como) - solo Yamal più assist in Liga", "Ethan-Meichtry (Genoa) - 8 gol in Svizzera"]
-    },
-    "Attaccanti": {
-        "top": ["Lautaro (Inter) - 17 gol, capocannoniere", "Malen (Roma) - 14 gol in mezzo campionato", "Thuram (Inter) - 13 gol, 6 assist", "Hojlund (Napoli) - obiettivo 15 gol", "Goncalo Ramos (Milan) - colpo da 70M", "Kolo Muani (Juve) - tornato, Spalletti lo vuole"],
-        "consigliati": ["Kean (Fiorentina) - doppia cifra", "Yildiz (Juve) - 10 gol, 6 assist", "Douvikas (Como) - 14 gol, sorpresa", "Dybala (Roma) - sempre utile", "Davis (Udinese) - rigorista", "Scamacca (Atalanta) - attenzione infortuni", "Simeone (Napoli) - 11 gol", "Dovbyk (Bologna) - doppia cifra", "Colombo (Roma) - 7 gol"],
-        "scommesse": ["Alajbegovic K. (Juve) - colpo mercato", "Ekhator (Juve) - low cost", "Mendy (Cagliari) - 2 gol in 8g, 2007", "Camarda (Milan) - vice Ramos", "Ratkov (Lazio) - Gattuso lo rilancia", "Bowie (Sassuolo) - ex Verona", "Rrahmani (Venezia) - 15 gol in Rep. Ceca"]
+# ============================================================
+# PERSISTENZA
+# ============================================================
+def save_state():
+    data = {
+        "squadre": st.session_state.squadre,
+        "storico_mercato": st.session_state.storico_mercato,
+        "watchlist": st.session_state.watchlist,
+        "prestiti": st.session_state.prestiti,
+        "contratti": st.session_state.contratti,
+        "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records")
     }
-}
+    with open(SAVE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
+def load_state():
+    if os.path.exists(SAVE_FILE):
+        try:
+            with open(SAVE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            st.session_state.squadre = data.get("squadre", {})
+            st.session_state.storico_mercato = data.get("storico_mercato", [])
+            st.session_state.watchlist = data.get("watchlist", [])
+            st.session_state.prestiti = data.get("prestiti", [])
+            st.session_state.contratti = data.get("contratti", {})
+            db = data.get("giocatori_db", [])
+            st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+            # Assicura che tutte le squadre esistano
+            for sq in NOMI_SQUADRE:
+                if sq not in st.session_state.squadre:
+                    st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+            return True
+        except Exception:
+            pass
+    return False
 
 # ============================================================
-# CLASSI
+# INIZIALIZZAZIONE
 # ============================================================
+if "initialized" not in st.session_state:
+    st.session_state.squadre = {}
+    st.session_state.storico_mercato = []
+    st.session_state.watchlist = []
+    st.session_state.prestiti = []
+    st.session_state.contratti = {}
+    st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
 
-class Giocatore:
-    def __init__(self, data: dict):
-        self.id = data["id"]
-        self.nome = data["nome"]
-        self.ruolo = data["ruolo"]
-        self.squadra = data["squadra"]
-        self.prezzo = data["prezzo"]
-        self.consiglio = data.get("consiglio", "")
-        self.note = data.get("note", "")
+    # Prova a caricare dati salvati
+    if not load_state():
+        for sq in NOMI_SQUADRE:
+            st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
 
-    def to_dict(self):
-        return {"id": self.id, "nome": self.nome, "ruolo": self.ruolo,
-                "squadra": self.squadra, "prezzo": self.prezzo,
-                "consiglio": self.consiglio, "note": self.note}
+    st.session_state.initialized = True
 
-    def __repr__(self):
-        return f"{self.nome} ({self.ruolo}) - {self.squadra} [{self.prezzo}cr]"
+# ============================================================
+# SIDEBAR
+# ============================================================
+st.sidebar.title("⚽ FantaManager 2026/27")
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("💾 Salva / Carica Stato")
+c1, c2 = st.sidebar.columns(2)
+with c1:
+    if st.button("💾 Salva", use_container_width=True):
+        save_state()
+        st.sidebar.success("Salvato!")
+with c2:
+    if st.button("📂 Carica", use_container_width=True):
+        if load_state():
+            st.sidebar.success("Caricato!")
+            st.rerun()
+        else:
+            st.sidebar.warning("Nessun salvataggio trovato.")
 
-class RosaEntry:
-    def __init__(self, player_id: str, year: int, price: int, loan: Optional[dict] = None):
-        self.player_id = player_id
-        self.year = year
-        self.price = price
-        self.loan = loan  # dict: {to_team_id, duration_months, money, start_year}
+st.sidebar.markdown("---")
 
-    def to_dict(self):
-        return {"player_id": self.player_id, "year": self.year,
-                "price": self.price, "loan": self.loan}
+# --- IMPORTA LISTONE ---
+with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
+    st.markdown("Carica il listone aggiornato. Colonne: Nome, Ruolo, Squadra, Quotazione, FantaMedia.")
+    up_listone = st.file_uploader("File Listone", type=["csv","xlsx"], key="ul")
+    if up_listone is not None:
+        try:
+            if up_listone.name.endswith('.csv'):
+                df_load = pd.read_csv(up_listone, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_load = pd.read_excel(up_listone)
+            df_load.columns = [str(c).strip() for c in df_load.columns]
+            col_mappa = {}
+            for col in df_load.columns:
+                cl = str(col).lower()
+                if 'nome' in cl or 'giocatore' in cl: col_mappa[col] = 'Nome'
+                elif cl in ['r','ruolo']: col_mappa[col] = 'Ruolo'
+                elif 'squadra' in cl or 'team' in cl: col_mappa[col] = 'Squadra_SerieA'
+                elif 'quot' in cl or 'valore' in cl or 'fc' in cl or 'qt' in cl: col_mappa[col] = 'Quotazione'
+                elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_mappa[col] = 'FantaMedia'
+            df_load = df_load.rename(columns=col_mappa)
+            if 'Nome' in df_load.columns:
+                df_load = df_load.loc[:, ~df_load.columns.duplicated()]
+                for c, d in [('Ruolo','C'),('Squadra_SerieA','N/D'),('Quotazione',10),('FantaMedia',6.0)]:
+                    if c not in df_load.columns: df_load[c] = d
+                df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
+                fm = df_load['FantaMedia']
+                if isinstance(fm, pd.DataFrame): fm = fm.iloc[:,0]
+                df_load['FantaMedia'] = pd.to_numeric(fm.astype(str).str.replace(',','.',regex=False), errors='coerce').fillna(6.0)
+                if 'Consiglio' not in df_load.columns: df_load['Consiglio'] = 'consigliato'
+                if 'Note' not in df_load.columns: df_load['Note'] = ''
+                st.session_state.giocatori_db = df_load[['Nome','Ruolo','Squadra_SerieA','Quotazione','FantaMedia','Consiglio','Note']]
+                save_state()
+                st.sidebar.success("✅ Listone importato e salvato!")
+            else:
+                st.sidebar.error("Colonna 'Nome' mancante.")
+        except Exception as e:
+            st.sidebar.error(f"Errore: {e}")
 
-    @classmethod
-    def from_dict(cls, d):
-        return cls(d["player_id"], d["year"], d["price"], d.get("loan"))
+# --- IMPORTA ROSE ---
+with st.sidebar.expander("📋 Importa Rose Stagione Precedente"):
+    st.markdown("CSV/Excel con colonne: **Squadra**, **Nome**, **Ruolo**, **Costo**.")
+    up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
+    if up_rose is not None:
+        try:
+            if up_rose.name.endswith('.csv'):
+                df_r = pd.read_csv(up_rose, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_r = pd.read_excel(up_rose)
+            df_r.columns = [str(c).strip().lower() for c in df_r.columns]
+            col_sq = next((c for c in df_r.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
+            col_nm = next((c for c in df_r.columns if 'nome' in c or 'giocatore' in c), None)
+            col_rl = next((c for c in df_r.columns if 'ruolo' in c or c=='r'), None)
+            col_cs = next((c for c in df_r.columns if 'costo' in c or 'prezzo' in c or 'pagato' in c or 'quot' in c), None)
+            if col_sq and col_nm:
+                count = 0
+                for _, row in df_r.iterrows():
+                    sq_nome = str(row[col_sq]).strip().upper()
+                    sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
+                    if sq_match:
+                        g_nome = str(row[col_nm]).strip()
+                        g_ruolo = str(row[col_rl]).strip().upper() if col_rl and pd.notna(row[col_rl]) else "C"
+                        g_costo = int(row[col_cs]) if col_cs and pd.notna(row[col_cs]) else 1
+                        db_g = st.session_state.giocatori_db
+                        match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                        sq_sa = "N/D"; quot = 10; fm = 6.0
+                        if not match_db.empty:
+                            sq_sa = match_db.iloc[0]['Squadra_SerieA']
+                            quot = int(match_db.iloc[0]['Quotazione'])
+                            fm = float(match_db.iloc[0]['FantaMedia'])
+                            g_ruolo = str(match_db.iloc[0]['Ruolo'])
+                        if not any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
+                            st.session_state.squadre[sq_match]["rosa"].append({
+                                "Nome": g_nome, "Ruolo": g_ruolo, "Squadra_SerieA": sq_sa,
+                                "Quotazione": quot, "FantaMedia": fm, "Costo_Acquisto": g_costo,
+                                "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI
+                            })
+                            st.session_state.squadre[sq_match]["crediti"] -= g_costo
+                            st.session_state.contratti[g_nome] = {"squadra": sq_match, "anno": ANNO_CORRENTE, "durata": CONTRATTO_ANNI}
+                            count += 1
+                save_state()
+                st.sidebar.success(f"✅ Importati {count} giocatori!")
+            else:
+                st.sidebar.error("Colonne 'Squadra' o 'Nome' mancanti.")
+        except Exception as e:
+            st.sidebar.error(f"Errore: {e}")
 
+with st.sidebar.expander("⚠️ Reset"):
+    if st.button("🗑️ Resetta TUTTO", use_container_width=True):
+        if os.path.exists(SAVE_FILE): os.remove(SAVE_FILE)
+        for k in list(st.session_state.keys()): del st.session_state[k]
+        st.sidebar.success("Resettato! Ricarica la pagina.")
+        st.rerun()
 
-class Squadra:
-    def __init__(self, team_id: int, name: str, budget: int = 500):
-        self.id = team_id
-        self.name = name
-        self.budget = budget
-        self.rosa: List[RosaEntry] = []
+st.sidebar.markdown("---")
+menu = st.sidebar.selectbox("Navigazione", [
+    "🔍 Scouting & Database",
+    "🛒 Mercato (Acquisti/Vendite)",
+    "🤝 Scambi & Prestiti",
+    "📋 Rose, Crediti & Contratti"
+])
 
-    def to_dict(self):
-        return {"id": self.id, "name": self.name, "budget": self.budget,
-                "rosa": [r.to_dict() for r in self.rosa]}
+# ============================================================
+# 1. SCOUTING
+# ============================================================
+if menu == "🔍 Scouting & Database":
+    st.header("🔍 Hub Scouting 2026/27")
+    df = st.session_state.giocatori_db.copy()
 
-    @classmethod
-    def from_dict(cls, d):
-        s = cls(d["id"], d["name"], d["budget"])
-        s.rosa = [RosaEntry.from_dict(r) for r in d.get("rosa", [])]
-        return s
+    if df.empty:
+        st.warning("Nessun giocatore nel database.")
+    else:
+        df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0,1), 2)
 
-    def has_player(self, player_id: str) -> bool:
-        return any(r.player_id == player_id for r in self.rosa)
+        assegnati = {}
+        for sq, dati in st.session_state.squadre.items():
+            for g in dati["rosa"]:
+                # Se è in prestito, mostra il proprietario reale
+                nome_base = g["Nome"].replace(f" (PRESTITO)", "").strip()
+                assegnati[nome_base.lower()] = sq
+                assegnati[g["Nome"].lower()] = sq
+        df["Proprietario"] = df["Nome"].apply(lambda x: assegnati.get(x.lower(), "Svincolato 🟢"))
 
-    def add_player(self, player_id: str, price: int, year: int):
-        self.rosa.append(RosaEntry(player_id, year, price))
-        self.budget -= price
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P","D","C","A"]
+            filtro_ruolo = st.multiselect("Ruolo", ruoli, default=ruoli)
+        with c2:
+            min_fm = st.slider("FantaMedia min", 4.0, 10.0, 5.0, 0.1)
+        with c3:
+            solo_svinc = st.checkbox("Solo Svincolati", value=False)
+        with c4:
+            search = st.text_input("Cerca nome")
 
-    def remove_player(self, player_id: str) -> Optional[RosaEntry]:
-        for i, r in enumerate(self.rosa):
-            if r.player_id == player_id:
-                self.budget += r.price
-                return self.rosa.pop(i)
-        return None
+        consigli_fasce = st.multiselect("Fascia consiglio", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"])
 
-    def stats(self, players_map: Dict[str, Giocatore]) -> Dict[str, int]:
-        stats = {"P": 0, "D": 0, "C": 0, "A": 0}
-        for r in self.rosa:
-            p = players_map.get(r.player_id)
-            if p:
-                stats[p.ruolo] = stats.get(p.ruolo, 0) + 1
-        return stats
+        df_f = df[(df["Ruolo"].isin(filtro_ruolo)) & (df["FantaMedia"] >= min_fm) & (df["Consiglio"].isin(consigli_fasce))]
+        if solo_svinc:
+            df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
+        if search:
+            df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
+        df_f = df_f.sort_values(by="Indice_Affare", ascending=False)
 
+        st.subheader(f"Trovati: {len(df_f)} giocatori")
+        st.dataframe(df_f, use_container_width=True)
 
-class Prestito:
-    def __init__(self, player_id: str, from_team_id: int, to_team_id: int,
-                 duration: int, money: int, year: int):
-        self.player_id = player_id
-        self.from_team_id = from_team_id
-        self.to_team_id = to_team_id
-        self.duration = duration
-        self.money = money
-        self.year = year
+        # Watchlist
+        st.markdown("---")
+        st.subheader("⭐ Watchlist")
+        g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
+        if st.button("Aggiungi"):
+            if g_sel not in st.session_state.watchlist:
+                st.session_state.watchlist.append(g_sel)
+                save_state()
+                st.success(f"{g_sel} aggiunto!")
+                st.rerun()
+        if st.session_state.watchlist:
+            df_wl = df[df["Nome"].isin(st.session_state.watchlist)]
+            st.dataframe(df_wl[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Proprietario"]], use_container_width=True)
+            if st.button("Svuota Watchlist"):
+                st.session_state.watchlist = []
+                save_state()
+                st.rerun()
 
-    def to_dict(self):
-        return {"player_id": self.player_id, "from_team_id": self.from_team_id,
-                "to_team_id": self.to_team_id, "duration": self.duration,
-                "money": self.money, "year": self.year}
+# ============================================================
+# 2. MERCATO
+# ============================================================
+elif menu == "🛒 Mercato (Acquisti/Vendite)":
+    st.header("🛒 Gestione Mercato")
+    t_acq, t_vend, t_reg = st.tabs(["📥 Acquista", "📤 Vendi/Svincola", "📜 Registro"])
 
-    @classmethod
-    def from_dict(cls, d):
-        return cls(d["player_id"], d["from_team_id"], d["to_team_id"],
-                   d["duration"], d["money"], d["year"])
+    with t_acq:
+        st.subheader("Acquista giocatore svincolato")
+        sq = st.selectbox("Squadra acquirente", NOMI_SQUADRE, key="acq_sq")
+        cred = st.session_state.squadre[sq]["crediti"]
+        rosa_len = len(st.session_state.squadre[sq]["rosa"])
+        c1, c2 = st.columns(2)
+        c1.metric("Crediti", f"{cred} 🪙")
+        c2.metric("Rosa", f"{rosa_len}")
 
+        db = st.session_state.giocatori_db
+        if db.empty:
+            st.warning("Importa prima un listone.")
+        else:
+            # Giocatori già in rosa (qualsiasi squadra)
+            in_rosa = set()
+            for d in st.session_state.squadre.values():
+                for g in d["rosa"]:
+                    in_rosa.add(g["Nome"].lower())
+            svinc = db[~db["Nome"].str.lower().isin(in_rosa)]
+            if len(svinc) > 0:
+                g_sel = st.selectbox("Giocatore", svinc["Nome"].values)
+                info = svinc[svinc["Nome"] == g_sel].iloc[0]
+                st.write(f"Ruolo: **{info['Ruolo']}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**")
+                prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=int(info["Quotazione"]), key="acq_p")
+                if st.button("Conferma Acquisto"):
+                    if cred >= prezzo:
+                        st.session_state.squadre[sq]["crediti"] -= prezzo
+                        st.session_state.squadre[sq]["rosa"].append({
+                            "Nome": g_sel, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
+                            "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
+                            "Costo_Acquisto": prezzo, "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI
+                        })
+                        st.session_state.contratti[g_sel] = {"squadra": sq, "anno": ANNO_CORRENTE, "durata": CONTRATTO_ANNI}
+                        st.session_state.storico_mercato.insert(0, {
+                            "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "Operazione": "ACQUISTO",
+                            "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {ANNO_CORRENTE+CONTRATTO_ANNI}"
+                        })
+                        save_state()
+                        st.success(f"✅ {g_sel} acquistato! Contratto 4 anni (fino al {ANNO_CORRENTE+CONTRATTO_ANNI}).")
+                        st.rerun()
+                    else:
+                        st.error("Crediti insufficienti!")
+            else:
+                st.warning("Nessuno svincolato disponibile.")
 
-class FantacalcioManager:
-    CONTRATTO_ANNI = 4
-    ANNO_CORRENTE = 2026
+    with t_vend:
+        st.subheader("Vendi / Svincola giocatore")
+        sq_v = st.selectbox("Squadra", NOMI_SQUADRE, key="vend_sq")
+        rosa = st.session_state.squadre[sq_v]["rosa"]
+        # Filtra solo giocatori di proprietà (non in prestito ricevuto)
+        rosa_proprieta = [g for g in rosa if "(PRESTITO da" not in g.get("Nome", "")]
+        if rosa_proprieta:
+            nomi = [g["Nome"] for g in rosa_proprieta]
+            g_v = st.selectbox("Giocatore", nomi, key="vend_g")
+            g_obj = next(g for g in rosa_proprieta if g["Nome"] == g_v)
+            prezzo_v = st.number_input("Prezzo rimborso", min_value=0, value=g_obj.get("Costo_Acquisto",10), key="vend_p")
+            if st.button("Conferma Vendita"):
+                # Rimuovi da tutte le rose (anche se in prestito, ma qui filtriamo proprietà)
+                st.session_state.squadre[sq_v]["rosa"] = [g for g in rosa if g["Nome"] != g_v]
+                st.session_state.squadre[sq_v]["crediti"] += prezzo_v
+                if g_v in st.session_state.contratti:
+                    del st.session_state.contratti[g_v]
+                st.session_state.storico_mercato.insert(0, {
+                    "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Operazione": "SVINCOLO",
+                    "Dettagli": f"{sq_v} svincola {g_v}, incassa {prezzo_v}cr"
+                })
+                save_state()
+                st.success(f"🗑️ {g_v} svincolato!")
+                st.rerun()
+        else:
+            st.info("Nessun giocatore di proprietà nella rosa.")
 
-    def __init__(self):
-        self.players: Dict[str, Giocatore] = {}
-        self.teams: Dict[int, Squadra] = {}
-        self.loans: List[Prestito] = []
-        self._load_data()
+    with t_reg:
+        st.subheader("📜 Storico Operazioni")
+        if st.session_state.storico_mercato:
+            st.dataframe(pd.DataFrame(st.session_state.storico_mercato), use_container_width=True)
+            if st.button("🗑️ Svuota registro"):
+                st.session_state.storico_mercato = []
+                save_state()
+                st.rerun()
+        else:
+            st.info("Nessuna operazione.")
 
-    def _load_data(self):
-        if os.path.exists(DATA_FILE):
-            try:
-                with open(DATA_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                for p in data.get("players", DEFAULT_PLAYERS):
-                    g = Giocatore(p)
-                    self.players[g.id] = g
-                for t in data.get("teams", []):
-                    s = Squadra.from_dict(t)
-                    self.teams[s.id] = s
-                for l in data.get("loans", []):
-                    self.loans.append(Prestito.from_dict(l))
-                return
-            except Exception:
-                pass
-        # default
-        for p in DEFAULT_PLAYERS:
-            g = Giocatore(p)
-            self.players[g.id] = g
+# ============================================================
+# 3. SCAMBI & PRESTITI
+# ============================================================
+elif menu == "🤝 Scambi & Prestiti":
+    st.header("🤝 Scambi Definitivi & Prestiti")
 
-    def save(self):
-        data = {
-            "players": [p.to_dict() for p in self.players.values()],
-            "teams": [t.to_dict() for t in self.teams.values()],
-            "loans": [l.to_dict() for l in self.loans]
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Squadra A")
+        sq1 = st.selectbox("Squadra 1", NOMI_SQUADRE, key="sc1")
+        rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if "(PRESTITO da" not in g.get("Nome","")]
+        g1 = st.multiselect("Cede giocatori", [g["Nome"] for g in rosa1], key="g1")
+        d1 = st.number_input(f"Conguaglio da {sq1}", min_value=0, max_value=st.session_state.squadre[sq1]["crediti"], value=0, key="d1")
+    with c2:
+        st.subheader("Squadra B")
+        sq2 = st.selectbox("Squadra 2", [s for s in NOMI_SQUADRE if s != sq1], key="sc2")
+        rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if "(PRESTITO da" not in g.get("Nome","")]
+        g2 = st.multiselect("Cede giocatori", [g["Nome"] for g in rosa2], key="g2")
+        d2 = st.number_input(f"Conguaglio da {sq2}", min_value=0, max_value=st.session_state.squadre[sq2]["crediti"], value=0, key="d2")
+
+    tipo = st.radio("Tipo operazione", ["Scambio Definitivo", "Prestito 6 mesi", "Prestito 1 anno"], horizontal=True)
+
+    if st.button("Finalizza", type="primary"):
+        if not g1 and not g2 and d1 == 0 and d2 == 0:
+            st.warning("Seleziona qualcosa.")
+        elif st.session_state.squadre[sq1]["crediti"] < d1:
+            st.error(f"{sq1} non ha abbastanza crediti.")
+        elif st.session_state.squadre[sq2]["crediti"] < d2:
+            st.error(f"{sq2} non ha abbastanza crediti.")
+        else:
+            # Conguaglio
+            st.session_state.squadre[sq1]["crediti"] = st.session_state.squadre[sq1]["crediti"] - d1 + d2
+            st.session_state.squadre[sq2]["crediti"] = st.session_state.squadre[sq2]["crediti"] - d2 + d1
+
+            oggetti1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] in g1]
+            st.session_state.squadre[sq1]["rosa"] = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1]
+            oggetti2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] in g2]
+            st.session_state.squadre[sq2]["rosa"] = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2]
+
+            if tipo == "Scambio Definitivo":
+                st.session_state.squadre[sq1]["rosa"].extend(oggetti2)
+                st.session_state.squadre[sq2]["rosa"].extend(oggetti1)
+                for g in oggetti2:
+                    st.session_state.contratti[g["Nome"]] = {"squadra": sq1, "anno": ANNO_CORRENTE, "durata": CONTRATTO_ANNI}
+                for g in oggetti1:
+                    st.session_state.contratti[g["Nome"]] = {"squadra": sq2, "anno": ANNO_CORRENTE, "durata": CONTRATTO_ANNI}
+                msg = f"Scambio definitivo: {sq1} ↔ {sq2}"
+                st.success(f"🎉 {msg}")
+            else:
+                durata = 6 if tipo == "Prestito 6 mesi" else 12
+                for g in oggetti2:
+                    g_p = g.copy()
+                    g_p["Nome_Originale"] = g["Nome"]
+                    g_p["Nome"] = f"{g['Nome']} (PRESTITO da {sq2})"
+                    g_p["Prestito_Da"] = sq2
+                    g_p["Prestito_A"] = sq1
+                    g_p["Prestito_Durata"] = durata
+                    g_p["Prestito_Anno"] = ANNO_CORRENTE
+                    st.session_state.squadre[sq1]["rosa"].append(g_p)
+                    st.session_state.prestiti.append({
+                        "Giocatore": g["Nome"], "Da": sq2, "A": sq1,
+                        "Durata": durata, "Anno": ANNO_CORRENTE, "Denaro": d2 - d1
+                    })
+                for g in oggetti1:
+                    g_p = g.copy()
+                    g_p["Nome_Originale"] = g["Nome"]
+                    g_p["Nome"] = f"{g['Nome']} (PRESTITO da {sq1})"
+                    g_p["Prestito_Da"] = sq1
+                    g_p["Prestito_A"] = sq2
+                    g_p["Prestito_Durata"] = durata
+                    g_p["Prestito_Anno"] = ANNO_CORRENTE
+                    st.session_state.squadre[sq2]["rosa"].append(g_p)
+                    st.session_state.prestiti.append({
+                        "Giocatore": g["Nome"], "Da": sq1, "A": sq2,
+                        "Durata": durata, "Anno": ANNO_CORRENTE, "Denaro": d1 - d2
+                    })
+                msg = f"Prestito ({durata} mesi): {sq1} ↔ {sq2}"
+                st.success(f"🤝 {msg}")
+
+            st.session_state.storico_mercato.insert(0, {
+                "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "Operazione": tipo.upper(),
+                "Dettagli": msg + (f" | Conguaglio: {d1}cr vs {d2}cr" if d1 or d2 else "")
+            })
+            save_state()
+            st.rerun()
+
+    # Prestiti attivi
+    if st.session_state.prestiti:
+        st.markdown("---")
+        st.subheader("📋 Prestiti Attivi")
+        df_prest = pd.DataFrame(st.session_state.prestiti)
+        st.dataframe(df_prest, use_container_width=True)
+
+        st.subheader("Termina prestito")
+        nomi_prestito = list(df_prest["Giocatore"].unique())
+        gp = st.selectbox("Seleziona giocatore", nomi_prestito, key="term_p")
+        if st.button("Termina prestito e riporta in rosa originale"):
+            # Trova il prestito
+            to_remove = None
+            for i, p in enumerate(st.session_state.prestiti):
+                if p["Giocatore"] == gp:
+                    to_remove = i
+                    da_sq = p["Da"]
+                    a_sq = p["A"]
+                    # Rimuovi dalla rosa del prestinatario
+                    st.session_state.squadre[a_sq]["rosa"] = [
+                        g for g in st.session_state.squadre[a_sq]["rosa"]
+                        if g.get("Nome_Originale") != gp and g["Nome"] != gp
+                    ]
+                    # Riporta nella rosa del proprietario (se non c'è già)
+                    g_orig = None
+                    for g in st.session_state.squadre[da_sq]["rosa"]:
+                        if g["Nome"] == gp:
+                            g_orig = g
+                            break
+                    if not g_orig:
+                        # Ricostruisci dal db
+                        db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"] == gp]
+                        if not db_match.empty:
+                            info = db_match.iloc[0]
+                            g_orig = {
+                                "Nome": gp, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
+                                "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
+                                "Costo_Acquisto": 0, "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI
+                            }
+                        else:
+                            g_orig = {"Nome": gp, "Ruolo": "C", "Squadra_SerieA": "N/D", "Quotazione": 1, "FantaMedia": 6.0, "Costo_Acquisto": 0}
+                        st.session_state.squadre[da_sq]["rosa"].append(g_orig)
+                    break
+            if to_remove is not None:
+                st.session_state.prestiti.pop(to_remove)
+                st.session_state.storico_mercato.insert(0, {
+                    "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Operazione": "FINE PRESTITO",
+                    "Dettagli": f"{gp} torna a {da_sq}"
+                })
+                save_state()
+                st.success(f"✅ {gp} rientrato da prestito!")
+                st.rerun()
+
+# ============================================================
+# 4. ROSE, CREDITI & CONTRATTI
+# ============================================================
+elif menu == "📋 Rose, Crediti & Contratti":
+    st.header("📋 Riepilogo Rose, Crediti & Contratti")
+
+    tab_singole, tab_matrice, tab_contratti, tab_consigli = st.tabs(["🛡️ Squadre", "📊 Matrice", "📄 Contratti", "💡 Consigli 2026/27"])
+
+    with tab_singole:
+        tabs = st.tabs(NOMI_SQUADRE)
+        for i, sq in enumerate(NOMI_SQUADRE):
+            with tabs[i]:
+                dati = st.session_state.squadre[sq]
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.subheader(f"🛡️ {sq}")
+                with c2:
+                    st.metric("Crediti", f"{dati['crediti']} 🪙")
+
+                rosa_df = pd.DataFrame(dati["rosa"])
+                if not rosa_df.empty:
+                    conti = rosa_df["Ruolo"].value_counts().to_dict()
+                    st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+                    # Mostra anche scadenza contratto
+                    display = rosa_df.copy()
+                    if "Anno_Acquisto" in display.columns and "Contratto_Anni" in display.columns:
+                        display["Scadenza"] = display["Anno_Acquisto"] + display["Contratto_Anni"]
+                    st.dataframe(display, use_container_width=True)
+                else:
+                    st.info("Rosa vuota.")
+
+    with tab_matrice:
+        st.subheader("📊 Quadro Generale")
+        summary = []
+        for sq in NOMI_SQUADRE:
+            dati = st.session_state.squadre[sq]
+            rosa = dati["rosa"]
+            p=d=c=a=spesa=0
+            for g in rosa:
+                r = g.get("Ruolo","C")
+                if r=="P": p+=1
+                elif r=="D": d+=1
+                elif r=="C": c+=1
+                elif r=="A": a+=1
+                spesa += g.get("Costo_Acquisto",0)
+            summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, "Tot":len(rosa), "P":p, "D":d, "C":c, "A":a})
+        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+
+    with tab_contratti:
+        st.subheader(f"📄 Contratti 4 anni ({ANNO_CORRENTE}-{ANNO_CORRENTE+CONTRATTO_ANNI})")
+        if st.session_state.contratti:
+            rows = []
+            for nome, c in st.session_state.contratti.items():
+                rows.append({"Giocatore":nome, "Squadra":c["squadra"], "Anno":c["anno"], "Scadenza":c["anno"]+c["durata"], "Durata":c["durata"]})
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        else:
+            st.info("Nessun contratto registrato.")
+
+    with tab_consigli:
+        st.subheader("💡 Consigli Fantacalcio 2026/27")
+        consigli = {
+            "Portieri": {
+                "top": ["Butez (Como) - 19 clean sheet", "Svilar (Roma) - 18 clean sheet", "Maignan (Milan) - 13 clean sheet"],
+                "consigliati": ["Martinez (Inter)", "Meret (Napoli)", "Carnesecchi (Atalanta)", "De Gea (Fiorentina)"],
+                "scommesse": ["Falcone (Lecce)", "Stankovic (Venezia)"]
+            },
+            "Difensori": {
+                "top": ["Dimarco (Inter) - top assoluto", "Bremer (Juve)", "Bisseck (Inter)", "Mancini (Roma)", "Wesley (Roma)"],
+                "consigliati": ["Pavlovic (Milan)", "Ostigard (Napoli)", "Cambiaso (Juve)", "Spinazzola (Roma)", "Zappacosta (Atalanta)"],
+                "scommesse": ["Rensch (Roma)", "Doekhi (Lazio)", "Jimenez (Fiorentina)", "Kaiki (Como)"]
+            },
+            "Centrocampisti": {
+                "top": ["Frattesi (Lazio)", "Pulisic (Milan)", "Orsolini (Bologna)"],
+                "consigliati": ["Vlasic (Torino) - rigorista", "Zaniolo (Udinese)", "Modric (Inter)", "Koné (Juve)", "Perrone (Como)"],
+                "scommesse": ["Alajbegovic (Juve)", "Gaetano (Atalanta)", "Stankovic A. (Inter)", "Calò (Frosinone)", "Milla (Como)"]
+            },
+            "Attaccanti": {
+                "top": ["Lautaro (Inter) - 17 gol", "Malen (Roma) - 14 gol", "Thuram (Inter)", "Hojlund (Napoli)", "Goncalo Ramos (Milan)", "Kolo Muani (Juve)"],
+                "consigliati": ["Kean (Fiorentina)", "Yildiz (Juve)", "Douvikas (Como)", "Dybala (Roma)", "Davis (Udinese)", "Simeone (Napoli)"],
+                "scommesse": ["Alajbegovic K. (Juve)", "Ekhator (Juve)", "Mendy (Cagliari)", "Camarda (Milan)", "Ratkov (Lazio)"]
+            }
         }
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print("\n💾 Dati salvati su", DATA_FILE)
-
-    # ---------- SQUADRE ----------
-    def add_team(self, name: str, budget: int = 500):
-        tid = max(self.teams.keys(), default=0) + 1
-        self.teams[tid] = Squadra(tid, name, budget)
-        print(f"✅ Squadra '{name}' creata con budget {budget}cr (ID: {tid})")
-
-    def remove_team(self, tid: int):
-        if tid in self.teams:
-            name = self.teams[tid].name
-            del self.teams[tid]
-            print(f"🗑️ Squadra '{name}' eliminata")
-        else:
-            print("❌ Squadra non trovata")
-
-    def list_teams(self):
-        if not self.teams:
-            print("Nessuna squadra. Aggiungine una dal menu.")
-            return
-        print(f"\n{'ID':<4} {'Nome':<20} {'Budget':<8} {'Rosa':<6}")
-        print("-" * 45)
-        for t in self.teams.values():
-            print(f"{t.id:<4} {t.name:<20} {t.budget:<8} {len(t.rosa):<6}")
-
-    def show_team(self, tid: int):
-        t = self.teams.get(tid)
-        if not t:
-            print("❌ Squadra non trovata")
-            return
-        stats = t.stats(self.players)
-        print(f"\n📋 {t.name} — Budget: {t.budget}cr")
-        print(f"   Portieri: {stats['P']} | Difensori: {stats['D']} | Centrocampisti: {stats['C']} | Attaccanti: {stats['A']}")
-        if not t.rosa:
-            print("   Rosa vuota")
-            return
-        print(f"   {'Nome':<20} {'R':<3} {'Squadra':<12} {'Prezzo':<8} {'Contratto':<12} {'Prestito':<10}")
-        print("   " + "-" * 70)
-        for r in t.rosa:
-            p = self.players.get(r.player_id)
-            if not p:
-                continue
-            contratto = f"{r.year}-{r.year + self.CONTRATTO_ANNI}"
-            prestito = ""
-            if r.loan:
-                to = self.teams.get(r.loan["to_team_id"])
-                prestito = f"→ {to.name if to else '?'} ({r.loan['duration']}m)"
-            print(f"   {p.nome:<20} {p.ruolo:<3} {p.squadra:<12} {r.price:<8} {contratto:<12} {prestito:<10}")
-
-    # ---------- LISTONE ----------
-    def list_players(self, ruolo: str = "", squadra: str = "", consiglio: str = "", nome: str = ""):
-        results = []
-        for p in self.players.values():
-            if ruolo and p.ruolo != ruolo:
-                continue
-            if squadra and p.squadra != squadra:
-                continue
-            if consiglio and p.consiglio != consiglio:
-                continue
-            if nome and nome.lower() not in p.nome.lower():
-                continue
-            results.append(p)
-        if not results:
-            print("Nessun giocatore trovato")
-            return
-        print(f"\n{'ID':<6} {'Nome':<20} {'R':<3} {'Squadra':<12} {'Prezzo':<8} {'Consiglio':<12} {'Note'}")
-        print("-" * 90)
-        for p in sorted(results, key=lambda x: (x.ruolo, -x.prezzo)):
-            owned = any(t.has_player(p.id) for t in self.teams.values())
-            flag = " [ACQ]" if owned else ""
-            print(f"{p.id:<6} {p.nome:<20} {p.ruolo:<3} {p.squadra:<12} {p.prezzo:<8} {p.consiglio:<12} {p.note}{flag}")
-
-    # ---------- ACQUISTI ----------
-    def buy_player(self, team_id: int, player_id: str, price: int):
-        t = self.teams.get(team_id)
-        p = self.players.get(player_id)
-        if not t or not p:
-            print("❌ Squadra o giocatore non trovato")
-            return
-        if t.has_player(player_id):
-            print("❌ Giocatore già in rosa")
-            return
-        if t.budget < price:
-            print(f"❌ Budget insufficiente ({t.budget}cr disponibili)")
-            return
-        t.add_player(player_id, price, self.ANNO_CORRENTE)
-        print(f"✅ {p.nome} acquistato da {t.name} per {price}cr! Contratto fino al {self.ANNO_CORRENTE + self.CONTRATTO_ANNI}")
-
-    def release_player(self, team_id: int, player_id: str):
-        t = self.teams.get(team_id)
-        if not t:
-            print("❌ Squadra non trovata")
-            return
-        entry = t.remove_player(player_id)
-        if entry:
-            p = self.players.get(player_id)
-            print(f"🗑️ {p.nome if p else player_id} liberato. {entry.price}cr restituiti a {t.name}")
-        else:
-            print("❌ Giocatore non trovato in rosa")
-
-    # ---------- SCAMBI ----------
-    def trade(self, team_a_id: int, team_b_id: int,
-              players_a: List[str], players_b: List[str],
-              money_a: int = 0, money_b: int = 0):
-        if team_a_id == team_b_id:
-            print("❌ Le squadre devono essere diverse")
-            return
-        ta = self.teams.get(team_a_id)
-        tb = self.teams.get(team_b_id)
-        if not ta or not tb:
-            print("❌ Squadra non trovata")
-            return
-        if ta.budget < money_a:
-            print(f"❌ {ta.name} non ha budget per {money_a}cr")
-            return
-        if tb.budget < money_b:
-            print(f"❌ {tb.name} non ha budget per {money_b}cr")
-            return
-        # Verifica possesso
-        for pid in players_a:
-            if not ta.has_player(pid):
-                print(f"❌ {ta.name} non ha {self.players.get(pid, Giocatore({'id':pid,'nome':pid,'ruolo':'?','squadra':'?','prezzo':0})).nome}")
-                return
-        for pid in players_b:
-            if not tb.has_player(pid):
-                print(f"❌ {tb.name} non ha {self.players.get(pid, Giocatore({'id':pid,'nome':pid,'ruolo':'?','squadra':'?','prezzo':0})).nome}")
-                return
-        # Esegui scambio
-        moved_a = []
-        for pid in players_a:
-            for i, r in enumerate(ta.rosa):
-                if r.player_id == pid:
-                    moved_a.append(ta.rosa.pop(i))
-                    break
-        moved_b = []
-        for pid in players_b:
-            for i, r in enumerate(tb.rosa):
-                if r.player_id == pid:
-                    moved_b.append(tb.rosa.pop(i))
-                    break
-        ta.rosa.extend(moved_b)
-        tb.rosa.extend(moved_a)
-        ta.budget -= money_a
-        ta.budget += money_b
-        tb.budget -= money_b
-        tb.budget += money_a
-        print(f"✅ Scambio effettuato!")
-        if money_a or money_b:
-            print(f"   💰 {ta.name} → {tb.name}: {money_a}cr | {tb.name} → {ta.name}: {money_b}cr")
-
-    # ---------- PRESTITI ----------
-    def loan_player(self, from_team_id: int, to_team_id: int, player_id: str,
-                    duration: int, money: int = 0):
-        if from_team_id == to_team_id:
-            print("❌ Le squadre devono essere diverse")
-            return
-        from_t = self.teams.get(from_team_id)
-        to_t = self.teams.get(to_team_id)
-        p = self.players.get(player_id)
-        if not from_t or not to_t or not p:
-            print("❌ Dati non validi")
-            return
-        if not from_t.has_player(player_id):
-            print(f"❌ {from_t.name} non ha {p.nome}")
-            return
-        if to_t.budget < money:
-            print(f"❌ {to_t.name} non ha budget per {money}cr")
-            return
-        # Trova entry e segna come prestato
-        for r in from_t.rosa:
-            if r.player_id == player_id:
-                r.loan = {"to_team_id": to_team_id, "duration": duration,
-                          "money": money, "start_year": self.ANNO_CORRENTE}
-                break
-        to_t.budget -= money
-        from_t.budget += money
-        self.loans.append(Prestito(player_id, from_team_id, to_team_id,
-                                   duration, money, self.ANNO_CORRENTE))
-        print(f"✅ {p.nome} prestato da {from_t.name} a {to_t.name} per {duration} mesi" +
-              (f" ({money}cr)" if money else ""))
-
-    def end_loan(self, loan_index: int):
-        if loan_index < 0 or loan_index >= len(self.loans):
-            print("❌ Prestito non trovato")
-            return
-        l = self.loans.pop(loan_index)
-        from_t = self.teams.get(l.from_team_id)
-        p = self.players.get(l.player_id)
-        if from_t:
-            for r in from_t.rosa:
-                if r.player_id == l.player_id:
-                    r.loan = None
-                    break
-        print(f"✅ Prestito di {p.nome if p else l.player_id} terminato. Torna a {from_t.name if from_t else '?'}")
-
-    def list_loans(self):
-        if not self.loans:
-            print("Nessun prestito attivo")
-            return
-        print(f"\n{'#':<4} {'Giocatore':<20} {'Da':<15} {'A':<15} {'Durata':<8} {'Denaro':<8}")
-        print("-" * 75)
-        for i, l in enumerate(self.loans):
-            p = self.players.get(l.player_id)
-            from_t = self.teams.get(l.from_team_id)
-            to_t = self.teams.get(l.to_team_id)
-            print(f"{i:<4} {p.nome if p else l.player_id:<20} "
-                  f"{from_t.name if from_t else '?':<15} {to_t.name if to_t else '?':<15} "
-                  f"{l.duration}m{'':<5} {l.money}cr")
-
-    # ---------- CONSIGLI ----------
-    def show_tips(self):
-        print("\n" + "=" * 60)
-        print("   🏆 CONSIGLI FANTACALCIO 2026/2027")
-        print("=" * 60)
-        for ruolo, data in CONSIGLI_DATA.items():
-            print(f"\n📌 {ruolo.upper()}")
-            print("   ⭐ TOP:")
-            for t in data["top"]:
-                print(f"      • {t}")
-            print("   👍 CONSIGLIATI:")
-            for t in data["consigliati"]:
-                print(f"      • {t}")
-            print("   🎲 SCOMMESSE:")
-            for t in data["scommesse"]:
-                print(f"      • {t}")
-
-
-# ============================================================
-# INTERFACCIA CLI
-# ============================================================
-
-def print_menu():
-    print("\n" + "=" * 50)
-    print("   🏟️  FANTAMANAGER 2026/2027")
-    print("=" * 50)
-    print("""
-  [1]  Gestione squadre (crea/elimina/visualizza)
-  [2]  Listone giocatori (filtra/acquista)
-  [3]  Acquisto dal listone
-  [4]  Scambio tra squadre
-  [5]  Prestito giocatore
-  [6]  Visualizza prestiti attivi
-  [7]  Libera giocatore
-  [8]  Consigli per l'asta
-  [9]  Salva dati
-  [0]  Esci
-""")
-
-
-def main():
-    fm = FantacalcioManager()
-    print("\n🎉 Benvenuto in FantaManager 2026/2027!")
-    print(f"   Giocatori caricati: {len(fm.players)}")
-    print(f"   Squadre presenti: {len(fm.teams)}")
-
-    while True:
-        print_menu()
-        scelta = input("Scegli un'opzione: ").strip()
-
-        if scelta == "1":
-            print("\n--- Gestione squadre ---")
-            print("  a) Crea squadra")
-            print("  b) Elimina squadra")
-            print("  c) Visualizza tutte le squadre")
-            print("  d) Visualizza dettaglio squadra")
-            sub = input("Scegli: ").strip().lower()
-            if sub == "a":
-                name = input("Nome squadra: ").strip()
-                budget = input("Budget (default 500): ").strip()
-                fm.add_team(name, int(budget) if budget else 500)
-            elif sub == "b":
-                fm.list_teams()
-                tid = input("ID squadra da eliminare: ").strip()
-                fm.remove_team(int(tid))
-            elif sub == "c":
-                fm.list_teams()
-            elif sub == "d":
-                fm.list_teams()
-                tid = input("ID squadra: ").strip()
-                fm.show_team(int(tid))
-
-        elif scelta == "2":
-            print("\n--- Listone giocatori ---")
-            ruolo = input("Filtra ruolo (P/D/C/A, invio=tutti): ").strip().upper()
-            squadra = input("Filtra squadra (invio=tutte): ").strip()
-            consiglio = input("Filtra consiglio (top/consigliato/scommessa, invio=tutti): ").strip()
-            nome = input("Cerca nome (invio=nessuno): ").strip()
-            fm.list_players(ruolo=ruolo, squadra=squadra, consiglio=consiglio, nome=nome)
-
-        elif scelta == "3":
-            print("\n--- Acquisto dal listone ---")
-            fm.list_teams()
-            tid = input("ID squadra acquirente: ").strip()
-            fm.list_players()
-            pid = input("ID giocatore da acquistare: ").strip()
-            price = input("Prezzo pagato: ").strip()
-            fm.buy_player(int(tid), pid, int(price))
-
-        elif scelta == "4":
-            print("\n--- Scambio tra squadre ---")
-            fm.list_teams()
-            aid = input("ID Squadra A: ").strip()
-            bid = input("ID Squadra B: ").strip()
-            ta = fm.teams.get(int(aid))
-            tb = fm.teams.get(int(bid))
-            if ta and tb:
-                print(f"\nGiocatori {ta.name}:")
-                for r in ta.rosa:
-                    p = fm.players.get(r.player_id)
-                    if p:
-                        print(f"  {p.id}: {p.nome} ({p.ruolo})")
-                pa = input("ID giocatori A (separati da virgola): ").strip().split(",")
-                pa = [x.strip() for x in pa if x.strip()]
-
-                print(f"\nGiocatori {tb.name}:")
-                for r in tb.rosa:
-                    p = fm.players.get(r.player_id)
-                    if p:
-                        print(f"  {p.id}: {p.nome} ({p.ruolo})")
-                pb = input("ID giocatori B (separati da virgola): ").strip().split(",")
-                pb = [x.strip() for x in pb if x.strip()]
-
-                ma = input(f"Denaro da {ta.name} a {tb.name} (default 0): ").strip()
-                mb = input(f"Denaro da {tb.name} a {ta.name} (default 0): ").strip()
-                fm.trade(int(aid), int(bid), pa, pb, int(ma) if ma else 0, int(mb) if mb else 0)
-
-        elif scelta == "5":
-            print("\n--- Prestito ---")
-            fm.list_teams()
-            fid = input("ID squadra che presta: ").strip()
-            tid = input("ID squadra che riceve: ").strip()
-            ft = fm.teams.get(int(fid))
-            if ft:
-                print(f"\nGiocatori disponibili in {ft.name}:")
-                for r in ft.rosa:
-                    if not r.loan:
-                        p = fm.players.get(r.player_id)
-                        if p:
-                            print(f"  {p.id}: {p.nome} ({p.ruolo})")
-            pid = input("ID giocatore da prestare: ").strip()
-            dur = input("Durata (6 = 6 mesi, 12 = 1 anno): ").strip()
-            money = input("Denaro incluso (default 0): ").strip()
-            fm.loan_player(int(fid), int(tid), pid, int(dur), int(money) if money else 0)
-
-        elif scelta == "6":
-            fm.list_loans()
-            if fm.loans:
-                end = input("Terminare un prestito? (n/#prestito): ").strip()
-                if end.isdigit():
-                    fm.end_loan(int(end))
-
-        elif scelta == "7":
-            print("\n--- Libera giocatore ---")
-            fm.list_teams()
-            tid = input("ID squadra: ").strip()
-            t = fm.teams.get(int(tid))
-            if t:
-                for r in t.rosa:
-                    p = fm.players.get(r.player_id)
-                    if p:
-                        print(f"  {p.id}: {p.nome} ({p.ruolo}) — {r.price}cr")
-            pid = input("ID giocatore da liberare: ").strip()
-            fm.release_player(int(tid), pid)
-
-        elif scelta == "8":
-            fm.show_tips()
-
-        elif scelta == "9":
-            fm.save()
-
-        elif scelta == "0":
-            fm.save()
-            print("👋 Arrivederci!")
-            break
-
-        else:
-            print("❌ Opzione non valida")
-
-
-if __name__ == "__main__":
-    main()
+        for ruolo, dati in consigli.items():
+            with st.expander(ruolo):
+                st.markdown("**⭐ Top:** " + " • ".join(dati["top"]))
+                st.markdown("**👍 Consigliati:** " + " • ".join(dati["consigliati"]))
+                st.markdown("**🎲 Scommesse:** " + " • ".join(dati["scommesse"]))
