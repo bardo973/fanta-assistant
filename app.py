@@ -393,9 +393,26 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 df_load['FantaMedia'] = pd.to_numeric(fm_serie.astype(str).str.replace(',', '.', regex=False), errors='coerce').fillna(6.0)
                 if 'Potenziale' not in df_load.columns: df_load['Potenziale'] = 3
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
-                st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
+
+                # MERGE: unisci con il listone esistente invece di sovrascrivere
+                df_esistente = st.session_state.giocatori_db.copy()
+                df_nuovo = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']].copy()
+
+                # Aggiorna giocatori esistenti
+                for _, row in df_nuovo.iterrows():
+                    nome = str(row['Nome']).strip()
+                    mask = df_esistente['Nome'].str.lower() == nome.lower()
+                    if mask.any():
+                        idx = df_esistente[mask].index[0]
+                        for col in ['Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']:
+                            if col in row and pd.notna(row[col]):
+                                df_esistente.at[idx, col] = row[col]
+                    else:
+                        df_esistente = pd.concat([df_esistente, pd.DataFrame([row])], ignore_index=True)
+
+                st.session_state.giocatori_db = df_esistente
                 sincronizza_rose_listone()
-                st.sidebar.success("Listone importato! Squadre Serie A aggiornate. Ricarica la pagina (F5) per vedere i cambiamenti.")
+                st.sidebar.success(f"Listone aggiornato! {len(df_nuovo)} giocatori importati/aggiornati. Ricarica (F5) per vedere.")
             else:
                 st.sidebar.error("Colonna 'Nome' mancante.")
         except Exception as e:
@@ -1322,6 +1339,84 @@ elif menu == "📋 Rose e Crediti (10 Squadre)":
                         return [''] * len(row)
 
                     st.dataframe(full_df.style.apply(color_rows, axis=1), use_container_width=True)
+
+                    # ─── MODIFICA MANUALE ───
+                    st.markdown("---")
+                    with st.expander("✏️ Modifica Giocatore"):
+                        st.caption("Modifica i dati di un giocatore in rosa (inclusa la scadenza del contratto).")
+                        giocatori_modificabili = [g["Nome"] for g in rosa_list]
+                        if giocatori_modificabili:
+                            g_modifica = st.selectbox(f"Giocatore da modificare in {nome_sq}", giocatori_modificabili, key=f"modifica_{nome_sq}")
+
+                            g_dati_mod = None
+                            for g in rosa_list:
+                                if g["Nome"] == g_modifica:
+                                    g_dati_mod = g.copy()
+                                    break
+
+                            if g_dati_mod:
+                                col_m1, col_m2 = st.columns(2)
+                                with col_m1:
+                                    new_nome = st.text_input("Nome", value=g_dati_mod.get("Nome", ""), key=f"mod_nome_{nome_sq}_{g_modifica}")
+                                    new_ruolo = st.selectbox("Ruolo", ["P", "D", "C", "A"], index=["P", "D", "C", "A"].index(g_dati_mod.get("Ruolo", "C")), key=f"mod_ruolo_{nome_sq}_{g_modifica}")
+                                    new_sa = st.text_input("Squadra Serie A", value=g_dati_mod.get("Squadra_SerieA", "N/D"), key=f"mod_sa_{nome_sq}_{g_modifica}")
+                                    new_quot = st.number_input("Quotazione", min_value=1, value=int(g_dati_mod.get("Quotazione", 10)), key=f"mod_quot_{nome_sq}_{g_modifica}")
+                                with col_m2:
+                                    new_fm = st.number_input("FantaMedia", min_value=0.0, max_value=15.0, value=float(g_dati_mod.get("FantaMedia", 6.0)), step=0.1, key=f"mod_fm_{nome_sq}_{g_modifica}")
+                                    new_costo = st.number_input("Costo Acquisto", min_value=0, value=int(g_dati_mod.get("Costo_Acquisto", 0)), key=f"mod_costo_{nome_sq}_{g_modifica}")
+                                    new_scadenza = st.text_input("Scadenza Contratto (es. ago 26)", value=g_dati_mod.get("Scadenza_Contratto", "N/D"), key=f"mod_scad_{nome_sq}_{g_modifica}")
+
+                                if st.button("💾 Salva Modifiche", key=f"btn_modifica_{nome_sq}_{g_modifica}", type="primary"):
+                                    try:
+                                        import copy
+                                        squadre_new = {}
+                                        for sq_name in NOMI_SQUADRE:
+                                            old = st.session_state.squadre[sq_name]
+                                            squadre_new[sq_name] = {
+                                                "crediti": int(old.get("crediti", 0)),
+                                                "rosa": [copy.deepcopy(g) for g in old.get("rosa", [])],
+                                                "prestiti_ceduti": [copy.deepcopy(g) for g in old.get("prestiti_ceduti", [])]
+                                            }
+
+                                        trovato = False
+                                        for g in squadre_new[nome_sq]["rosa"]:
+                                            if g["Nome"] == g_modifica:
+                                                g["Nome"] = new_nome.strip()
+                                                g["Ruolo"] = new_ruolo
+                                                g["Squadra_SerieA"] = new_sa.strip() if new_sa.strip() else "N/D"
+                                                g["Quotazione"] = int(new_quot)
+                                                g["FantaMedia"] = float(new_fm)
+                                                g["Costo_Acquisto"] = int(new_costo)
+                                                g["Scadenza_Contratto"] = new_scadenza.strip() if new_scadenza.strip() else "N/D"
+                                                trovato = True
+                                                break
+
+                                        if trovato:
+                                            st.session_state.squadre = squadre_new
+                                            db_g = st.session_state.giocatori_db.copy()
+                                            mask_old = db_g["Nome"].str.lower() == g_modifica.lower()
+                                            if mask_old.any():
+                                                idx = db_g[mask_old].index[0]
+                                                db_g.at[idx, "Nome"] = new_nome.strip()
+                                                db_g.at[idx, "Ruolo"] = new_ruolo
+                                                db_g.at[idx, "Squadra_SerieA"] = new_sa.strip() if new_sa.strip() else "N/D"
+                                                db_g.at[idx, "Quotazione"] = int(new_quot)
+                                                db_g.at[idx, "FantaMedia"] = float(new_fm)
+                                                st.session_state.giocatori_db = db_g
+
+                                            st.session_state.storico_mercato.insert(0, {
+                                                "Orario": datetime.now().strftime("%H:%M:%S"),
+                                                "Operazione": "MODIFICA_MANUALE",
+                                                "Dettagli": f"{nome_sq} modifica {g_modifica}"
+                                            })
+                                            st.success(f"✅ {g_modifica} aggiornato!")
+                                            st.rerun()
+                                        else:
+                                            st.error("Giocatore non trovato.")
+                                    except Exception as e:
+                                        st.error(f"Errore modifica: {e}")
+                        else:
+                            st.info("Rosa vuota.")
 
                     # ─── RIMOZIONE MANUALE ───
                     st.markdown("---")
