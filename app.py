@@ -354,8 +354,7 @@ st.sidebar.title("⚽ Fanta Manager Hub")
 # Pulsante sincronizzazione manuale
 if st.sidebar.button("🔧 Sincronizza Listone con Rose", use_container_width=True):
     sincronizza_rose_listone()
-    st.sidebar.success("Sincronizzazione completata!")
-    st.rerun()
+    st.sidebar.success("Sincronizzazione completata! Ricarica la pagina (F5) per vedere i cambiamenti.")
 
 with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
     st.markdown("Carica il file listone. La colonna **Squadra** popola *Squadra_SerieA*.")
@@ -396,8 +395,7 @@ with st.sidebar.expander("📁 Importa Listone / Quotazioni"):
                 if 'Titolarita' not in df_load.columns: df_load['Titolarita'] = 3
                 st.session_state.giocatori_db = df_load[['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Potenziale', 'Titolarita']]
                 sincronizza_rose_listone()
-                st.sidebar.success("Listone importato! Squadre Serie A aggiornate.")
-                st.rerun()
+                st.sidebar.success("Listone importato! Squadre Serie A aggiornate. Ricarica la pagina (F5) per vedere i cambiamenti.")
             else:
                 st.sidebar.error("Colonna 'Nome' mancante.")
         except Exception as e:
@@ -475,8 +473,7 @@ with st.sidebar.expander("📋 Importa Rose Esistenti"):
                             })
                             count_importati += 1
                 st.session_state.giocatori_db = db_g
-                st.sidebar.success(f"Importati {count_importati} giocatori!")
-                st.rerun()
+                st.sidebar.success(f"Importati {count_importati} giocatori! Ricarica la pagina (F5) per vedere i cambiamenti.")
             else:
                 st.sidebar.error("Colonne essenziali mancanti.")
         except Exception as e:
@@ -642,8 +639,7 @@ with st.sidebar.expander("📦 Carica Backup ZIP"):
                     spesa = sum(g.get("Costo_Acquisto", 0) for g in st.session_state.squadre[sq]["rosa"])
                     st.session_state.squadre[sq]["crediti"] = max(0, 500 - spesa)
 
-                st.sidebar.success("🎉 Backup ripristinato! Ricarica la pagina.")
-                st.rerun()
+                st.sidebar.success("🎉 Backup ripristinato! Ricarica la pagina (F5) per vedere i cambiamenti.")
         except Exception as e:
             st.sidebar.error(f"Errore caricamento ZIP: {e}")
 
@@ -756,17 +752,13 @@ if menu == "🔍 Scouting & Database":
     if solo_stats:
         df_filtrato = df_filtrato[df_filtrato["📊 Stats"] == "✅"]
     if solo_scadenza:
-        # Aggiungi colonna scadenza se non c'è
-        def _in_scadenza_listone(row):
-            # Cerca nelle rose
-            for sq, dati in st.session_state.squadre.items():
-                for g in dati.get("rosa", []):
-                    if g["Nome"].lower() == row["Nome"].lower():
-                        return is_in_scadenza(g.get("Scadenza_Contratto", "N/D"))
-            return False
-        df_filtrato["_in_scad"] = df_filtrato.apply(_in_scadenza_listone, axis=1)
-        df_filtrato = df_filtrato[df_filtrato["_in_scad"] == True]
-        df_filtrato = df_filtrato.drop(columns=["_in_scad"])
+        # Precalcola quali giocatori in rosa sono in scadenza
+        in_scadenza_set = set()
+        for sq, dati in st.session_state.squadre.items():
+            for g in dati.get("rosa", []):
+                if is_in_scadenza(g.get("Scadenza_Contratto", "N/D")):
+                    in_scadenza_set.add(g["Nome"].lower())
+        df_filtrato = df_filtrato[df_filtrato["Nome"].str.lower().isin(in_scadenza_set)]
     if search_nome:
         df_filtrato = df_filtrato[df_filtrato["Nome"].str.contains(search_nome, case=False, na=False)]
 
