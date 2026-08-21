@@ -34,14 +34,14 @@ def fmt_scadenza(mese, anno):
     return "N/D"
 
 def parse_scadenza(val):
-    """Parsa vari formati di scadenza: 'set\'29', 'sett\'29', '09/2029', '2029-09', 'giu\'28', ecc."""
+    """Parsa vari formati di scadenza: 'set\'29', 'sett\'29', 'sett 29', '09/2029', '2029-09', 'giu\'28', ecc."""
     if pd.isna(val) or val is None:
         return None, None
     s = str(val).strip().lower()
     if not s or s in ['nan','none','null','']:
         return None, None
 
-    # Pattern tipo "set'29" o "sett'29" o "giu'28"
+    # Pattern tipo "set'29" o "sett'29" o "giu'28" o "sett 29" (con spazio)
     m = re.match(r"^(gen|feb|mar|apr|mag|giu|lug|ago|set|sett|ott|nov|dic)[\'\s]*([0-9]{2,4})$", s)
     if m:
         mese_str = m.group(1)
@@ -77,6 +77,51 @@ def parse_scadenza(val):
         return None, 2000 + int(m.group(1))
 
     return None, None
+
+def prezzo_consigliato(quotazione, fantamedia):
+    """Calcola un range di prezzo consigliato"""
+    try:
+        q = float(quotazione)
+        fm = float(fantamedia)
+        if fm >= 7.5:
+            min_p = int(q * 0.9)
+            max_p = int(q * 1.3)
+        elif fm >= 6.5:
+            min_p = int(q * 0.85)
+            max_p = int(q * 1.15)
+        else:
+            min_p = int(q * 0.6)
+            max_p = int(q * 1.0)
+        return min_p, max_p
+    except:
+        return 1, int(quotazione) if quotazione else 10
+
+def analisi_scambio(oggetti1, oggetti2, d1, d2):
+    """Analizza uno scambio e restituisce un dict con i dati comparativi"""
+    def somma_stats(oggetti):
+        tot_quot = sum(g.get("Quotazione", 0) for g in oggetti)
+        tot_costo = sum(g.get("Costo_Acquisto", 0) for g in oggetti)
+        avg_fm = sum(g.get("FantaMedia", 0) for g in oggetti) / len(oggetti) if oggetti else 0
+        return {"quot": tot_quot, "costo": tot_costo, "fm": round(avg_fm, 2), "n": len(oggetti)}
+
+    s1 = somma_stats(oggetti1)
+    s2 = somma_stats(oggetti2)
+
+    # Aggiungi conguaglio come "valore" (1 credito = 1 quotazione approx)
+    val1 = s1["quot"] + d1
+    val2 = s2["quot"] + d2
+
+    delta_quot = val2 - val1
+    delta_fm = s2["fm"] - s1["fm"] if s1["n"] > 0 and s2["n"] > 0 else 0
+
+    return {
+        "sq1": s1,
+        "sq2": s2,
+        "delta_quot": delta_quot,
+        "delta_fm": delta_fm,
+        "d1": d1,
+        "d2": d2
+    }
 
 # ============================================================
 # LISTONE DEFAULT 2026/2027
@@ -221,6 +266,19 @@ with c2:
             st.sidebar.warning("Nessun salvataggio trovato.")
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("💰 Modifica Crediti")
+with st.sidebar.expander("✏️ Cambia crediti squadra"):
+    sq_cred = st.selectbox("Squadra", NOMI_SQUADRE, key="cred_sq")
+    cred_attuali = st.session_state.squadre[sq_cred]["crediti"]
+    st.write(f"Crediti attuali: **{cred_attuali}**")
+    nuovi_cred = st.number_input("Nuovi crediti", min_value=0, max_value=9999, value=cred_attuali, key="cred_val")
+    if st.button("💾 Salva crediti", use_container_width=True):
+        st.session_state.squadre[sq_cred]["crediti"] = int(nuovi_cred)
+        save_state()
+        st.sidebar.success(f"✅ {sq_cred}: {cred_attuali} → {nuovi_cred} crediti!")
+        st.rerun()
+
+st.sidebar.markdown("---")
 
 # --- IMPORTA LISTONE ---
 with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
@@ -267,9 +325,6 @@ with st.sidebar.expander("📊 Importa Quotazioni Ultima Giornata 2026"):
     st.markdown("""
     Carica il file con le quotazioni dell'ultima giornata della stagione 2025/26.
     Utile per giocatori non piu presenti nel listone attuale.
-
-    **Colonne attese:** Nome, Ruolo, Squadra, Quotazione, FantaMedia (opzionali)
-    I giocatori nuovi verranno aggiunti al database. I giocatori esistenti verranno aggiornati.
     """)
     up_quot = st.file_uploader("File Quotazioni Ultima Giornata", type=["csv","xlsx"], key="uq")
     if up_quot is not None:
@@ -331,10 +386,8 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
     st.markdown("""
     **Colonne attese:** Squadra, Nome, Ruolo, Costo
 
-    **Opzionali per scadenze:** Scadenza_Anno, Scadenza_Mese (es. 2028, 6)
-
-    **Oppure colonna Scadenza testuale** (es. `set'29`, `giu'28`, `09/2029`)
-    Se mancano, il contratto parte da 2026 per 4 anni.
+    **Scadenza:** una sola colonna tipo `set'29`, `sett 27`, `09/2029`
+    Se manca, il contratto parte da 2026 per 4 anni.
     """)
 
     up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
@@ -375,15 +428,9 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
             col_cs = st.selectbox("Colonna COSTO (opzionale)", cols,
                                    index=cols.index(find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore'])) if find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore']) in cols else 0,
                                    key="map_cs")
-            col_scad_str = st.selectbox("Colonna SCADENZA TESTUALE (es. set'29)", cols,
+            col_scad_str = st.selectbox("Colonna SCADENZA CONTRATTO (es. set'29)", cols,
                                    index=cols.index(find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto'])) if find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto']) in cols else 0,
                                    key="map_scad_str")
-            col_scad_a = st.selectbox("Colonna SCADENZA ANNO (opzionale, se hai gia la testuale)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza'])) if find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza']) in cols else 0,
-                                   key="map_scad_a")
-            col_scad_m = st.selectbox("Colonna SCADENZA MESE (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine'])) if find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine']) in cols else 0,
-                                   key="map_scad_m")
 
             if col_sq and col_nm and col_sq != "" and col_nm != "":
                 st.subheader("👁️ Anteprima dati")
@@ -391,8 +438,6 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                 if col_rl and col_rl != "": preview_cols.append(col_rl)
                 if col_cs and col_cs != "": preview_cols.append(col_cs)
                 if col_scad_str and col_scad_str != "": preview_cols.append(col_scad_str)
-                if col_scad_a and col_scad_a != "": preview_cols.append(col_scad_a)
-                if col_scad_m and col_scad_m != "": preview_cols.append(col_scad_m)
                 st.dataframe(df_r[preview_cols].head(10), use_container_width=True)
 
                 if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
@@ -435,21 +480,8 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                             scad_mese = None
                             scad_anno = None
 
-                            # Priorita alla colonna testuale
                             if col_scad_str and col_scad_str != "" and pd.notna(row[col_scad_str]):
                                 scad_mese, scad_anno = parse_scadenza(row[col_scad_str])
-
-                            # Se non ha funzionato o non c'e, prova colonne separate
-                            if scad_anno is None and col_scad_a and col_scad_a != "" and pd.notna(row[col_scad_a]):
-                                try:
-                                    scad_anno = int(float(row[col_scad_a]))
-                                except:
-                                    scad_anno = None
-                            if scad_mese is None and col_scad_m and col_scad_m != "" and pd.notna(row[col_scad_m]):
-                                try:
-                                    scad_mese = int(float(row[col_scad_m]))
-                                except:
-                                    scad_mese = None
 
                             # Cerca info nel listone
                             db_g = st.session_state.giocatori_db
@@ -643,17 +675,67 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if len(svinc) > 0:
                 g_sel = st.selectbox("Giocatore", svinc["Nome"].values)
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
-                st.write(f"Ruolo: **{info['Ruolo']}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**")
+                ruolo_sel = info['Ruolo']
+
+                st.write(f"Ruolo: **{ruolo_sel}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**")
+
+                # Prezzo consigliato
+                min_p, max_p = prezzo_consigliato(info['Quotazione'], info['FantaMedia'])
+                st.info(f"💡 **Prezzo consigliato:** {min_p}-{max_p} crediti (quotazione listone: {int(info['Quotazione'])}cr)")
+
                 prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=int(info["Quotazione"]), key="acq_p")
                 mese_scad = st.selectbox("Mese scadenza contratto", options=list(range(1,13)),
                                          format_func=lambda x: MESI_NOMI[x],
                                          index=MESE_DEFAULT_SCADENZA-1, key="acq_mese")
+
+                # Paragone con giocatori della rosa stesso ruolo
+                rosa_mia = st.session_state.squadre[sq]["rosa"]
+                rosa_stesso_ruolo = [g for g in rosa_mia if g.get("Ruolo") == ruolo_sel and "(PRESTITO da" not in g.get("Nome", "")]
+
+                if rosa_stesso_ruolo:
+                    st.markdown("---")
+                    st.markdown("### ⚖️ Paragone con la tua rosa")
+                    nomi_paragone = [g["Nome"] for g in rosa_stesso_ruolo]
+                    g_par = st.selectbox("Scegli giocatore da paragonare", nomi_paragone, key="paragone_acq")
+                    g_par_obj = next(g for g in rosa_stesso_ruolo if g["Nome"] == g_par)
+
+                    comp_data = {
+                        "Metrica": ["Nome", "Ruolo", "Quotazione", "FantaMedia", "Costo Acquisto", "Indice Affare"],
+                        "Da Acquistare": [
+                            g_sel,
+                            ruolo_sel,
+                            int(info["Quotazione"]),
+                            info["FantaMedia"],
+                            prezzo,
+                            round(info["FantaMedia"] / max(int(info["Quotazione"]), 1), 2)
+                        ],
+                        "In Rosa": [
+                            g_par,
+                            g_par_obj.get("Ruolo", ruolo_sel),
+                            g_par_obj.get("Quotazione", "N/D"),
+                            g_par_obj.get("FantaMedia", "N/D"),
+                            g_par_obj.get("Costo_Acquisto", "N/D"),
+                            round(g_par_obj.get("FantaMedia", 0) / max(g_par_obj.get("Quotazione", 1), 1), 2) if g_par_obj.get("Quotazione") else "N/D"
+                        ]
+                    }
+                    st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
+
+                    # Giudizio rapido
+                    delta_q = int(info["Quotazione"]) - g_par_obj.get("Quotazione", 0)
+                    delta_fm = info["FantaMedia"] - g_par_obj.get("FantaMedia", 0)
+                    if delta_fm > 0.3 and delta_q <= 5:
+                        st.success("🟢 Upgrade! FantaMedia superiore a poco prezzo.")
+                    elif delta_fm < -0.3:
+                        st.warning("🟡 Downgrade in FantaMedia.")
+                    else:
+                        st.info("⚪ Valori simili, dipende dal prezzo d'acquisto.")
+
                 if st.button("Conferma Acquisto"):
                     if cred >= prezzo:
                         scad_anno = ANNO_CORRENTE + CONTRATTO_ANNI
                         st.session_state.squadre[sq]["crediti"] -= prezzo
                         st.session_state.squadre[sq]["rosa"].append({
-                            "Nome": g_sel, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
+                            "Nome": g_sel, "Ruolo": ruolo_sel, "Squadra_SerieA": info["Squadra_SerieA"],
                             "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
                             "Costo_Acquisto": prezzo, "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI,
                             "Scadenza_Anno": scad_anno, "Scadenza_Mese": mese_scad
@@ -665,7 +747,7 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                         st.session_state.storico_mercato.insert(0, {
                             "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             "Operazione": "ACQUISTO",
-                            "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {fmt_scadenza(mese_scad, scad_anno)}"
+                            "Dettagli": f"{sq} acquista {g_sel} ({ruolo_sel}) per {prezzo}cr — Contratto fino al {fmt_scadenza(mese_scad, scad_anno)}"
                         })
                         save_state()
                         st.success(f"✅ {g_sel} acquistato! Contratto fino al {fmt_scadenza(mese_scad, scad_anno)}.")
@@ -743,6 +825,69 @@ elif menu == "🤝 Scambi & Prestiti":
         d2 = st.number_input(f"Conguaglio da {sq2}", min_value=0, max_value=st.session_state.squadre[sq2]["crediti"], value=0, key="d2")
 
     tipo = st.radio("Tipo operazione", ["Scambio Definitivo", "Prestito 6 mesi", "Prestito 1 anno"], horizontal=True)
+
+    # --- ANALISI PRE-SCAMBIO ---
+    oggetti1_sel = [g for g in rosa1 if g["Nome"] in g1]
+    oggetti2_sel = [g for g in rosa2 if g["Nome"] in g2]
+
+    if oggetti1_sel or oggetti2_sel or d1 or d2:
+        st.markdown("---")
+        st.subheader("📊 Analisi Scambio")
+
+        analisi = analisi_scambio(oggetti1_sel, oggetti2_sel, d1, d2)
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown(f"**🟦 {sq1} cede:**")
+            if oggetti1_sel:
+                for g in oggetti1_sel:
+                    st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
+            else:
+                st.write("Nessun giocatore")
+            if d1 > 0:
+                st.write(f"💰 + {d1}cr conguaglio")
+            st.markdown(f"**Totale quotazione: {analisi['sq1']['quot']} | FantaMedia media: {analisi['sq1']['fm']}**")
+
+        with col_b:
+            st.markdown(f"**🟥 {sq2} cede:**")
+            if oggetti2_sel:
+                for g in oggetti2_sel:
+                    st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
+            else:
+                st.write("Nessun giocatore")
+            if d2 > 0:
+                st.write(f"💰 + {d2}cr conguaglio")
+            st.markdown(f"**Totale quotazione: {analisi['sq2']['quot']} | FantaMedia media: {analisi['sq2']['fm']}**")
+
+        st.markdown("---")
+        st.markdown("### 🎯 Giudizio")
+
+        delta_q = analisi["delta_quot"]
+        delta_fm = analisi["delta_fm"]
+
+        if tipo == "Scambio Definitivo":
+            # Dal punto di vista di sq1
+            if delta_q > 10 and delta_fm >= 0:
+                st.success(f"🟢 **{sq1} ci guadagna!** +{delta_q}cr in quotazione, +{delta_fm} in FantaMedia media.")
+            elif delta_q < -10 and delta_fm <= 0:
+                st.error(f"🔴 **{sq1} ci perde!** {delta_q}cr in quotazione, {delta_fm} in FantaMedia media.")
+            elif delta_q > 5 or delta_fm > 0.2:
+                st.success(f"🟢 **{sq1} in leggero vantaggio** (+{delta_q}cr, +{delta_fm} FM)")
+            elif delta_q < -5 or delta_fm < -0.2:
+                st.error(f"🔴 **{sq1} in leggero svantaggio** ({delta_q}cr, {delta_fm} FM)")
+            else:
+                st.info(f"⚪ **Scambio equilibrato** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
+
+            # Dal punto di vista di sq2 (inverso)
+            st.caption(f"Per {sq2}: {(-delta_q):+.0f}cr in quotazione, {(-delta_fm):+.2f} FM")
+        else:
+            st.info("ℹ️ Per i prestiti il giudizio si basa solo sui conguagli.")
+            if d1 > d2:
+                st.write(f"{sq1} paga {d1-d2}cr a {sq2}")
+            elif d2 > d1:
+                st.write(f"{sq2} paga {d2-d1}cr a {sq1}")
+            else:
+                st.write("Nessun conguaglio")
 
     if st.button("Finalizza", type="primary"):
         if not g1 and not g2 and d1 == 0 and d2 == 0:
@@ -871,11 +1016,19 @@ elif menu == "📋 Rose, Crediti & Contratti":
         for i, sq in enumerate(NOMI_SQUADRE):
             with tabs[i]:
                 dati = st.session_state.squadre[sq]
-                c1, c2 = st.columns([3, 1])
+                c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
                     st.subheader(f"🛡️ {sq}")
                 with c2:
                     st.metric("Crediti", f"{dati['crediti']} 🪙")
+                with c3:
+                    with st.popover("✏️ Modifica"):
+                        nuovi_cred_rosa = st.number_input("Crediti", min_value=0, max_value=9999, value=dati["crediti"], key=f"cred_pop_{sq}")
+                        if st.button("Salva", key=f"btn_cred_{sq}"):
+                            st.session_state.squadre[sq]["crediti"] = int(nuovi_cred_rosa)
+                            save_state()
+                            st.success("Crediti aggiornati!")
+                            st.rerun()
 
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
@@ -1047,13 +1200,11 @@ elif menu == "📈 Statistiche Storiche":
                 elif 'esp' in cl or 'red' in cl: col_map[col] = 'Espulsioni'
             df_s = df_s.rename(columns=col_map)
 
-            # Append invece di sovrascrivere
             existing = st.session_state.stats_storiche.copy()
             if existing.empty:
                 st.session_state.stats_storiche = df_s
             else:
                 combined = pd.concat([existing, df_s], ignore_index=True)
-                # Se c'e Stagione, rimuovi duplicati per Nome+Stagione
                 if "Stagione" in combined.columns and "Nome" in combined.columns:
                     combined = combined.drop_duplicates(subset=["Nome", "Stagione"], keep="last")
                 else:
