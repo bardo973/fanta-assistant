@@ -13,6 +13,7 @@ st.set_page_config(page_title="FantaManager 2026/27 - 10 Squadre", page_icon="�
 SAVE_FILE = "fantamanager_save.json"
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 ANNO_CORRENTE = 2026
+VINCOLI_ROSA = {"P": 3, "D": 9, "C": 9, "A": 7}
 CONTRATTO_ANNI = 4
 MESE_DEFAULT_SCADENZA = 9
 
@@ -114,14 +115,64 @@ def analisi_scambio(oggetti1, oggetti2, d1, d2):
     delta_quot = val2 - val1
     delta_fm = s2["fm"] - s1["fm"] if s1["n"] > 0 and s2["n"] > 0 else 0
 
-    return {
-        "sq1": s1,
-        "sq2": s2,
-        "delta_quot": delta_quot,
-        "delta_fm": delta_fm,
-        "d1": d1,
-        "d2": d2
-    }
+
+# ============================================================
+# NUOVE FUNZIONI (vincoli, stats, scadenze, prestiti)
+# ============================================================
+def get_stats_giocatore(nome):
+    """Recupera le statistiche storiche di un giocatore"""
+    df = st.session_state.stats_storiche
+    if df.empty or "Nome" not in df.columns:
+        return None
+    res = df[df["Nome"].str.lower() == nome.lower()]
+    if res.empty:
+        return None
+    return res
+
+def is_scadenza_prossima(g):
+    """True se il contratto scade entro 6 mesi (entro feb 2027)"""
+    anno = g.get("Scadenza_Anno")
+    mese = g.get("Scadenza_Mese")
+    if not anno or not mese:
+        return False
+    if anno < 2027:
+        return True
+    if anno == 2027 and mese <= 2:
+        return True
+    return False
+
+def conteggio_rosa(rosa):
+    """Conta i giocatori di proprietà (esclusi prestiti in entrata) per ruolo"""
+    c = {"P": 0, "D": 0, "C": 0, "A": 0}
+    for g in rosa:
+        if "(PRESTITO da" in g.get("Nome", ""):
+            continue
+        r = g.get("Ruolo", "C")
+        if r in c:
+            c[r] += 1
+    return c
+
+def puo_acquistare(rosa, ruolo):
+    """Verifica se si può acquistare un giocatore di quel ruolo rispettando i vincoli"""
+    c = conteggio_rosa(rosa)
+    return c.get(ruolo, 0) < VINCOLI_ROSA.get(ruolo, 99)
+
+def vincoli_rosa_text(rosa):
+    """Restituisce una stringa riassuntiva dei vincoli rosa"""
+    c = conteggio_rosa(rosa)
+    parts = []
+    for r in ["P", "D", "C", "A"]:
+        mancano = max(0, VINCOLI_ROSA[r] - c[r])
+        parts.append(f"{r}: {c[r]}/{VINCOLI_ROSA[r]} (mancano {mancano})")
+    return " | ".join(parts)
+
+def giocatori_prestati_da(squadra_nome):
+    """Restituisce i giocatori che questa squadra ha prestato ad altre"""
+    prestati = []
+    for p in st.session_state.prestiti:
+        if p["Da"] == squadra_nome:
+            prestati.append(p)
+    return prestati
 
 # ============================================================
 # LISTONE DEFAULT 2026/2027
@@ -264,6 +315,48 @@ with c2:
             st.rerun()
         else:
             st.sidebar.warning("Nessun salvataggio trovato.")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📁 File di Backup")
+# Esporta
+data_export = {
+    "squadre": st.session_state.squadre,
+    "storico_mercato": st.session_state.storico_mercato,
+    "watchlist": st.session_state.watchlist,
+    "prestiti": st.session_state.prestiti,
+    "contratti": st.session_state.contratti,
+    "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
+    "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else []
+}
+st.sidebar.download_button(
+    label="📥 Scarica Backup",
+    data=json.dumps(data_export, ensure_ascii=False, indent=2),
+    file_name=f"fantamanager_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+    mime="application/json",
+    use_container_width=True
+)
+
+up_backup = st.sidebar.file_uploader("📤 Carica Backup", type=["json"], key="up_backup")
+if up_backup is not None:
+    try:
+        data_imp = json.load(up_backup)
+        st.session_state.squadre = data_imp.get("squadre", {})
+        st.session_state.storico_mercato = data_imp.get("storico_mercato", [])
+        st.session_state.watchlist = data_imp.get("watchlist", [])
+        st.session_state.prestiti = data_imp.get("prestiti", [])
+        st.session_state.contratti = data_imp.get("contratti", {})
+        db = data_imp.get("giocatori_db", [])
+        st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+        stats = data_imp.get("stats_storiche", [])
+        st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
+        for sq in NOMI_SQUADRE:
+            if sq not in st.session_state.squadre:
+                st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+        save_state()
+        st.sidebar.success("✅ Backup caricato!")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Errore caricamento: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("💰 Modifica Crediti")
@@ -663,6 +756,16 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
         c1.metric("Crediti", f"{cred} 🪙")
         c2.metric("Rosa", f"{rosa_len}")
 
+        # --- POPUP VINCOLI ROSA ---
+        with st.popover("📋 Vincoli Rosa", use_container_width=True):
+            c_rosa = conteggio_rosa(st.session_state.squadre[sq]["rosa"])
+            st.markdown(f"**Squadra: {sq}**")
+            for r in ["P", "D", "C", "A"]:
+                mancano = max(0, VINCOLI_ROSA[r] - c_rosa[r])
+                colore = "🟢" if c_rosa[r] >= VINCOLI_ROSA[r] else "🟡" if c_rosa[r] >= VINCOLI_ROSA[r] - 2 else "🔴"
+                st.write(f"{colore} **{r}**: {c_rosa[r]}/{VINCOLI_ROSA[r]} — mancano **{mancano}**")
+            st.caption("I giocatori in prestito ENTRATA non contano per i vincoli.")
+
         db = st.session_state.giocatori_db
         if db.empty:
             st.warning("Importa prima un listone.")
@@ -682,6 +785,12 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 # Prezzo consigliato
                 min_p, max_p = prezzo_consigliato(info['Quotazione'], info['FantaMedia'])
                 st.info(f"💡 **Prezzo consigliato:** {min_p}-{max_p} crediti (quotazione listone: {int(info['Quotazione'])}cr)")
+
+                # --- STATS STORICHE ---
+                stats_sel = get_stats_giocatore(g_sel)
+                if stats_sel is not None and not stats_sel.empty:
+                    with st.expander("📊 Stats storiche 2025/26"):
+                        st.dataframe(stats_sel, use_container_width=True)
 
                 prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=int(info["Quotazione"]), key="acq_p")
                 mese_scad = st.selectbox("Mese scadenza contratto", options=list(range(1,13)),
@@ -720,6 +829,24 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                     }
                     st.dataframe(pd.DataFrame(comp_data), use_container_width=True)
 
+                    # Stats storiche paragone
+                    stats_par = get_stats_giocatore(g_par)
+                    if (stats_sel is not None and not stats_sel.empty) or (stats_par is not None and not stats_par.empty):
+                        with st.expander("📊 Confronto stats storiche"):
+                            c_s, c_p = st.columns(2)
+                            with c_s:
+                                st.markdown(f"**{g_sel}**")
+                                if stats_sel is not None and not stats_sel.empty:
+                                    st.dataframe(stats_sel, use_container_width=True)
+                                else:
+                                    st.caption("Nessuna statistica storica")
+                            with c_p:
+                                st.markdown(f"**{g_par}**")
+                                if stats_par is not None and not stats_par.empty:
+                                    st.dataframe(stats_par, use_container_width=True)
+                                else:
+                                    st.caption("Nessuna statistica storica")
+
                     # Giudizio rapido
                     delta_q = int(info["Quotazione"]) - g_par_obj.get("Quotazione", 0)
                     delta_fm = info["FantaMedia"] - g_par_obj.get("FantaMedia", 0)
@@ -730,8 +857,15 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                     else:
                         st.info("⚪ Valori simili, dipende dal prezzo d'acquisto.")
 
+                # Controllo vincoli
+                puo_acq = puo_acquistare(st.session_state.squadre[sq]["rosa"], ruolo_sel)
+                if not puo_acq:
+                    st.error(f"🚫 Hai già raggiunto il limite di {VINCOLI_ROSA[ruolo_sel]} {ruolo_sel} di proprietà!")
+
                 if st.button("Conferma Acquisto"):
-                    if cred >= prezzo:
+                    if not puo_acq:
+                        st.error("Acquisto bloccato: vincoli rosa non rispettati!")
+                    elif cred >= prezzo:
                         scad_anno = ANNO_CORRENTE + CONTRATTO_ANNI
                         st.session_state.squadre[sq]["crediti"] -= prezzo
                         st.session_state.squadre[sq]["rosa"].append({
@@ -880,6 +1014,18 @@ elif menu == "🤝 Scambi & Prestiti":
 
             # Dal punto di vista di sq2 (inverso)
             st.caption(f"Per {sq2}: {(-delta_q):+.0f}cr in quotazione, {(-delta_fm):+.2f} FM")
+
+            # Stats storiche
+            nomi_stats = []
+            for g in oggetti1_sel + oggetti2_sel:
+                s = get_stats_giocatore(g["Nome"])
+                if s is not None and not s.empty:
+                    nomi_stats.append(g["Nome"])
+            if nomi_stats:
+                with st.expander("📊 Stats storiche giocatori coinvolti"):
+                    for nome_s in nomi_stats:
+                        st.markdown(f"**{nome_s}**")
+                        st.dataframe(get_stats_giocatore(nome_s), use_container_width=True)
         else:
             st.info("ℹ️ Per i prestiti il giudizio si basa solo sui conguagli.")
             if d1 > d2:
@@ -889,7 +1035,41 @@ elif menu == "🤝 Scambi & Prestiti":
             else:
                 st.write("Nessun conguaglio")
 
+    # --- VALIDAZIONE VINCOLI ROSA ---
+    if tipo == "Scambio Definitivo":
+        # Simula lo scambio e controlla vincoli
+        sim_rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1 and "(PRESTITO da" not in g.get("Nome", "")]
+        sim_rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2 and "(PRESTITO da" not in g.get("Nome", "")]
+        sim_rosa1.extend([g for g in oggetti2_sel if "(PRESTITO da" not in g.get("Nome", "")])
+        sim_rosa2.extend([g for g in oggetti1_sel if "(PRESTITO da" not in g.get("Nome", "")])
+
+        vincoli_ok = True
+        for sq_n, sim_rosa in [(sq1, sim_rosa1), (sq2, sim_rosa2)]:
+            c = conteggio_rosa(sim_rosa)
+            for r in ["P", "D", "C", "A"]:
+                if c[r] > VINCOLI_ROSA[r]:
+                    st.error(f"🚫 {sq_n}: supereresti il limite di {VINCOLI_ROSA[r]} {r} (sarebbero {c[r]})")
+                    vincoli_ok = False
+        if not vincoli_ok and (g1 or g2):
+            st.warning("Correggi lo scambio per rispettare i vincoli di rosa (3P, 9D, 9C, 7A).")
+
     if st.button("Finalizza", type="primary"):
+        if tipo == "Scambio Definitivo":
+            # Rivalida vincoli
+            sim_rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1 and "(PRESTITO da" not in g.get("Nome", "")]
+            sim_rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2 and "(PRESTITO da" not in g.get("Nome", "")]
+            sim_rosa1.extend([g for g in oggetti2_sel if "(PRESTITO da" not in g.get("Nome", "")])
+            sim_rosa2.extend([g for g in oggetti1_sel if "(PRESTITO da" not in g.get("Nome", "")])
+            vincoli_ok = True
+            for sq_n, sim_rosa in [(sq1, sim_rosa1), (sq2, sim_rosa2)]:
+                c = conteggio_rosa(sim_rosa)
+                for r in ["P", "D", "C", "A"]:
+                    if c[r] > VINCOLI_ROSA[r]:
+                        vincoli_ok = False
+            if not vincoli_ok:
+                st.error("🚫 Scambio bloccato: violerebbe i vincoli di rosa!")
+                st.stop()
+
         if not g1 and not g2 and d1 == 0 and d2 == 0:
             st.warning("Seleziona qualcosa.")
         elif st.session_state.squadre[sq1]["crediti"] < d1:
@@ -1030,10 +1210,30 @@ elif menu == "📋 Rose, Crediti & Contratti":
                             st.success("Crediti aggiornati!")
                             st.rerun()
 
+                # --- Riepilogo vincoli ---
+                c_rosa = conteggio_rosa(dati["rosa"])
+                vincoli_parts = []
+                for r in ["P", "D", "C", "A"]:
+                    mancano = max(0, VINCOLI_ROSA[r] - c_rosa[r])
+                    emoji = "✅" if c_rosa[r] >= VINCOLI_ROSA[r] else "⚠️" if mancano <= 2 else "❌"
+                    vincoli_parts.append(f"{emoji} {r}: {c_rosa[r]}/{VINCOLI_ROSA[r]}")
+                st.caption("Vincoli rosa: " + " | ".join(vincoli_parts))
+
                 rosa_df = pd.DataFrame(dati["rosa"])
                 if not rosa_df.empty:
+                    # Aggiungi colonne Flag
+                    def flag_row(r):
+                        nome = r.get("Nome", "")
+                        if "(PRESTITO da" in nome:
+                            return "🔴 Prestito"
+                        if is_scadenza_prossima(r):
+                            return "🟠 Scadenza prossima"
+                        return ""
+                    rosa_df["Flag"] = rosa_df.apply(flag_row, axis=1)
+
                     conti = rosa_df["Ruolo"].value_counts().to_dict()
-                    st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+                    st.caption(f"Totale in rosa: P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+
                     display = rosa_df.copy()
                     if "Scadenza_Anno" in display.columns:
                         display["Scadenza"] = display.apply(
@@ -1042,9 +1242,28 @@ elif menu == "📋 Rose, Crediti & Contratti":
                         )
                     elif "Anno_Acquisto" in display.columns and "Contratto_Anni" in display.columns:
                         display["Scadenza"] = display["Anno_Acquisto"] + display["Contratto_Anni"]
+
+                    # Riordina colonne per mettere Flag prima
+                    cols = list(display.columns)
+                    if "Flag" in cols:
+                        cols.insert(0, cols.pop(cols.index("Flag")))
+                        display = display[cols]
+
                     st.dataframe(display, use_container_width=True)
+
+                    # Evidenzia giocatori in scadenza
+                    in_scadenza = [g for g in dati["rosa"] if is_scadenza_prossima(g) and "(PRESTITO da" not in g.get("Nome", "")]
+                    if in_scadenza:
+                        st.warning("🟠 **Giocatori in scadenza entro 6 mesi:** " + ", ".join([g["Nome"] for g in in_scadenza]))
                 else:
                     st.info("Rosa vuota.")
+
+                # --- Prestiti ceduti da questa squadra ---
+                prestati = giocatori_prestati_da(sq)
+                if prestati:
+                    st.success("🟢 **Giocatori ceduti in prestito:**")
+                    df_prest_ced = pd.DataFrame(prestati)
+                    st.dataframe(df_prest_ced, use_container_width=True)
 
     with tab_matrice:
         st.subheader("📊 Quadro Generale")
@@ -1061,7 +1280,14 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 elif r=="A": a+=1
                 spesa += g.get("Costo_Acquisto",0)
             summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, "Tot":len(rosa), "P":p, "D":d, "C":c, "A":a})
-        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+            df_summary = pd.DataFrame(summary)
+            def stato_vincoli(row):
+                sq_n = row["Squadra"]
+                c = conteggio_rosa(st.session_state.squadre[sq_n]["rosa"])
+                ok = all(c[r] >= VINCOLI_ROSA[r] for r in ["P","D","C","A"])
+                return "✅ Completa" if ok else "⚠️ Incompleta"
+            df_summary["Stato Rosa"] = df_summary.apply(stato_vincoli, axis=1)
+            st.dataframe(df_summary, use_container_width=True)
 
     with tab_contratti:
         st.subheader(f"📄 Gestione Contratti")
