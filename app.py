@@ -524,6 +524,10 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
             col_scad_str = st.selectbox("Colonna SCADENZA CONTRATTO (es. set'29)", cols,
                                    index=cols.index(find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto'])) if find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto']) in cols else 0,
                                    key="map_scad_str")
+            col_squadra_reale = st.selectbox("Colonna SQUADRA REALE (opzionale)", cols,
+                                   index=cols.index(find_best_match(cols, ['squadra reale','squadra_seriea','serie a','reale','team'])) if find_best_match(cols, ['squadra reale','squadra_seriea','serie a','reale','team']) in cols else 0,
+                                   key="map_sq_real")
+            default_non_trovato = st.selectbox("Se non nel listone, squadra =", ["N/D", "Estero"], key="map_default_sq")
 
             if col_sq and col_nm and col_sq != "" and col_nm != "":
                 st.subheader("👁️ Anteprima dati")
@@ -531,6 +535,7 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                 if col_rl and col_rl != "": preview_cols.append(col_rl)
                 if col_cs and col_cs != "": preview_cols.append(col_cs)
                 if col_scad_str and col_scad_str != "": preview_cols.append(col_scad_str)
+                if col_squadra_reale and col_squadra_reale != "": preview_cols.append(col_squadra_reale)
                 st.dataframe(df_r[preview_cols].head(10), use_container_width=True)
 
                 if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
@@ -579,7 +584,7 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                             # Cerca info nel listone
                             db_g = st.session_state.giocatori_db
                             match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
-                            sq_sa = "N/D"
+                            sq_sa = default_non_trovato
                             quot = 10
                             fm = 6.0
                             if not match_db.empty:
@@ -587,6 +592,11 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 quot = int(match_db.iloc[0]['Quotazione'])
                                 fm = float(match_db.iloc[0]['FantaMedia'])
                                 g_ruolo = str(match_db.iloc[0]['Ruolo'])
+                            elif col_squadra_reale and col_squadra_reale != "" and pd.notna(row[col_squadra_reale]):
+                                # Usa la colonna squadra reale dal file se il giocatore non è nel listone
+                                val_sq = str(row[col_squadra_reale]).strip()
+                                if val_sq and val_sq.lower() not in ['nan','none','null','']:
+                                    sq_sa = val_sq
 
                             if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
                                 skipped += 1
@@ -999,42 +1009,19 @@ elif menu == "🤝 Scambi & Prestiti":
         delta_q = analisi["delta_quot"]
         delta_fm = analisi["delta_fm"]
 
-        if tipo == "Scambio Definitivo":
-            # Dal punto di vista di sq1
-            if delta_q > 10 and delta_fm >= -0.1:
-                st.success(f"🟢 **{sq1} ci guadagna!** +{delta_q}cr in quotazione, +{delta_fm} in FantaMedia media.")
-            elif delta_q < -10 and delta_fm <= 0.1:
-                st.error(f"🔴 **{sq1} ci perde!** {delta_q}cr in quotazione, {delta_fm} in FantaMedia media.")
-            elif delta_q > 5 and delta_fm >= 0:
-                st.success(f"🟢 **{sq1} in leggero vantaggio** (+{delta_q}cr, +{delta_fm} FM)")
-            elif delta_q < -5 and delta_fm <= 0:
-                st.error(f"🔴 **{sq1} in leggero svantaggio** ({delta_q}cr, {delta_fm} FM)")
-            elif delta_q > 5 and delta_fm < 0:
-                st.info(f"⚪ **{sq1} vantaggio quotazione ma svantaggio FM** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
-            elif delta_q < -5 and delta_fm > 0:
-                st.info(f"⚪ **{sq1} svantaggio quotazione ma vantaggio FM** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
-            elif delta_fm > 0.2:
-                st.success(f"🟢 **{sq1} vantaggio FantaMedia** (+{delta_fm} FM)")
-            elif delta_fm < -0.2:
-                st.error(f"🔴 **{sq1} svantaggio FantaMedia** ({delta_fm} FM)")
-            else:
-                st.info(f"⚪ **Scambio equilibrato** ({delta_q:+.0f}cr, {delta_fm:+.2f} FM)")
+        # Stats storiche giocatori coinvolti
+        nomi_stats = []
+        for g in oggetti1_sel + oggetti2_sel:
+            s = get_stats_giocatore(g["Nome"])
+            if s is not None and not s.empty:
+                nomi_stats.append(g["Nome"])
+        if nomi_stats:
+            with st.expander("📊 Stats storiche giocatori coinvolti"):
+                for nome_s in nomi_stats:
+                    st.markdown(f"**{nome_s}**")
+                    st.dataframe(get_stats_giocatore(nome_s), use_container_width=True)
 
-            # Dal punto di vista di sq2 (inverso)
-            st.caption(f"Per {sq2}: {(-delta_q):+.0f}cr in quotazione, {(-delta_fm):+.2f} FM")
-
-            # Stats storiche
-            nomi_stats = []
-            for g in oggetti1_sel + oggetti2_sel:
-                s = get_stats_giocatore(g["Nome"])
-                if s is not None and not s.empty:
-                    nomi_stats.append(g["Nome"])
-            if nomi_stats:
-                with st.expander("📊 Stats storiche giocatori coinvolti"):
-                    for nome_s in nomi_stats:
-                        st.markdown(f"**{nome_s}**")
-                        st.dataframe(get_stats_giocatore(nome_s), use_container_width=True)
-        else:
+        if tipo != "Scambio Definitivo":
             st.info("ℹ️ Per i prestiti il giudizio si basa solo sui conguagli.")
             if d1 > d2:
                 st.write(f"{sq1} paga {d1-d2}cr a {sq2}")
