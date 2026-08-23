@@ -477,18 +477,24 @@ with st.sidebar.expander("📊 Importa Quotazioni Ultima Giornata 2026"):
 # --- IMPORTA ROSE CON ANTEPRIMA E SCADENZE ---
 with st.sidebar.expander("📋 Importa Rose"):
     st.markdown("""
-    **Formato file:** CSV o Excel con colonne:
-    - **A** = Squadra fantateam
-    - **B** = Nome giocatore
-    - **C** = Ruolo (P/D/C/A) — opzionale
-    - **D** = Scadenza contratto — opzionale
+    **Formato file:** CSV o Excel
 
-    **Formati scadenza accettati:** `set'29`, `sett 29`, `09/2029`, `2029-09`, `2029`, `29`
+    **Con header (riga di intestazione):**
+    | Squadra | Nome | Ruolo | Scadenza |
+    |---------|------|-------|----------|
+    | BARDO | Provedel | P | set'29 |
+    | NILO | Lautaro | A | 2029 |
+
+    **Senza header (solo dati):**
+    | BARDO | Provedel | P | set'29 |
+    | NILO | Lautaro | A | 2029 |
+
+    **Formati scadenza validi:** `set'29`, `sett 29`, `09/2029`, `2029-09`, `2029`, `29`
     """)
 
     up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
     usa_header = st.checkbox("File ha riga di intestazione (header)", value=True, key="ur_header")
-    col_scad_manual = st.number_input("Colonna scadenza (numero, 1=A, 2=B, 3=C, 4=D... lascia 0=auto)", min_value=0, max_value=20, value=0, key="ur_scad_col")
+    col_scad_manual = st.number_input("Forza colonna scadenza (1=A, 2=B, 3=C, 4=D... 0=auto)", min_value=0, max_value=20, value=0, key="ur_scad_col")
 
     if up_rose is not None:
         try:
@@ -518,19 +524,27 @@ with st.sidebar.expander("📋 Importa Rose"):
             col_rl = find_col(df_r, ['ruolo','r ','role'])
             col_scad = None
 
-            # 1. Se l'utente ha specificato manualmente la colonna
+            # 1. Forzatura manuale
             if col_scad_manual > 0 and col_scad_manual <= len(df_r.columns):
                 col_scad = df_r.columns[col_scad_manual - 1]
             else:
                 # 2. Cerca per nome
                 col_scad = find_col(df_r, ['scadenza','scad','fine','contratto','fine contratto'])
-                # 3. Se non trovato e ci sono >=4 colonne, usa la 4a come default
+                # 3. Default: 4a colonna
                 if col_scad is None and len(df_r.columns) >= 4:
-                    col_scad = df_r.columns[3]  # indice 3 = 4a colonna
+                    col_scad = df_r.columns[3]
 
-            st.write(f"🎯 Colonne rilevate: Squadra=`{col_sq}`, Nome=`{col_nm}`" + 
-                     (f", Ruolo=`{col_rl}`" if col_rl else ", Ruolo=auto") +
-                     (f", Scadenza=`{col_scad}`" if col_scad else ", Scadenza=nessuna"))
+            # --- DEBUG: mostra i primi valori della colonna scadenza ---
+            if col_scad:
+                sample_vals = df_r[col_scad].dropna().astype(str).head(5).tolist()
+                st.write(f"🎯 Colonne: Squadra=`{col_sq}`, Nome=`{col_nm}`, Scadenza=`{col_scad}`")
+                st.write(f"📋 Primi valori colonna scadenza: {sample_vals}")
+                # Test parsing sui primi 3
+                for v in sample_vals[:3]:
+                    m, a = parse_scadenza(v)
+                    st.write(f"   → '{v}' → mese={m}, anno={a}")
+            else:
+                st.write(f"🎯 Colonne: Squadra=`{col_sq}`, Nome=`{col_nm}` — **NESSUNA colonna scadenza trovata!**")
 
             if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
                 count = 0
@@ -569,15 +583,13 @@ with st.sidebar.expander("📋 Importa Rose"):
 
                         g_costo = 1
 
-                        # --- Parsing scadenza DAL FILE ---
+                        # --- Parsing scadenza ---
                         scad_mese = None
                         scad_anno = None
-                        scad_raw = None
 
                         if col_scad and pd.notna(row[col_scad]):
                             val_scad = str(row[col_scad]).strip()
                             if val_scad and val_scad.lower() not in ['nan','none','null','']:
-                                scad_raw = val_scad
                                 scad_mese, scad_anno = parse_scadenza(val_scad)
                                 if scad_anno:
                                     scad_ok += 1
@@ -606,20 +618,16 @@ with st.sidebar.expander("📋 Importa Rose"):
                             errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
                             continue
 
-                        # --- Calcola contratto: usa SEMPRE la scadenza del file se presente ---
+                        # Calcola contratto
                         if scad_anno:
                             contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
                             anno_acq = ANNO_CORRENTE
                         else:
-                            # Solo se il file NON ha scadenza, metti default
                             contratto_durata = CONTRATTO_ANNI
                             anno_acq = ANNO_CORRENTE
                             scad_anno = anno_acq + contratto_durata
                             scad_mese = MESE_DEFAULT_SCADENZA
                             scad_default += 1
-
-                        # NON forzare il mese se il file non lo specifica
-                        # (scad_mese rimane None se parse_scadenza non l'ha trovato)
 
                         st.session_state.squadre[sq_match]["crediti"] -= g_costo
                         entry = {
@@ -1210,6 +1218,25 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     vincoli_parts.append(f"{emoji} {r}: {c_rosa[r]}/{VINCOLI_ROSA[r]}")
                 st.caption("Vincoli rosa (di proprietà): " + " | ".join(vincoli_parts))
 
+                # Bottone sincronizza squadre col listone
+                if st.button("🔄 Sincronizza squadre col listone", key=f"sync_{sq}"):
+                    db = st.session_state.giocatori_db
+                    aggiornati = 0
+                    for g in dati["rosa"]:
+                        nome_base = g["Nome"].replace("(PRESTITO da", "").strip().split(")")[0].strip()
+                        match = db[db["Nome"].str.lower() == nome_base.lower()]
+                        if not match.empty:
+                            nuova_sq = match.iloc[0]["Squadra_SerieA"]
+                            if g.get("Squadra_SerieA") != nuova_sq:
+                                g["Squadra_SerieA"] = nuova_sq
+                                aggiornati += 1
+                    if aggiornati > 0:
+                        save_state()
+                        st.success(f"✅ {aggiornati} giocatori aggiornati dal listone!")
+                        st.rerun()
+                    else:
+                        st.info("Tutte le squadre sono già aggiornate.")
+
                 # Separa proprietà da prestiti
                 rosa_proprieta = [g for g in dati["rosa"] if "(PRESTITO da" not in g.get("Nome", "")]
                 rosa_prestito = [g for g in dati["rosa"] if "(PRESTITO da" in g.get("Nome", "")]
@@ -1217,21 +1244,12 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 # --- Giocatori DI PROPRIETÀ ---
                 if rosa_proprieta:
                     st.markdown("**🛡️ Giocatori di proprietà**")
-                    # Sincronizza squadra con il listone
-                    db = st.session_state.giocatori_db
-                    for g in rosa_proprieta:
-                        match = db[db["Nome"].str.lower() == g["Nome"].lower()]
-                        if not match.empty:
-                            g["Squadra_SerieA"] = match.iloc[0]["Squadra_SerieA"]
                     df_prop = pd.DataFrame(rosa_proprieta)
-                    # Calcola scadenza
                     df_prop["Scadenza"] = df_prop.apply(
                         lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")),
                         axis=1
                     )
-                    # Aggiungi fantasquadra
                     df_prop["Fantasquadra"] = sq
-                    # Seleziona solo le colonne richieste
                     df_prop = df_prop[["Nome", "Ruolo", "Fantasquadra", "Squadra_SerieA", "Scadenza"]]
                     df_prop = df_prop.rename(columns={"Squadra_SerieA": "Squadra Serie A"})
                     conti_prop = df_prop["Ruolo"].value_counts().to_dict()
