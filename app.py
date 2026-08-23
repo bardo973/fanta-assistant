@@ -975,94 +975,82 @@ elif menu == "🤝 Scambi & Prestiti":
     oggetti2_sel = [g for g in rosa2 if g["Nome"] in g2]
 
     if oggetti1_sel or oggetti2_sel or d1 or d2:
-        st.markdown("---")
-        st.subheader("📊 Analisi Scambio")
+        try:
+            st.markdown("---")
+            st.subheader("📊 Analisi Scambio")
 
-        analisi = analisi_scambio(oggetti1_sel, oggetti2_sel, d1, d2)
+            analisi = analisi_scambio(oggetti1_sel, oggetti2_sel, d1, d2)
 
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.markdown(f"**🟦 {sq1} cede:**")
-            if oggetti1_sel:
-                for g in oggetti1_sel:
-                    st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
-            else:
-                st.write("Nessun giocatore")
-            if d1 > 0:
-                st.write(f"💰 + {d1}cr conguaglio")
-            st.markdown(f"**Totale quotazione: {analisi['sq1']['quot']} | FantaMedia media: {analisi['sq1']['fm']}**")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown(f"**🟦 {sq1} cede:**")
+                if oggetti1_sel:
+                    for g in oggetti1_sel:
+                        st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
+                else:
+                    st.write("Nessun giocatore")
+                if d1 > 0:
+                    st.write(f"💰 + {d1}cr conguaglio")
+                st.markdown(f"**Totale quotazione: {analisi['sq1']['quot']} | FantaMedia media: {analisi['sq1']['fm']}**")
 
-        with col_b:
-            st.markdown(f"**🟥 {sq2} cede:**")
-            if oggetti2_sel:
-                for g in oggetti2_sel:
-                    st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
-            else:
-                st.write("Nessun giocatore")
-            if d2 > 0:
-                st.write(f"💰 + {d2}cr conguaglio")
-            st.markdown(f"**Totale quotazione: {analisi['sq2']['quot']} | FantaMedia media: {analisi['sq2']['fm']}**")
+            with col_b:
+                st.markdown(f"**🟥 {sq2} cede:**")
+                if oggetti2_sel:
+                    for g in oggetti2_sel:
+                        st.write(f"• {g['Nome']} ({g.get('Ruolo','')}) — Q:{g.get('Quotazione','?')} FM:{g.get('FantaMedia','?')} Costo:{g.get('Costo_Acquisto','?')}cr")
+                else:
+                    st.write("Nessun giocatore")
+                if d2 > 0:
+                    st.write(f"💰 + {d2}cr conguaglio")
+                st.markdown(f"**Totale quotazione: {analisi['sq2']['quot']} | FantaMedia media: {analisi['sq2']['fm']}**")
 
-        st.markdown("---")
-        st.markdown("### 🎯 Giudizio")
+            st.markdown("---")
+            st.markdown("### 📊 Dati comparativi")
+            st.write(f"Delta quotazione (valore): **{analisi['delta_quot']:+.0f}cr**")
+            st.write(f"Delta FantaMedia media: **{analisi['delta_fm']:+.2f}**")
 
-        delta_q = analisi["delta_quot"]
-        delta_fm = analisi["delta_fm"]
+            # Stats storiche giocatori coinvolti
+            nomi_stats = []
+            for g in oggetti1_sel + oggetti2_sel:
+                s = get_stats_giocatore(g["Nome"])
+                if s is not None and not s.empty:
+                    nomi_stats.append(g["Nome"])
+            if nomi_stats:
+                with st.expander("📊 Stats storiche giocatori coinvolti"):
+                    for nome_s in nomi_stats:
+                        st.markdown(f"**{nome_s}**")
+                        st.dataframe(get_stats_giocatore(nome_s), use_container_width=True)
 
-        # Stats storiche giocatori coinvolti
-        nomi_stats = []
-        for g in oggetti1_sel + oggetti2_sel:
-            s = get_stats_giocatore(g["Nome"])
-            if s is not None and not s.empty:
-                nomi_stats.append(g["Nome"])
-        if nomi_stats:
-            with st.expander("📊 Stats storiche giocatori coinvolti"):
-                for nome_s in nomi_stats:
-                    st.markdown(f"**{nome_s}**")
-                    st.dataframe(get_stats_giocatore(nome_s), use_container_width=True)
-
-        if tipo != "Scambio Definitivo":
-            st.info("ℹ️ Per i prestiti il giudizio si basa solo sui conguagli.")
-            if d1 > d2:
-                st.write(f"{sq1} paga {d1-d2}cr a {sq2}")
-            elif d2 > d1:
-                st.write(f"{sq2} paga {d2-d1}cr a {sq1}")
-            else:
-                st.write("Nessun conguaglio")
-
-    # --- VALIDAZIONE VINCOLI ROSA ---
-    if tipo == "Scambio Definitivo":
-        # Simula lo scambio e controlla vincoli
-        sim_rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1 and "(PRESTITO da" not in g.get("Nome", "")]
-        sim_rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2 and "(PRESTITO da" not in g.get("Nome", "")]
-        sim_rosa1.extend([g for g in oggetti2_sel if "(PRESTITO da" not in g.get("Nome", "")])
-        sim_rosa2.extend([g for g in oggetti1_sel if "(PRESTITO da" not in g.get("Nome", "")])
-
-        vincoli_ok = True
-        for sq_n, sim_rosa in [(sq1, sim_rosa1), (sq2, sim_rosa2)]:
-            c = conteggio_rosa(sim_rosa)
-            for r in ["P", "D", "C", "A"]:
-                if c[r] > VINCOLI_ROSA[r]:
-                    st.error(f"🚫 {sq_n}: supereresti il limite di {VINCOLI_ROSA[r]} {r} (sarebbero {c[r]})")
-                    vincoli_ok = False
-        if not vincoli_ok and (g1 or g2):
-            st.warning("Correggi lo scambio per rispettare i vincoli di rosa (3P, 9D, 9C, 7A).")
+            if tipo != "Scambio Definitivo":
+                st.info("ℹ️ Per i prestiti il giudizio si basa solo sui conguagli.")
+                if d1 > d2:
+                    st.write(f"{sq1} paga {d1-d2}cr a {sq2}")
+                elif d2 > d1:
+                    st.write(f"{sq2} paga {d2-d1}cr a {sq1}")
+                else:
+                    st.write("Nessun conguaglio")
+        except Exception as e:
+            st.error(f"Errore nell'analisi dello scambio: {e}")
 
     if st.button("Finalizza", type="primary"):
         if tipo == "Scambio Definitivo":
-            # Rivalida vincoli
+            # Validazione vincoli
             sim_rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1 and "(PRESTITO da" not in g.get("Nome", "")]
             sim_rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2 and "(PRESTITO da" not in g.get("Nome", "")]
             sim_rosa1.extend([g for g in oggetti2_sel if "(PRESTITO da" not in g.get("Nome", "")])
             sim_rosa2.extend([g for g in oggetti1_sel if "(PRESTITO da" not in g.get("Nome", "")])
             vincoli_ok = True
+            msgs = []
             for sq_n, sim_rosa in [(sq1, sim_rosa1), (sq2, sim_rosa2)]:
                 c = conteggio_rosa(sim_rosa)
                 for r in ["P", "D", "C", "A"]:
                     if c[r] > VINCOLI_ROSA[r]:
+                        msgs.append(f"🚫 {sq_n}: supereresti il limite di {VINCOLI_ROSA[r]} {r} (sarebbero {c[r]})")
                         vincoli_ok = False
             if not vincoli_ok:
-                st.error("🚫 Scambio bloccato: violerebbe i vincoli di rosa!")
+                for m in msgs:
+                    st.error(m)
+                st.warning("Correggi lo scambio per rispettare i vincoli di rosa (3P, 9D, 9C, 7A).")
                 st.stop()
 
         if not g1 and not g2 and d1 == 0 and d2 == 0:
@@ -1221,6 +1209,12 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 # --- Giocatori DI PROPRIETÀ ---
                 if rosa_proprieta:
                     st.markdown("**🛡️ Giocatori di proprietà**")
+                    # Sincronizza squadra con il listone
+                    db = st.session_state.giocatori_db
+                    for g in rosa_proprieta:
+                        match = db[db["Nome"].str.lower() == g["Nome"].lower()]
+                        if not match.empty:
+                            g["Squadra_SerieA"] = match.iloc[0]["Squadra_SerieA"]
                     df_prop = pd.DataFrame(rosa_proprieta)
                     # Rinomina e riordina colonne
                     if "Squadra_SerieA" in df_prop.columns:
@@ -1247,6 +1241,13 @@ elif menu == "📋 Rose, Crediti & Contratti":
                 # --- Giocatori IN PRESTITO (entrata) ---
                 if rosa_prestito:
                     st.markdown("**🔴 In prestito (non contano per i vincoli)**")
+                    # Sincronizza squadra con il listone
+                    db = st.session_state.giocatori_db
+                    for g in rosa_prestito:
+                        nome_base = g["Nome"].replace("(PRESTITO da", "").strip().split(")")[0].strip()
+                        match = db[db["Nome"].str.lower() == nome_base.lower()]
+                        if not match.empty:
+                            g["Squadra_SerieA"] = match.iloc[0]["Squadra_SerieA"]
                     df_prest = pd.DataFrame(rosa_prestito)
                     if "Squadra_SerieA" in df_prest.columns:
                         df_prest = df_prest.rename(columns={"Squadra_SerieA": "Squadra"})
