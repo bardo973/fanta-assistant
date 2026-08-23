@@ -487,161 +487,156 @@ with st.sidebar.expander("📋 Importa Rose"):
     **Formati scadenza:** `ago 26`, `sett 29`, `09/2029`, `2029`, `29`
     """)
 
-    up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
+    # === FIX: uso di st.form per evitare loop infinito ===
+    with st.form("form_importa_rose", clear_on_submit=True):
+        up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
+        submitted = st.form_submit_button("📤 Importa Rose", use_container_width=True)
 
-    if up_rose is not None:
-        # === FIX: evita loop infinito controllando se il file è già stato processato ===
-        file_id = f"{up_rose.name}_{up_rose.size}"
-        if file_id == st.session_state.get("_last_rose_file", ""):
-            st.sidebar.info("✅ File già importato. Carica un nuovo file se vuoi aggiornare.")
-        else:
-            try:
-                if up_rose.name.endswith('.csv'):
-                    df_r = pd.read_csv(up_rose, encoding='utf-8', on_bad_lines='skip')
-                else:
-                    df_r = pd.read_excel(up_rose)
+    if submitted and up_rose is not None:
+        try:
+            if up_rose.name.endswith('.csv'):
+                df_r = pd.read_csv(up_rose, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_r = pd.read_excel(up_rose)
 
-                df_r.columns = [str(c).strip().lower() for c in df_r.columns]
+            df_r.columns = [str(c).strip().lower() for c in df_r.columns]
 
-                # --- Trova colonne per nome ---
-                col_sq = next((c for c in df_r.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
-                col_nm = next((c for c in df_r.columns if 'nome' in c or 'giocatore' in c), None)
-                col_rl = next((c for c in df_r.columns if 'ruolo' in c or 'r' == c), None)
-                col_scad = next((c for c in df_r.columns if 'scadenza' in c or 'contratto' in c or 'anno' in c), None)
-                col_squadra_sa = next((c for c in df_r.columns if 'squadra serie a' in c or 'team' in c or 'club' in c or 'serie a' in c), None)
+            # --- Trova colonne per nome ---
+            col_sq = next((c for c in df_r.columns if 'squadra' in c or 'fantateam' in c or 'proprietario' in c), None)
+            col_nm = next((c for c in df_r.columns if 'nome' in c or 'giocatore' in c), None)
+            col_rl = next((c for c in df_r.columns if 'ruolo' in c or 'r' == c), None)
+            col_scad = next((c for c in df_r.columns if 'scadenza' in c or 'contratto' in c or 'anno' in c), None)
+            col_squadra_sa = next((c for c in df_r.columns if 'squadra serie a' in c or 'team' in c or 'club' in c or 'serie a' in c), None)
 
-                if col_sq and col_nm:
-                    count = 0
-                    skipped = 0
-                    errors = []
-                    scad_ok = 0
-                    scad_default = 0
+            if col_sq and col_nm:
+                count = 0
+                skipped = 0
+                errors = []
+                scad_ok = 0
+                scad_default = 0
 
-                    # === FIX: usa to_dict per performance migliore ===
-                    records = df_r[[c for c in [col_sq, col_nm, col_rl, col_scad, col_squadra_sa] if c]].to_dict('records')
+                # === FIX: usa to_dict per performance migliore ===
+                records = df_r[[c for c in [col_sq, col_nm, col_rl, col_scad, col_squadra_sa] if c]].to_dict('records')
 
-                    for row in records:
-                        try:
-                            sq_nome = str(row.get(col_sq, '')).strip().upper()
-                            sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
-                            if not sq_match:
-                                skipped += 1
-                                continue
+                for row in records:
+                    try:
+                        sq_nome = str(row.get(col_sq, '')).strip().upper()
+                        sq_match = next((s for s in NOMI_SQUADRE if s.upper() in sq_nome or sq_nome in s.upper()), None)
+                        if not sq_match:
+                            skipped += 1
+                            continue
 
-                            g_nome = str(row.get(col_nm, '')).strip()
-                            if not g_nome or g_nome.lower() in ['nan', 'none', 'null', '']:
-                                continue
+                        g_nome = str(row.get(col_nm, '')).strip()
+                        if not g_nome or g_nome.lower() in ['nan', 'none', 'null', '']:
+                            continue
 
-                            # Ruolo
-                            g_ruolo = str(row.get(col_rl, '')).strip().upper() if col_rl and pd.notna(row.get(col_rl)) else "C"
-                            if len(g_ruolo) > 1 and g_ruolo[0] in "PDCA":
-                                g_ruolo = g_ruolo[0]
-                            elif g_ruolo not in ["P","D","C","A"]:
-                                g_ruolo = "C"
+                        # Ruolo
+                        g_ruolo = str(row.get(col_rl, '')).strip().upper() if col_rl and pd.notna(row.get(col_rl)) else "C"
+                        if len(g_ruolo) > 1 and g_ruolo[0] in "PDCA":
+                            g_ruolo = g_ruolo[0]
+                        elif g_ruolo not in ["P","D","C","A"]:
+                            g_ruolo = "C"
 
-                            # Scadenza dal file (stringa originale)
-                            g_scadenza_str = "N/D"
-                            if col_scad and pd.notna(row.get(col_scad)):
-                                val = str(row.get(col_scad)).strip()
-                                if val and val.lower() not in ['nan','none','null','']:
-                                    g_scadenza_str = val
-                                    scad_ok += 1
-                                else:
-                                    scad_default += 1
+                        # Scadenza dal file (stringa originale)
+                        g_scadenza_str = "N/D"
+                        if col_scad and pd.notna(row.get(col_scad)):
+                            val = str(row.get(col_scad)).strip()
+                            if val and val.lower() not in ['nan','none','null','']:
+                                g_scadenza_str = val
+                                scad_ok += 1
                             else:
                                 scad_default += 1
+                        else:
+                            scad_default += 1
 
-                            # Squadra Serie A dal file (priorità)
-                            g_squadra_sa = None
-                            if col_squadra_sa and pd.notna(row.get(col_squadra_sa)):
-                                g_squadra_sa = str(row.get(col_squadra_sa)).strip()
+                        # Squadra Serie A dal file (priorità)
+                        g_squadra_sa = None
+                        if col_squadra_sa and pd.notna(row.get(col_squadra_sa)):
+                            g_squadra_sa = str(row.get(col_squadra_sa)).strip()
 
-                            # Cerca info nel listone
-                            db_g = st.session_state.giocatori_db
-                            match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
-                            sq_sa = "N/D"
-                            quot = 10
-                            fm = 6.0
-                            if not match_db.empty:
-                                sq_sa = match_db.iloc[0]['Squadra_SerieA']
-                                quot = int(match_db.iloc[0]['Quotazione'])
-                                fm = float(match_db.iloc[0]['FantaMedia'])
-                                if g_ruolo == "C":
-                                    g_ruolo = str(match_db.iloc[0]['Ruolo'])
+                        # Cerca info nel listone
+                        db_g = st.session_state.giocatori_db
+                        match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                        sq_sa = "N/D"
+                        quot = 10
+                        fm = 6.0
+                        if not match_db.empty:
+                            sq_sa = match_db.iloc[0]['Squadra_SerieA']
+                            quot = int(match_db.iloc[0]['Quotazione'])
+                            fm = float(match_db.iloc[0]['FantaMedia'])
+                            if g_ruolo == "C":
+                                g_ruolo = str(match_db.iloc[0]['Ruolo'])
 
-                            # Se il file ha una squadra Serie A specifica, usa quella
-                            if g_squadra_sa:
-                                sq_sa = g_squadra_sa
+                        # Se il file ha una squadra Serie A specifica, usa quella
+                        if g_squadra_sa:
+                            sq_sa = g_squadra_sa
 
-                            # Evita duplicati
-                            if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
-                                skipped += 1
-                                continue
+                        # Evita duplicati
+                        if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
+                            skipped += 1
+                            continue
 
-                            # Parsing scadenza per i campi numerici interni
-                            scad_mese, scad_anno = parse_scadenza(g_scadenza_str)
-                            if scad_anno:
-                                contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
-                                anno_acq = ANNO_CORRENTE
-                            else:
-                                contratto_durata = CONTRATTO_ANNI
-                                anno_acq = ANNO_CORRENTE
-                                scad_anno = anno_acq + contratto_durata
-                                scad_mese = MESE_DEFAULT_SCADENZA
+                        # Parsing scadenza per i campi numerici interni
+                        scad_mese, scad_anno = parse_scadenza(g_scadenza_str)
+                        if scad_anno:
+                            contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
+                            anno_acq = ANNO_CORRENTE
+                        else:
+                            contratto_durata = CONTRATTO_ANNI
+                            anno_acq = ANNO_CORRENTE
+                            scad_anno = anno_acq + contratto_durata
+                            scad_mese = MESE_DEFAULT_SCADENZA
 
-                            g_costo = 1
-                            if st.session_state.squadre[sq_match]["crediti"] < g_costo:
-                                errors.append(f"{sq_match}: crediti insufficienti per {g_nome}")
-                                continue
+                        g_costo = 1
+                        if st.session_state.squadre[sq_match]["crediti"] < g_costo:
+                            errors.append(f"{sq_match}: crediti insufficienti per {g_nome}")
+                            continue
 
-                            st.session_state.squadre[sq_match]["crediti"] -= g_costo
-                            entry = {
-                                "Nome": g_nome,
-                                "Ruolo": g_ruolo,
-                                "Squadra_SerieA": sq_sa,
-                                "Quotazione": quot,
-                                "FantaMedia": fm,
-                                "Costo_Acquisto": g_costo,
-                                "Anno_Acquisto": anno_acq,
-                                "Contratto_Anni": contratto_durata,
-                                "Scadenza_Anno": scad_anno,
-                                "Scadenza_Mese": scad_mese,
-                                "Scadenza_Contratto": g_scadenza_str,  # stringa originale dal file
-                            }
+                        st.session_state.squadre[sq_match]["crediti"] -= g_costo
+                        entry = {
+                            "Nome": g_nome,
+                            "Ruolo": g_ruolo,
+                            "Squadra_SerieA": sq_sa,
+                            "Quotazione": quot,
+                            "FantaMedia": fm,
+                            "Costo_Acquisto": g_costo,
+                            "Anno_Acquisto": anno_acq,
+                            "Contratto_Anni": contratto_durata,
+                            "Scadenza_Anno": scad_anno,
+                            "Scadenza_Mese": scad_mese,
+                            "Scadenza_Contratto": g_scadenza_str,  # stringa originale dal file
+                        }
 
-                            st.session_state.squadre[sq_match]["rosa"].append(entry)
-                            st.session_state.contratti[g_nome] = {
-                                "squadra": sq_match,
-                                "anno": anno_acq,
-                                "durata": contratto_durata,
-                                "scadenza_anno": scad_anno,
-                                "scadenza_mese": scad_mese
-                            }
-                            count += 1
+                        st.session_state.squadre[sq_match]["rosa"].append(entry)
+                        st.session_state.contratti[g_nome] = {
+                            "squadra": sq_match,
+                            "anno": anno_acq,
+                            "durata": contratto_durata,
+                            "scadenza_anno": scad_anno,
+                            "scadenza_mese": scad_mese
+                        }
+                        count += 1
 
-                        except Exception as e:
-                            errors.append(f"Riga: {e}")
+                    except Exception as e:
+                        errors.append(f"Riga: {e}")
 
-                    save_state()
-                    # === FIX: marca il file come processato PRIMA del rerun ===
-                    st.session_state["_last_rose_file"] = file_id
+                save_state()
+                msg = f"✅ Importati {count} giocatori! ({skipped} saltati)"
+                if scad_ok > 0:
+                    msg += f" | Scadenze dal file: {scad_ok}"
+                if scad_default > 0:
+                    msg += f" | Default: {scad_default}"
+                st.sidebar.success(msg)
+                if errors:
+                    with st.sidebar.expander("⚠️ Errori"):
+                        for e in errors[:20]:
+                            st.write(f"- {e}")
+                st.rerun()
+            else:
+                st.sidebar.error("Colonne Squadra e Nome mancanti.")
 
-                    msg = f"✅ Importati {count} giocatori! ({skipped} saltati)"
-                    if scad_ok > 0:
-                        msg += f" | Scadenze dal file: {scad_ok}"
-                    if scad_default > 0:
-                        msg += f" | Default: {scad_default}"
-                    st.sidebar.success(msg)
-                    if errors:
-                        with st.sidebar.expander("⚠️ Errori"):
-                            for e in errors[:20]:
-                                st.write(f"- {e}")
-                    st.rerun()
-                else:
-                    st.sidebar.error("Colonne Squadra e Nome mancanti.")
-
-            except Exception as e:
-                st.sidebar.error(f"Errore lettura file: {e}")
+        except Exception as e:
+            st.sidebar.error(f"Errore lettura file: {e}")
 
 with st.sidebar.expander("⚠️ Reset"):
     if st.button("🗑️ Resetta TUTTO", use_container_width=True):
@@ -1258,6 +1253,17 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     st.markdown("**🟢 Ceduti in prestito ad altre squadre**")
                     df_prest_ced = pd.DataFrame(prestati)
                     st.dataframe(df_prest_ced, use_container_width=True)
+
+                # --- Statistiche Storiche Rosa ---
+                stats_rosa = []
+                for g in rosa_proprieta:
+                    s = get_stats_giocatore(g["Nome"])
+                    if s is not None and not s.empty:
+                        stats_rosa.append(s)
+                if stats_rosa:
+                    with st.expander("📊 Statistiche Storiche Giocatori di Proprietà"):
+                        df_stats_rosa = pd.concat(stats_rosa, ignore_index=True)
+                        st.dataframe(df_stats_rosa, use_container_width=True)
 
     with tab_matrice:
         st.subheader("📊 Quadro Generale")
