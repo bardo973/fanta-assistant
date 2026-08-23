@@ -475,187 +475,187 @@ with st.sidebar.expander("📊 Importa Quotazioni Ultima Giornata 2026"):
             st.sidebar.error(f"Errore: {e}")
 
 # --- IMPORTA ROSE CON ANTEPRIMA E SCADENZE ---
-with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
+with st.sidebar.expander("📋 Importa Rose"):
     st.markdown("""
-    **Colonne attese:** Squadra, Nome, Ruolo, Costo
+    **Formato file:** CSV o Excel con colonne:
+    - **A** = Squadra fantateam
+    - **B** = Nome giocatore
+    - **C** = Ruolo (P/D/C/A) — opzionale
+    - **D** = Scadenza contratto (es. `set'29`, `09/2029`) — opzionale
 
-    **Scadenza:** una sola colonna tipo `set'29`, `sett 27`, `09/2029`
-    Se manca, il contratto parte da 2026 per 4 anni.
+    Se il file ha header con nomi, verranno riconosciuti automaticamente.
     """)
 
     up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
+    usa_header = st.checkbox("File ha riga di intestazione (header)", value=True, key="ur_header")
 
     if up_rose is not None:
         try:
             if up_rose.name.endswith('.csv'):
-                df_r = pd.read_csv(up_rose, encoding='utf-8', on_bad_lines='skip')
+                df_r = pd.read_csv(up_rose, encoding='utf-8', on_bad_lines='skip', header=0 if usa_header else None)
             else:
-                xl = pd.ExcelFile(up_rose)
-                sheets = xl.sheet_names
-                if len(sheets) > 1:
-                    sheet_sel = st.selectbox("Seleziona sheet", sheets, key="sheet_sel")
-                    df_r = pd.read_excel(up_rose, sheet_name=sheet_sel)
-                else:
-                    df_r = pd.read_excel(up_rose)
+                df_r = pd.read_excel(up_rose, header=0 if usa_header else None)
 
-            df_r.columns = [str(c).strip() for c in df_r.columns]
+            # Se no header, assegna nomi A,B,C,D...
+            if not usa_header:
+                df_r.columns = [f"Col {i+1}" for i in range(len(df_r.columns))]
+            else:
+                df_r.columns = [str(c).strip() for c in df_r.columns]
+
             st.write(f"**File letto:** {len(df_r)} righe, colonne: {', '.join(df_r.columns)}")
 
-            def find_best_match(options, keywords):
-                for kw in keywords:
-                    for opt in options:
-                        if kw in str(opt).lower():
-                            return opt
+            # --- Auto-mapping colonne ---
+            def find_col(df, keywords):
+                for col in df.columns:
+                    cl = str(col).lower()
+                    for kw in keywords:
+                        if kw in cl:
+                            return col
                 return None
 
-            cols = [""] + list(df_r.columns)
-            col_sq = st.selectbox("Colonna SQUADRA", cols, 
-                                   index=cols.index(find_best_match(cols, ['squadra','team','proprietario','fantateam'])) if find_best_match(cols, ['squadra','team','proprietario','fantateam']) in cols else 0,
-                                   key="map_sq")
-            col_nm = st.selectbox("Colonna NOME", cols,
-                                   index=cols.index(find_best_match(cols, ['nome','giocatore','player'])) if find_best_match(cols, ['nome','giocatore','player']) in cols else 0,
-                                   key="map_nm")
-            col_rl = st.selectbox("Colonna RUOLO (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['ruolo','r ','role'])) if find_best_match(cols, ['ruolo','r ','role']) in cols else 0,
-                                   key="map_rl")
-            col_cs = st.selectbox("Colonna COSTO (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore'])) if find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore']) in cols else 0,
-                                   key="map_cs")
-            col_scad_str = st.selectbox("Colonna SCADENZA CONTRATTO (es. set'29)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto'])) if find_best_match(cols, ['scadenza','scad','fine','fine_contratto','contratto']) in cols else 0,
-                                   key="map_scad_str")
-            col_squadra_reale = st.selectbox("Colonna SQUADRA REALE (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['squadra reale','squadra_seriea','serie a','reale','team'])) if find_best_match(cols, ['squadra reale','squadra_seriea','serie a','reale','team']) in cols else 0,
-                                   key="map_sq_real")
-            default_non_trovato = st.selectbox("Se non nel listone, squadra =", ["N/D", "Estero"], key="map_default_sq")
+            col_sq = find_col(df_r, ['squadra','team','proprietario','fantateam']) or df_r.columns[0]
+            col_nm = find_col(df_r, ['nome','giocatore','player']) or (df_r.columns[1] if len(df_r.columns) > 1 else df_r.columns[0])
+            col_rl = find_col(df_r, ['ruolo','r ','role'])
+            col_scad = find_col(df_r, ['scadenza','scad','fine','contratto','fine contratto'])
 
-            if col_sq and col_nm and col_sq != "" and col_nm != "":
-                st.subheader("👁️ Anteprima dati")
-                preview_cols = [col_sq, col_nm]
-                if col_rl and col_rl != "": preview_cols.append(col_rl)
-                if col_cs and col_cs != "": preview_cols.append(col_cs)
-                if col_scad_str and col_scad_str != "": preview_cols.append(col_scad_str)
-                if col_squadra_reale and col_squadra_reale != "": preview_cols.append(col_squadra_reale)
-                st.dataframe(df_r[preview_cols].head(10), use_container_width=True)
+            # Se non trovato scadenza e ci sono almeno 4 colonne, prova l'ultima
+            if col_scad is None and len(df_r.columns) >= 4:
+                # Controlla se l'ultima colonna ha valori che sembrano scadenze
+                last_col = df_r.columns[-1]
+                sample = df_r[last_col].dropna().astype(str).head(5).tolist()
+                looks_like_scad = any(re.match(r"^(gen|feb|mar|apr|mag|giu|lug|ago|set|sett|ott|nov|dic|[0-9]{1,2}[/\-.])", s.lower()) for s in sample if s.strip())
+                if looks_like_scad:
+                    col_scad = last_col
 
-                if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
-                    count = 0
-                    skipped = 0
-                    errors = []
+            st.write(f"🎯 Colonne rilevate: Squadra=`{col_sq}`, Nome=`{col_nm}`" + 
+                     (f", Ruolo=`{col_rl}`" if col_rl else ", Ruolo=auto") +
+                     (f", Scadenza=`{col_scad}`" if col_scad else ", Scadenza=default (4 anni)"))
 
-                    for idx, row in df_r.iterrows():
-                        try:
-                            sq_nome = str(row[col_sq]).strip().upper() if pd.notna(row[col_sq]) else ""
-                            if not sq_nome: continue
+            if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
+                count = 0
+                skipped = 0
+                errors = []
+                scad_ok = 0
+                scad_ko = 0
 
-                            sq_match = None
-                            for s in NOMI_SQUADRE:
-                                if s.upper() == sq_nome or s.upper() in sq_nome or sq_nome in s.upper():
-                                    sq_match = s
-                                    break
-                            if not sq_match:
-                                skipped += 1
-                                continue
+                for idx, row in df_r.iterrows():
+                    try:
+                        sq_nome = str(row[col_sq]).strip().upper() if pd.notna(row[col_sq]) else ""
+                        if not sq_nome: continue
 
-                            g_nome = str(row[col_nm]).strip() if pd.notna(row[col_nm]) else ""
-                            if not g_nome or g_nome.lower() in ['nan', 'none', 'null', '']:
-                                continue
+                        sq_match = None
+                        for s in NOMI_SQUADRE:
+                            if s.upper() == sq_nome or s.upper() in sq_nome or sq_nome in s.upper():
+                                sq_match = s
+                                break
+                        if not sq_match:
+                            skipped += 1
+                            continue
 
-                            g_ruolo = str(row[col_rl]).strip().upper() if col_rl and col_rl != "" and pd.notna(row[col_rl]) else "C"
+                        g_nome = str(row[col_nm]).strip() if pd.notna(row[col_nm]) else ""
+                        if not g_nome or g_nome.lower() in ['nan', 'none', 'null', '']:
+                            continue
+
+                        # Ruolo
+                        g_ruolo = "C"
+                        if col_rl and pd.notna(row[col_rl]):
+                            g_ruolo = str(row[col_rl]).strip().upper()
                             if len(g_ruolo) > 1 and g_ruolo[0] in "PDCA":
                                 g_ruolo = g_ruolo[0]
                             elif g_ruolo not in ["P","D","C","A"]:
                                 g_ruolo = "C"
 
-                            g_costo = 1
-                            if col_cs and col_cs != "" and pd.notna(row[col_cs]):
-                                try:
-                                    g_costo = int(float(str(row[col_cs]).replace(',','.')))
-                                except:
-                                    g_costo = 1
+                        # Costo = 1 (non previsto nel file rose base)
+                        g_costo = 1
 
-                            # --- Parsing scadenza ---
-                            scad_mese = None
-                            scad_anno = None
+                        # --- Parsing scadenza ---
+                        scad_mese = None
+                        scad_anno = None
 
-                            if col_scad_str and col_scad_str != "" and pd.notna(row[col_scad_str]):
-                                scad_mese, scad_anno = parse_scadenza(row[col_scad_str])
+                        if col_scad and pd.notna(row[col_scad]):
+                            val_scad = str(row[col_scad]).strip()
+                            if val_scad and val_scad.lower() not in ['nan','none','null','']:
+                                scad_mese, scad_anno = parse_scadenza(val_scad)
+                                if scad_anno:
+                                    scad_ok += 1
+                                else:
+                                    scad_ko += 1
+                                    errors.append(f"{g_nome}: scadenza non riconosciuta '{val_scad}'")
 
-                            # Cerca info nel listone
-                            db_g = st.session_state.giocatori_db
-                            match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
-                            sq_sa = default_non_trovato
-                            quot = 10
-                            fm = 6.0
-                            if not match_db.empty:
-                                sq_sa = match_db.iloc[0]['Squadra_SerieA']
-                                quot = int(match_db.iloc[0]['Quotazione'])
-                                fm = float(match_db.iloc[0]['FantaMedia'])
+                        # Cerca info nel listone
+                        db_g = st.session_state.giocatori_db
+                        match_db = db_g[db_g['Nome'].str.lower() == g_nome.lower()]
+                        sq_sa = "N/D"
+                        quot = 10
+                        fm = 6.0
+                        if not match_db.empty:
+                            sq_sa = match_db.iloc[0]['Squadra_SerieA']
+                            quot = int(match_db.iloc[0]['Quotazione'])
+                            fm = float(match_db.iloc[0]['FantaMedia'])
+                            if g_ruolo == "C":  # solo se non già impostato dal file
                                 g_ruolo = str(match_db.iloc[0]['Ruolo'])
-                            elif col_squadra_reale and col_squadra_reale != "" and pd.notna(row[col_squadra_reale]):
-                                # Usa la colonna squadra reale dal file se il giocatore non è nel listone
-                                val_sq = str(row[col_squadra_reale]).strip()
-                                if val_sq and val_sq.lower() not in ['nan','none','null','']:
-                                    sq_sa = val_sq
 
-                            if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
-                                skipped += 1
-                                continue
+                        if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
+                            skipped += 1
+                            continue
 
-                            if st.session_state.squadre[sq_match]["crediti"] < g_costo:
-                                errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
-                                continue
+                        if st.session_state.squadre[sq_match]["crediti"] < g_costo:
+                            errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
+                            continue
 
-                            # Calcola contratto
-                            if scad_anno:
-                                contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
-                                anno_acq = ANNO_CORRENTE
-                            else:
-                                contratto_durata = CONTRATTO_ANNI
-                                anno_acq = ANNO_CORRENTE
-                                scad_anno = anno_acq + contratto_durata
+                        # Calcola contratto
+                        if scad_anno:
+                            contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
+                            anno_acq = ANNO_CORRENTE
+                        else:
+                            contratto_durata = CONTRATTO_ANNI
+                            anno_acq = ANNO_CORRENTE
+                            scad_anno = anno_acq + contratto_durata
 
-                            if scad_mese is None:
-                                scad_mese = MESE_DEFAULT_SCADENZA
+                        if scad_mese is None:
+                            scad_mese = MESE_DEFAULT_SCADENZA
 
-                            st.session_state.squadre[sq_match]["crediti"] -= g_costo
-                            entry = {
-                                "Nome": g_nome,
-                                "Ruolo": g_ruolo,
-                                "Squadra_SerieA": sq_sa,
-                                "Quotazione": quot,
-                                "FantaMedia": fm,
-                                "Costo_Acquisto": g_costo,
-                                "Anno_Acquisto": anno_acq,
-                                "Contratto_Anni": contratto_durata,
-                                "Scadenza_Anno": scad_anno,
-                                "Scadenza_Mese": scad_mese,
-                            }
+                        st.session_state.squadre[sq_match]["crediti"] -= g_costo
+                        entry = {
+                            "Nome": g_nome,
+                            "Ruolo": g_ruolo,
+                            "Squadra_SerieA": sq_sa,
+                            "Quotazione": quot,
+                            "FantaMedia": fm,
+                            "Costo_Acquisto": g_costo,
+                            "Anno_Acquisto": anno_acq,
+                            "Contratto_Anni": contratto_durata,
+                            "Scadenza_Anno": scad_anno,
+                            "Scadenza_Mese": scad_mese,
+                        }
 
-                            st.session_state.squadre[sq_match]["rosa"].append(entry)
-                            st.session_state.contratti[g_nome] = {
-                                "squadra": sq_match,
-                                "anno": anno_acq,
-                                "durata": contratto_durata,
-                                "scadenza_anno": scad_anno,
-                                "scadenza_mese": scad_mese
-                            }
-                            count += 1
+                        st.session_state.squadre[sq_match]["rosa"].append(entry)
+                        st.session_state.contratti[g_nome] = {
+                            "squadra": sq_match,
+                            "anno": anno_acq,
+                            "durata": contratto_durata,
+                            "scadenza_anno": scad_anno,
+                            "scadenza_mese": scad_mese
+                        }
+                        count += 1
 
-                        except Exception as e:
-                            errors.append(f"Riga {idx}: {e}")
+                    except Exception as e:
+                        errors.append(f"Riga {idx}: {e}")
 
-                    save_state()
-                    st.sidebar.success(f"✅ Importati {count} giocatori! ({skipped} saltati)")
-                    if errors:
-                        with st.sidebar.expander("⚠️ Errori/Avvisi"):
-                            for e in errors[:20]:
-                                st.write(f"- {e}")
-                            if len(errors) > 20:
-                                st.write(f"... e altri {len(errors)-20} errori")
-                    st.rerun()
-            else:
-                st.warning("Seleziona almeno le colonne Squadra e Nome.")
+                save_state()
+                msg = f"✅ Importati {count} giocatori! ({skipped} saltati)"
+                if scad_ok > 0:
+                    msg += f" | Contratti letti: {scad_ok}"
+                if scad_ko > 0:
+                    msg += f" | Scadenze non riconosciute: {scad_ko}"
+                st.sidebar.success(msg)
+                if errors:
+                    with st.sidebar.expander("⚠️ Errori/Avvisi"):
+                        for e in errors[:30]:
+                            st.write(f"- {e}")
+                        if len(errors) > 30:
+                            st.write(f"... e altri {len(errors)-30} errori")
+                st.rerun()
 
         except Exception as e:
             st.sidebar.error(f"Errore lettura file: {e}")
