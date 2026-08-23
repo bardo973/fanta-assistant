@@ -1216,18 +1216,16 @@ elif menu == "📋 Rose, Crediti & Contratti":
                         if not match.empty:
                             g["Squadra_SerieA"] = match.iloc[0]["Squadra_SerieA"]
                     df_prop = pd.DataFrame(rosa_proprieta)
-                    # Rinomina e riordina colonne
-                    if "Squadra_SerieA" in df_prop.columns:
-                        df_prop = df_prop.rename(columns={"Squadra_SerieA": "Squadra"})
-                    df_prop["Flag"] = df_prop.apply(lambda r: "🟠 Scadenza" if is_scadenza_prossima(r) else "", axis=1)
-                    if "Scadenza_Anno" in df_prop.columns:
-                        df_prop["Scadenza"] = df_prop.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
-                    elif "Anno_Acquisto" in df_prop.columns and "Contratto_Anni" in df_prop.columns:
-                        df_prop["Scadenza"] = df_prop["Anno_Acquisto"] + df_prop["Contratto_Anni"]
-                    # Riordina: Nome, Ruolo, Squadra, FantaMedia, Quotazione, Costo_Acquisto, Scadenza, Flag + altre
-                    preferred = ["Nome", "Ruolo", "Squadra", "FantaMedia", "Quotazione", "Costo_Acquisto", "Scadenza", "Flag"]
-                    cols = [c for c in preferred if c in df_prop.columns] + [c for c in df_prop.columns if c not in preferred]
-                    df_prop = df_prop[cols]
+                    # Calcola scadenza
+                    df_prop["Scadenza"] = df_prop.apply(
+                        lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")),
+                        axis=1
+                    )
+                    # Aggiungi fantasquadra
+                    df_prop["Fantasquadra"] = sq
+                    # Seleziona solo le colonne richieste
+                    df_prop = df_prop[["Nome", "Ruolo", "Fantasquadra", "Squadra_SerieA", "Scadenza"]]
+                    df_prop = df_prop.rename(columns={"Squadra_SerieA": "Squadra Serie A"})
                     conti_prop = df_prop["Ruolo"].value_counts().to_dict()
                     st.caption(f"Proprietà: P: {conti_prop.get('P',0)} | D: {conti_prop.get('D',0)} | C: {conti_prop.get('C',0)} | A: {conti_prop.get('A',0)} | Tot: {len(df_prop)}")
                     st.dataframe(df_prop, use_container_width=True)
@@ -1249,13 +1247,13 @@ elif menu == "📋 Rose, Crediti & Contratti":
                         if not match.empty:
                             g["Squadra_SerieA"] = match.iloc[0]["Squadra_SerieA"]
                     df_prest = pd.DataFrame(rosa_prestito)
-                    if "Squadra_SerieA" in df_prest.columns:
-                        df_prest = df_prest.rename(columns={"Squadra_SerieA": "Squadra"})
-                    if "Scadenza_Anno" in df_prest.columns:
-                        df_prest["Scadenza"] = df_prest.apply(lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")), axis=1)
-                    preferred = ["Nome", "Ruolo", "Squadra", "FantaMedia", "Quotazione", "Costo_Acquisto", "Scadenza"]
-                    cols = [c for c in preferred if c in df_prest.columns] + [c for c in df_prest.columns if c not in preferred]
-                    df_prest = df_prest[cols]
+                    df_prest["Scadenza"] = df_prest.apply(
+                        lambda r: fmt_scadenza(r.get("Scadenza_Mese"), r.get("Scadenza_Anno")),
+                        axis=1
+                    )
+                    df_prest["Fantasquadra"] = sq
+                    df_prest = df_prest[["Nome", "Ruolo", "Fantasquadra", "Squadra_SerieA", "Scadenza"]]
+                    df_prest = df_prest.rename(columns={"Squadra_SerieA": "Squadra Serie A"})
                     conti_prest = df_prest["Ruolo"].value_counts().to_dict()
                     st.caption(f"Prestiti: P: {conti_prest.get('P',0)} | D: {conti_prest.get('D',0)} | C: {conti_prest.get('C',0)} | A: {conti_prest.get('A',0)} | Tot: {len(df_prest)}")
                     st.dataframe(df_prest, use_container_width=True)
