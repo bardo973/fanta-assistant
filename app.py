@@ -481,13 +481,14 @@ with st.sidebar.expander("📋 Importa Rose"):
     - **A** = Squadra fantateam
     - **B** = Nome giocatore
     - **C** = Ruolo (P/D/C/A) — opzionale
-    - **D** = Scadenza contratto (es. `set'29`, `09/2029`) — opzionale
+    - **D** = Scadenza contratto — opzionale
 
-    Se il file ha header con nomi, verranno riconosciuti automaticamente.
+    **Formati scadenza accettati:** `set'29`, `sett 29`, `09/2029`, `2029-09`, `2029`, `29`
     """)
 
     up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
     usa_header = st.checkbox("File ha riga di intestazione (header)", value=True, key="ur_header")
+    col_scad_manual = st.number_input("Colonna scadenza (numero, 1=A, 2=B, 3=C, 4=D... lascia 0=auto)", min_value=0, max_value=20, value=0, key="ur_scad_col")
 
     if up_rose is not None:
         try:
@@ -496,7 +497,6 @@ with st.sidebar.expander("📋 Importa Rose"):
             else:
                 df_r = pd.read_excel(up_rose, header=0 if usa_header else None)
 
-            # Se no header, assegna nomi A,B,C,D...
             if not usa_header:
                 df_r.columns = [f"Col {i+1}" for i in range(len(df_r.columns))]
             else:
@@ -516,26 +516,28 @@ with st.sidebar.expander("📋 Importa Rose"):
             col_sq = find_col(df_r, ['squadra','team','proprietario','fantateam']) or df_r.columns[0]
             col_nm = find_col(df_r, ['nome','giocatore','player']) or (df_r.columns[1] if len(df_r.columns) > 1 else df_r.columns[0])
             col_rl = find_col(df_r, ['ruolo','r ','role'])
-            col_scad = find_col(df_r, ['scadenza','scad','fine','contratto','fine contratto'])
+            col_scad = None
 
-            # Se non trovato scadenza e ci sono almeno 4 colonne, prova l'ultima
-            if col_scad is None and len(df_r.columns) >= 4:
-                # Controlla se l'ultima colonna ha valori che sembrano scadenze
-                last_col = df_r.columns[-1]
-                sample = df_r[last_col].dropna().astype(str).head(5).tolist()
-                looks_like_scad = any(re.match(r"^(gen|feb|mar|apr|mag|giu|lug|ago|set|sett|ott|nov|dic|[0-9]{1,2}[/\-.])", s.lower()) for s in sample if s.strip())
-                if looks_like_scad:
-                    col_scad = last_col
+            # 1. Se l'utente ha specificato manualmente la colonna
+            if col_scad_manual > 0 and col_scad_manual <= len(df_r.columns):
+                col_scad = df_r.columns[col_scad_manual - 1]
+            else:
+                # 2. Cerca per nome
+                col_scad = find_col(df_r, ['scadenza','scad','fine','contratto','fine contratto'])
+                # 3. Se non trovato e ci sono >=4 colonne, usa la 4a come default
+                if col_scad is None and len(df_r.columns) >= 4:
+                    col_scad = df_r.columns[3]  # indice 3 = 4a colonna
 
             st.write(f"🎯 Colonne rilevate: Squadra=`{col_sq}`, Nome=`{col_nm}`" + 
                      (f", Ruolo=`{col_rl}`" if col_rl else ", Ruolo=auto") +
-                     (f", Scadenza=`{col_scad}`" if col_scad else ", Scadenza=default (4 anni)"))
+                     (f", Scadenza=`{col_scad}`" if col_scad else ", Scadenza=nessuna"))
 
             if st.button("✅ IMPORTA ROSE", type="primary", use_container_width=True):
                 count = 0
                 skipped = 0
                 errors = []
                 scad_ok = 0
+                scad_default = 0
                 scad_ko = 0
 
                 for idx, row in df_r.iterrows():
@@ -565,16 +567,17 @@ with st.sidebar.expander("📋 Importa Rose"):
                             elif g_ruolo not in ["P","D","C","A"]:
                                 g_ruolo = "C"
 
-                        # Costo = 1 (non previsto nel file rose base)
                         g_costo = 1
 
-                        # --- Parsing scadenza ---
+                        # --- Parsing scadenza DAL FILE ---
                         scad_mese = None
                         scad_anno = None
+                        scad_raw = None
 
                         if col_scad and pd.notna(row[col_scad]):
                             val_scad = str(row[col_scad]).strip()
                             if val_scad and val_scad.lower() not in ['nan','none','null','']:
+                                scad_raw = val_scad
                                 scad_mese, scad_anno = parse_scadenza(val_scad)
                                 if scad_anno:
                                     scad_ok += 1
@@ -592,7 +595,7 @@ with st.sidebar.expander("📋 Importa Rose"):
                             sq_sa = match_db.iloc[0]['Squadra_SerieA']
                             quot = int(match_db.iloc[0]['Quotazione'])
                             fm = float(match_db.iloc[0]['FantaMedia'])
-                            if g_ruolo == "C":  # solo se non già impostato dal file
+                            if g_ruolo == "C":
                                 g_ruolo = str(match_db.iloc[0]['Ruolo'])
 
                         if any(g['Nome'].lower() == g_nome.lower() for g in st.session_state.squadre[sq_match]["rosa"]):
@@ -603,17 +606,20 @@ with st.sidebar.expander("📋 Importa Rose"):
                             errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
                             continue
 
-                        # Calcola contratto
+                        # --- Calcola contratto: usa SEMPRE la scadenza del file se presente ---
                         if scad_anno:
                             contratto_durata = max(1, scad_anno - ANNO_CORRENTE)
                             anno_acq = ANNO_CORRENTE
                         else:
+                            # Solo se il file NON ha scadenza, metti default
                             contratto_durata = CONTRATTO_ANNI
                             anno_acq = ANNO_CORRENTE
                             scad_anno = anno_acq + contratto_durata
-
-                        if scad_mese is None:
                             scad_mese = MESE_DEFAULT_SCADENZA
+                            scad_default += 1
+
+                        # NON forzare il mese se il file non lo specifica
+                        # (scad_mese rimane None se parse_scadenza non l'ha trovato)
 
                         st.session_state.squadre[sq_match]["crediti"] -= g_costo
                         entry = {
@@ -645,7 +651,9 @@ with st.sidebar.expander("📋 Importa Rose"):
                 save_state()
                 msg = f"✅ Importati {count} giocatori! ({skipped} saltati)"
                 if scad_ok > 0:
-                    msg += f" | Contratti letti: {scad_ok}"
+                    msg += f" | Scadenze dal file: {scad_ok}"
+                if scad_default > 0:
+                    msg += f" | Default set'30: {scad_default}"
                 if scad_ko > 0:
                     msg += f" | Scadenze non riconosciute: {scad_ko}"
                 st.sidebar.success(msg)
