@@ -779,8 +779,10 @@ if menu == "🔍 Scouting & Database":
                 min_q, max_q = int(df["Quotazione"].min()), int(df["Quotazione"].max())
                 range_q = st.slider("Quotazione", min_q, max_q, (min_q, max_q), key="scout_q")
             with f4:
-                min_fm_s, max_fm_s = float(df["FantaMedia"].min()), float(df["FantaMedia"].max())
-                range_fm = st.slider("FantaMedia", min_fm_s, max_fm_s, (min_fm_s, max_fm_s), 0.1, key="scout_fm")
+                fm_vals = pd.to_numeric(df["FantaMedia"], errors="coerce").dropna()
+                min_fm_s = round(float(fm_vals.min()), 1) if len(fm_vals) > 0 else 4.0
+                max_fm_s = round(float(fm_vals.max()), 1) if len(fm_vals) > 0 else 10.0
+                range_fm = st.slider("FantaMedia", min_value=min_fm_s, max_value=max_fm_s, value=(min_fm_s, max_fm_s), step=0.1, key="scout_fm")
             with f5:
                 consigli_fasce = st.multiselect("Fascia", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"], key="scout_fascia")
 
@@ -790,8 +792,10 @@ if menu == "🔍 Scouting & Database":
                 search = st.text_input("Cerca nome", key="scout_search")
             with f7:
                 if "Variazione_%" in df.columns:
-                    var_min, var_max = float(df["Variazione_%"].min()), float(df["Variazione_%"].max())
-                    range_var = st.slider("Variazione % (2025→2026)", var_min, var_max, (var_min, var_max), key="scout_var")
+                    var_vals = pd.to_numeric(df["Variazione_%"], errors="coerce").dropna()
+                    var_min = round(float(var_vals.min()), 1) if len(var_vals) > 0 else -100.0
+                    var_max = round(float(var_vals.max()), 1) if len(var_vals) > 0 else 100.0
+                    range_var = st.slider("Variazione % (2025→2026)", min_value=var_min, max_value=var_max, value=(var_min, var_max), key="scout_var")
                 else:
                     range_var = (-100, 100)
 
