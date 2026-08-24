@@ -801,8 +801,13 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     display = rosa_df.copy()
 
                     # === EVIDENZIAZIONE SCADENZA ===
+                    # Assicurati che Scadenza_Anno esista sempre
+                    if "Scadenza_Anno" not in display.columns:
+                        display["Scadenza_Anno"] = ANNO_CORRENTE + CONTRATTO_ANNI
+                    display["Scadenza_Anno"] = pd.to_numeric(display["Scadenza_Anno"], errors="coerce").fillna(ANNO_CORRENTE + CONTRATTO_ANNI).astype(int)
+
                     def stato_scadenza(row):
-                        sa = int(row["Scadenza_Anno"]) if "Scadenza_Anno" in row and pd.notna(row["Scadenza_Anno"]) else ANNO_CORRENTE + CONTRATTO_ANNI
+                        sa = int(row["Scadenza_Anno"])
                         sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else 6
                         if sa < ANNO_CORRENTE:
                             return "🔴 Scaduto"
@@ -815,11 +820,10 @@ elif menu == "📋 Rose, Crediti & Contratti":
 
                     display["Stato_Contratto"] = display.apply(stato_scadenza, axis=1)
 
-                    # Colonna scadenza leggibile
-                    if "Scadenza_Anno" in display.columns:
-                        display["Scadenza"] = display["Scadenza_Anno"].astype(str)
-                        if "Scadenza_Mese" in display.columns:
-                            display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
+                    # Colonna scadenza leggibile (sempre presente)
+                    display["Scadenza"] = display["Scadenza_Anno"].astype(str)
+                    if "Scadenza_Mese" in display.columns:
+                        display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
 
                     # Aggiungi confronto quotazione 2025/26 se presente nel listone
                     if "Quotazione_2025_26" in st.session_state.giocatori_db.columns:
@@ -831,8 +835,8 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     hide_cols = ["Anno_Acquisto", "Contratto_Anni"]
                     display = display.drop(columns=[c for c in hide_cols if c in display.columns])
 
-                    # Riordina colonne per leggibilità
-                    first_cols = ["Nome", "Ruolo", "Stato_Contratto", "Scadenza"]
+                    # Riordina colonne per leggibilità (solo colonne che esistono)
+                    first_cols = [c for c in ["Nome", "Ruolo", "Stato_Contratto", "Scadenza"] if c in display.columns]
                     other_cols = [c for c in display.columns if c not in first_cols]
                     display = display[first_cols + other_cols]
 
