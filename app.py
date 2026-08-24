@@ -13,6 +13,7 @@ SAVE_FILE = "fantamanager_save.json"
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 4
+CREDITI_INIZIALI = 50  # Crediti di partenza per ogni squadra
 
 # ============================================================
 # LISTONE DEFAULT 2026/2027
@@ -133,7 +134,7 @@ def load_state():
             st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
             for sq in NOMI_SQUADRE:
                 if sq not in st.session_state.squadre:
-                    st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+                    st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
             return True
         except Exception:
             pass
@@ -156,7 +157,7 @@ if "initialized" not in st.session_state:
 
     if not load_state():
         for sq in NOMI_SQUADRE:
-            st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
+            st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
 
     st.session_state.initialized = True
 
@@ -646,6 +647,29 @@ with st.sidebar.expander("⚠️ Reset"):
         st.rerun()
 
 st.sidebar.markdown("---")
+st.sidebar.markdown("---")
+
+# --- CONFIGURAZIONE CREDITI INIZIALI ---
+st.sidebar.subheader("⚙️ Configurazione")
+if "crediti_iniziali" not in st.session_state:
+    st.session_state.crediti_iniziali = CREDITI_INIZIALI
+
+new_cred = st.sidebar.number_input(
+    "Crediti iniziali per squadra",
+    min_value=10, max_value=1000,
+    value=int(st.session_state.crediti_iniziali),
+    step=10,
+    key="cred_ini_input"
+)
+if new_cred != st.session_state.crediti_iniziali:
+    st.session_state.crediti_iniziali = new_cred
+    # Aggiorna solo squadre con rosa vuota (non ancora iniziate)
+    for sq in NOMI_SQUADRE:
+        if len(st.session_state.squadre[sq]["rosa"]) == 0:
+            st.session_state.squadre[sq]["crediti"] = new_cred
+    save_state()
+    st.sidebar.success(f"Crediti iniziali aggiornati a {new_cred}!")
+
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database",
     "🛒 Mercato (Acquisti/Vendite)",
