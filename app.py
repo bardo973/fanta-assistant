@@ -91,7 +91,8 @@ def save_state():
         "prestiti": st.session_state.prestiti,
         "contratti": st.session_state.contratti,
         "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
-        "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else []
+        "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else [],
+        "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if hasattr(st.session_state.quotazioni_2025_26, 'to_dict') else []
     }
     with open(SAVE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -110,6 +111,8 @@ def load_state():
             st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
             stats = data.get("stats_storiche", [])
             st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
+            q25 = data.get("quotazioni_2025_26", [])
+            st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
             for sq in NOMI_SQUADRE:
                 if sq not in st.session_state.squadre:
                     st.session_state.squadre[sq] = {"crediti": 500, "rosa": []}
@@ -129,6 +132,7 @@ if "initialized" not in st.session_state:
     st.session_state.contratti = {}
     st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
     st.session_state.stats_storiche = pd.DataFrame()
+    st.session_state.quotazioni_2025_26 = pd.DataFrame()  # DataFrame: Nome, Quotazione_2025_26
 
     if not load_state():
         for sq in NOMI_SQUADRE:
@@ -389,6 +393,65 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
         except Exception as e:
             st.sidebar.error(f"Errore lettura file: {e}")
 
+# --- IMPORTA QUOTAZIONI 2025/26 ---
+with st.sidebar.expander("📊 Importa Quotazioni 2025/26"):
+    st.markdown("""
+    Carica un file con le quotazioni dell'ultima giornata 2025/2026.
+
+    **Colonne attese:** Nome, Quotazione (o Quotazione_2025_26)
+
+    Queste quotazioni verranno usate come **prezzo di rimborso** quando un giocatore
+    non viene trovato nel listone attuale 2026/27.
+    """)
+    up_q25 = st.file_uploader("File Quotazioni 2025/26", type=["csv","xlsx"], key="uq25")
+    if up_q25 is not None:
+        try:
+            if up_q25.name.endswith('.csv'):
+                df_q = pd.read_csv(up_q25, encoding='utf-8', on_bad_lines='skip')
+            else:
+                df_q = pd.read_excel(up_q25)
+            df_q.columns = [str(c).strip() for c in df_q.columns]
+
+            # Mappa colonne
+            col_map_q = {}
+            for col in df_q.columns:
+                cl = str(col).lower()
+                if 'nome' in cl or 'giocatore' in cl or 'player' in cl:
+                    col_map_q[col] = 'Nome'
+                elif 'quot' in cl or 'valore' in cl or 'prezzo' in cl or 'fc' in cl:
+                    col_map_q[col] = 'Quotazione_2025_26'
+            df_q = df_q.rename(columns=col_map_q)
+
+            if 'Nome' not in df_q.columns:
+                st.sidebar.error("Colonna 'Nome' mancante nel file.")
+            else:
+                if 'Quotazione_2025_26' not in df_q.columns:
+                    # Prova a usare la seconda colonna numerica
+                    for col in df_q.columns:
+                        if col != 'Nome' and pd.api.types.is_numeric_dtype(df_q[col]):
+                            df_q['Quotazione_2025_26'] = pd.to_numeric(df_q[col], errors='coerce')
+                            break
+
+                df_q['Quotazione_2025_26'] = pd.to_numeric(df_q['Quotazione_2025_26'], errors='coerce').fillna(1).astype(int)
+                df_q = df_q[['Nome', 'Quotazione_2025_26']].dropna()
+                st.session_state.quotazioni_2025_26 = df_q
+                save_state()
+                st.sidebar.success(f"✅ Caricate {len(df_q)} quotazioni 2025/26!")
+
+                # Mostra anteprima
+                with st.sidebar.expander("👁️ Anteprima"):
+                    st.dataframe(df_q.head(10), use_container_width=True)
+        except Exception as e:
+            st.sidebar.error(f"Errore: {e}")
+
+    if not st.session_state.quotazioni_2025_26.empty:
+        st.sidebar.caption(f"📊 {len(st.session_state.quotazioni_2025_26)} quotazioni 2025/26 caricate")
+        if st.button("🗑️ Cancella quotazioni 2025/26", use_container_width=True):
+            st.session_state.quotazioni_2025_26 = pd.DataFrame()
+            save_state()
+            st.sidebar.success("Cancellate!")
+            st.rerun()
+
 with st.sidebar.expander("⚠️ Reset"):
     if st.button("🗑️ Resetta TUTTO", use_container_width=True):
         if os.path.exists(SAVE_FILE): os.remove(SAVE_FILE)
@@ -535,14 +598,25 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             g_v = st.selectbox("Giocatore", nomi, key="vend_g")
             g_obj = next(g for g in rosa_proprieta if g["Nome"] == g_v)
 
-            # PREZZO DI SVINCOLO = QUOTAZIONE LISTONE (non costo acquisto)
+            # PREZZO DI SVINCOLO: listone 2026/27 → quotazioni 2025/26 caricate → costo acquisto
             db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_v.lower()]
             if not db_match.empty:
                 prezzo_listone = int(db_match.iloc[0]["Quotazione"])
-                st.info(f"💡 Quotazione attuale listone: **{prezzo_listone}cr** (questo è il valore di rimborso)")
+                st.info(f"💡 Quotazione attuale listone 2026/27: **{prezzo_listone}cr** (valore di rimborso)")
             else:
-                prezzo_listone = g_obj.get("Costo_Acquisto", 10)
-                st.info(f"💡 Giocatore non trovato nel listone. Rimborso al costo d'acquisto: **{prezzo_listone}cr**")
+                # Fallback 1: quotazioni 2025/26 caricate
+                q25_match = None
+                if not st.session_state.quotazioni_2025_26.empty and "Nome" in st.session_state.quotazioni_2025_26.columns:
+                    q25_match = st.session_state.quotazioni_2025_26[
+                        st.session_state.quotazioni_2025_26["Nome"].str.lower() == g_v.lower()
+                    ]
+                if q25_match is not None and not q25_match.empty:
+                    prezzo_listone = int(q25_match.iloc[0]["Quotazione_2025_26"])
+                    st.info(f"💡 Giocatore non nel listone 2026/27. Rimborso da quotazioni 2025/26: **{prezzo_listone}cr**")
+                else:
+                    # Fallback 2: costo d'acquisto
+                    prezzo_listone = g_obj.get("Costo_Acquisto", 10)
+                    st.info(f"💡 Giocatore non trovato né nel listone né nelle quotazioni 2025/26. Rimborso al costo d'acquisto: **{prezzo_listone}cr**")
 
             prezzo_v = st.number_input("Prezzo rimborso (modificabile)", min_value=0, value=prezzo_listone, key="vend_p")
 
