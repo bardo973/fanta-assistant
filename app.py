@@ -766,30 +766,188 @@ if menu == "🔍 Scouting & Database":
                 assegnati[g["Nome"].lower()] = sq
         df["Proprietario"] = df["Nome"].apply(lambda x: assegnati.get(x.lower(), "Svincolato 🟢"))
 
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P","D","C","A"]
-            filtro_ruolo = st.multiselect("Ruolo", ruoli, default=ruoli)
-        with c2:
-            min_fm = st.slider("FantaMedia min", 4.0, 10.0, 5.0, 0.1)
-        with c3:
-            solo_svinc = st.checkbox("Solo Svincolati", value=False)
-        with c4:
-            search = st.text_input("Cerca nome")
+        # === FILTRI AVANZATI ===
+        with st.expander("🔧 Filtri Avanzati", expanded=True):
+            f1, f2, f3, f4, f5 = st.columns(5)
+            with f1:
+                ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P","D","C","A"]
+                filtro_ruolo = st.multiselect("Ruolo", ruoli, default=ruoli, key="scout_ruolo")
+            with f2:
+                squadre_sa = sorted(df["Squadra_SerieA"].unique()) if "Squadra_SerieA" in df.columns else []
+                filtro_sa = st.multiselect("Squadra Serie A", ["Tutte"] + squadre_sa, default=["Tutte"], key="scout_sa")
+            with f3:
+                min_q, max_q = int(df["Quotazione"].min()), int(df["Quotazione"].max())
+                range_q = st.slider("Quotazione", min_q, max_q, (min_q, max_q), key="scout_q")
+            with f4:
+                min_fm_s, max_fm_s = float(df["FantaMedia"].min()), float(df["FantaMedia"].max())
+                range_fm = st.slider("FantaMedia", min_fm_s, max_fm_s, (min_fm_s, max_fm_s), 0.1, key="scout_fm")
+            with f5:
+                consigli_fasce = st.multiselect("Fascia", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"], key="scout_fascia")
 
-        consigli_fasce = st.multiselect("Fascia consiglio", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"])
+            f6, f7 = st.columns(2)
+            with f6:
+                solo_svinc = st.checkbox("Solo Svincolati", value=False, key="scout_svinc")
+                search = st.text_input("Cerca nome", key="scout_search")
+            with f7:
+                if "Variazione_%" in df.columns:
+                    var_min, var_max = float(df["Variazione_%"].min()), float(df["Variazione_%"].max())
+                    range_var = st.slider("Variazione % (2025→2026)", var_min, var_max, (var_min, var_max), key="scout_var")
+                else:
+                    range_var = (-100, 100)
 
-        df_f = df[(df["Ruolo"].isin(filtro_ruolo)) & (df["FantaMedia"] >= min_fm) & (df["Consiglio"].isin(consigli_fasce))]
+        # Applica filtri
+        df_f = df[
+            (df["Ruolo"].isin(filtro_ruolo)) &
+            (df["FantaMedia"] >= range_fm[0]) & (df["FantaMedia"] <= range_fm[1]) &
+            (df["Quotazione"] >= range_q[0]) & (df["Quotazione"] <= range_q[1]) &
+            (df["Consiglio"].isin(consigli_fasce))
+        ]
+        if "Tutte" not in filtro_sa and "Squadra_SerieA" in df.columns:
+            df_f = df_f[df_f["Squadra_SerieA"].isin(filtro_sa)]
         if solo_svinc:
             df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
         if search:
             df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
+        if "Variazione_%" in df.columns:
+            df_f = df_f[(df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1])]
+
         df_f = df_f.sort_values(by="Indice_Affare", ascending=False)
 
-        st.subheader(f"Trovati: {len(df_f)} giocatori")
+        # === RIEPILOGO MERCATO ===
+        st.markdown("---")
+        st.subheader("📊 Riepilogo Mercato")
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            tot_svinc = len(df[df["Proprietario"] == "Svincolato 🟢"])
+            st.metric("Svincolati", tot_svinc)
+        with col_m2:
+            tot_assegn = len(df[df["Proprietario"] != "Svincolato 🟢"])
+            st.metric("Assegnati", tot_assegn)
+        with col_m3:
+            top_affari = len(df[(df["Indice_Affare"] > 0.18) & (df["Proprietario"] == "Svincolato 🟢")])
+            st.metric("Top Affari Liberi", top_affari)
+        with col_m4:
+            if "Variazione_%" in df.columns:
+                rialzati = len(df[(df["Variazione_%"] > 20) & (df["Proprietario"] == "Svincolato 🟢")])
+                st.metric("Rialzati >20%", rialzati)
+
+        # === BEST BUY PER RUOLO ===
+        st.markdown("---")
+        st.subheader("🏆 Best Buy — Top 3 Sottovalutati per Ruolo")
+        best_cols = st.columns(4)
+        ruoli_color = {"P": "🔵", "D": "🟢", "C": "🟡", "A": "🔴"}
+        for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
+            with best_cols[idx_r]:
+                df_r = df[(df["Ruolo"] == ruolo) & (df["Proprietario"] == "Svincolato 🟢")].sort_values("Indice_Affare", ascending=False).head(3)
+                st.markdown(f"**{ruoli_color[ruolo]} {ruolo}**")
+                if not df_r.empty:
+                    for _, row in df_r.iterrows():
+                        pc = row.get("Prezzo_Consigliato")
+                        pc_txt = f"💡{int(pc)}cr" if pd.notna(pc) else ""
+                        st.markdown(
+                            f"<div style='background:#1a1a2e;padding:6px;border-radius:6px;margin-bottom:4px;'>"
+                            f"<b>{row['Nome']}</b> ({row['Squadra_SerieA']})<br/>"
+                            f"<span style='color:#888;font-size:0.85em;'>FM {row['FantaMedia']} | Q {int(row['Quotazione'])}cr | IA {row['Indice_Affare']}</span> {pc_txt}"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.caption("Nessuno svincolato")
+
+        # === TABELLA PRINCIPALE ===
+        st.markdown("---")
+        st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
+
+        # Aggiungi colore alla riga in base all'indice affare
+        def style_row(row):
+            ia = row.get("Indice_Affare", 0)
+            if ia > 0.20:
+                return ["background-color: #1a3a1a"] * len(row)
+            elif ia > 0.15:
+                return ["background-color: #1a2a1a"] * len(row)
+            return [""] * len(row)
+
         display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
         st.dataframe(df_f[display_cols], use_container_width=True)
 
+        # === CONFRONTO GIOCATORI ===
+        st.markdown("---")
+        st.subheader("⚔️ Confronto Giocatori")
+        g1_c = st.selectbox("Giocatore 1", df["Nome"].values, key="comp1")
+        g2_c = st.selectbox("Giocatore 2", df["Nome"].values, index=1 if len(df) > 1 else 0, key="comp2")
+
+        if g1_c and g2_c:
+            r1 = df[df["Nome"] == g1_c].iloc[0]
+            r2 = df[df["Nome"] == g2_c].iloc[0]
+
+            comp_data = {
+                "Stat": ["Ruolo", "Squadra", "Quotazione", "FantaMedia", "Indice Affare", "Proprietario"],
+                g1_c: [
+                    r1["Ruolo"], r1["Squadra_SerieA"], f"{int(r1['Quotazione'])}cr",
+                    r1["FantaMedia"], r1["Indice_Affare"], r1["Proprietario"]
+                ],
+                g2_c: [
+                    r2["Ruolo"], r2["Squadra_SerieA"], f"{int(r2['Quotazione'])}cr",
+                    r2["FantaMedia"], r2["Indice_Affare"], r2["Proprietario"]
+                ]
+            }
+            if "Variazione_%" in df.columns:
+                comp_data["Stat"].insert(4, "Variazione %")
+                comp_data[g1_c].insert(4, f"{r1['Variazione_%']}%")
+                comp_data[g2_c].insert(4, f"{r2['Variazione_%']}%")
+
+            st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
+
+            # Vincitore del confronto
+            if r1["Indice_Affare"] > r2["Indice_Affare"]:
+                st.success(f"🏆 {g1_c} ha un indice affare migliore ({r1['Indice_Affare']} vs {r2['Indice_Affare']})")
+            elif r2["Indice_Affare"] > r1["Indice_Affare"]:
+                st.success(f"🏆 {g2_c} ha un indice affare migliore ({r2['Indice_Affare']} vs {r1['Indice_Affare']})")
+            else:
+                st.info("⚖️ Indice affare identico")
+
+        # === CHI PUO' PERMETTERSELO? ===
+        st.markdown("---")
+        st.subheader("💰 Chi può Permetterselo?")
+        st.caption("Seleziona un giocatore per vedere quanto possono offrire le altre squadre")
+        g_target = st.selectbox("Giocatore da analizzare", df["Nome"].values, key="g_target")
+
+        if g_target:
+            info_t = df[df["Nome"] == g_target].iloc[0]
+            ruolo_t = info_t["Ruolo"]
+            quot_t = int(info_t["Quotazione"])
+
+            st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr")
+
+            avv_data = []
+            for sq_avv in NOMI_SQUADRE:
+                riep_avv = riepilogo_rosa(sq_avv)
+                mancanti_avv = riep_avv[ruolo_t]["mancanti"]
+                off_max_avv = riep_avv[ruolo_t]["offerta_max"]
+                crediti_avv = riep_avv["crediti"]
+
+                # Se la squadra ha già il giocatore, skip
+                ha_giocatore = any(g["Nome"].lower() == g_target.lower() for g in st.session_state.squadre[sq_avv]["rosa"])
+
+                avv_data.append({
+                    "Squadra": sq_avv,
+                    "Crediti": crediti_avv,
+                    f"Mancano {ruolo_t}": mancanti_avv,
+                    "Offerta Max": off_max_avv,
+                    "Può Permetterselo": "✅ SÌ" if off_max_avv >= quot_t and not ha_giocatore else ("❌ NO" if not ha_giocatore else "🔄 GIÀ IN ROSA"),
+                    "Distanza": off_max_avv - quot_t if not ha_giocatore else None
+                })
+
+            df_avv_target = pd.DataFrame(avv_data).sort_values("Offerta Max", ascending=False)
+            st.dataframe(df_avv_target, use_container_width=True, hide_index=True)
+
+            possono = df_avv_target[df_avv_target["Può Permetterselo"] == "✅ SÌ"]
+            if not possono.empty:
+                st.info(f"📢 **{len(possono)} squadre** possono permettersi {g_target} alla quotazione di listone ({quot_t}cr)")
+            else:
+                st.success(f"🛡️ Nessuna squadra può permettersi {g_target} alla quotazione di listone. Sei in vantaggio!")
+
+        # === EDITOR PREZZI CONSIGLIATI ===
         st.markdown("---")
         st.subheader("✏️ Modifica Prezzi Consigliati")
         st.caption("Modifica il prezzo consigliato per l'acquisto direttamente nella tabella sottostante.")
@@ -801,10 +959,7 @@ if menu == "🔍 Scouting & Database":
                 "Prezzo_Consigliato": st.column_config.NumberColumn(
                     "Prezzo Consigliato",
                     help="Prezzo ideale per acquistare il giocatore all'asta",
-                    min_value=0,
-                    max_value=500,
-                    step=1,
-                    format="%d cr"
+                    min_value=0, max_value=500, step=1, format="%d cr"
                 ),
                 "Nome": st.column_config.TextColumn("Nome", disabled=True),
                 "Ruolo": st.column_config.TextColumn("Ruolo", disabled=True),
@@ -814,12 +969,9 @@ if menu == "🔍 Scouting & Database":
                 "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
                 "Note": st.column_config.TextColumn("Note", disabled=True),
             },
-            use_container_width=True,
-            num_rows="fixed",
-            key="editor_prezzi"
+            use_container_width=True, num_rows="fixed", key="editor_prezzi"
         )
         if st.button("💾 Salva Prezzi Consigliati", type="primary"):
-            # Aggiorna solo la colonna Prezzo_Consigliato
             if "Prezzo_Consigliato" in df_edited.columns:
                 st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
                 st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
@@ -829,6 +981,7 @@ if menu == "🔍 Scouting & Database":
                 st.success("✅ Prezzi consigliati salvati!")
                 st.rerun()
 
+        # === WATCHLIST ===
         st.markdown("---")
         st.subheader("⭐ Watchlist")
         g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
@@ -848,10 +1001,6 @@ if menu == "🔍 Scouting & Database":
                 st.session_state.watchlist = []
                 save_state()
                 st.rerun()
-
-# ============================================================
-# 2. MERCATO
-# ============================================================
 elif menu == "🛒 Mercato (Acquisti/Vendite)":
     st.header("🛒 Gestione Mercato")
     t_acq, t_vend, t_reg = st.tabs(["📥 Acquista", "📤 Vendi/Svincola", "📜 Registro"])
@@ -946,6 +1095,39 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                     st.warning(f"⚠️ Stai offrendo **{prezzo}cr** che supera l'offerta max consigliata di **{off_max_ruolo}cr** per il ruolo {ruolo_sel}. Rischio di rimanere senza crediti per chiudere la rosa.")
                 elif prezzo > int(pc_ai * 1.3):
                     st.info(f"ℹ️ Offerta superiore del 30% al prezzo consigliato. Se hai strategia diversa, procedi pure.")
+
+                # === OFFERTE MAX AVVERSARI ===
+                st.markdown("---")
+                st.subheader("🎭 Cosa Possono Offrire gli Avversari?")
+                st.caption(f"Quanto possono spendere le altre squadre per un {ruolo_sel} (calcolato sui posti mancanti per ruolo)")
+
+                avversari = []
+                for sq_avv in NOMI_SQUADRE:
+                    if sq_avv == sq:
+                        continue
+                    riep_avv = riepilogo_rosa(sq_avv)
+                    mancanti_avv = riep_avv[ruolo_sel]["mancanti"]
+                    off_max_avv = riep_avv[ruolo_sel]["offerta_max"]
+                    crediti_avv = riep_avv["crediti"]
+                    tot_avv = riep_avv["tot_posseduti"]
+                    avversari.append({
+                        "Squadra": sq_avv,
+                        "Crediti": crediti_avv,
+                        "Rosa": tot_avv,
+                        f"Mancano {ruolo_sel}": mancanti_avv,
+                        "Offerta Max": off_max_avv,
+                        "Pericolo": "🔴 ALTO" if off_max_avv >= prezzo else ("🟠 MEDIO" if off_max_avv >= prezzo * 0.7 else "🟢 BASSO")
+                    })
+
+                df_avv = pd.DataFrame(avversari).sort_values("Offerta Max", ascending=False)
+                st.dataframe(df_avv, use_container_width=True, hide_index=True)
+
+                # Highlight chi può superare la tua offerta
+                minacci = df_avv[df_avv["Offerta Max"] >= prezzo]
+                if not minacci.empty:
+                    st.warning(f"⚠️ **{len(minacci)} squadre** possono offrire uguale o più di te ({prezzo}cr) per questo {ruolo_sel}: {', '.join(minacci['Squadra'].tolist())}")
+                else:
+                    st.success(f"✅ Sei il più alto offerente! Nessuno può superare i tuoi {prezzo}cr per un {ruolo_sel}.")
 
                 if st.button("Conferma Acquisto", type="primary"):
                     if cred >= prezzo:
