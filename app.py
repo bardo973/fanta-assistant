@@ -15,6 +15,9 @@ ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 4
 CREDITI_INIZIALI = 50  # Crediti di partenza per ogni squadra
 
+# Requisiti rosa (minimo giocatori per ruolo per chiudere la rosa)
+ROSA_REQ = {"P": 3, "D": 8, "C": 8, "A": 6}  # Totale 25
+
 # ============================================================
 # LISTONE DEFAULT 2026/2027
 # ============================================================
@@ -164,6 +167,42 @@ if "initialized" not in st.session_state:
 # ============================================================
 # CALCOLO PREZZO CONSIGLIATO (AI-driven)
 # ============================================================
+def riepilogo_rosa(squadra_nome):
+    """Ritorna dict con giocatori posseduti, mancanti, e offerta max per ruolo."""
+    rosa = st.session_state.squadre[squadra_nome]["rosa"]
+    crediti = st.session_state.squadre[squadra_nome]["crediti"]
+    conti = {"P": 0, "D": 0, "C": 0, "A": 0}
+    for g in rosa:
+        r = g.get("Ruolo", "C")
+        if r in conti:
+            conti[r] += 1
+
+    riepilogo = {}
+    tot_mancanti = 0
+    for ruolo, req in ROSA_REQ.items():
+        posseduti = conti.get(ruolo, 0)
+        mancanti = max(0, req - posseduti)
+        riepilogo[ruolo] = {"posseduti": posseduti, "mancanti": mancanti, "req": req}
+        tot_mancanti += mancanti
+
+    # Offerta max per ruolo
+    posti_rimanenti = sum(v["mancanti"] for v in riepilogo.values())
+    for ruolo in ROSA_REQ:
+        mancanti_ruolo = riepilogo[ruolo]["mancanti"]
+        if posti_rimanenti > 0 and mancanti_ruolo > 0:
+            # Budget "libero" = crediti - (posti_rimanenti * 1cr minimo per gli altri)
+            budget_libero = max(0, crediti - posti_rimanenti)
+            offerta = int((budget_libero / mancanti_ruolo) + 1)
+        else:
+            offerta = crediti if mancanti_ruolo > 0 else 0
+        riepilogo[ruolo]["offerta_max"] = offerta
+
+    riepilogo["crediti"] = crediti
+    riepilogo["tot_mancanti"] = tot_mancanti
+    riepilogo["tot_posseduti"] = len(rosa)
+    return riepilogo
+
+
 def calcola_prezzo_consigliato(g_info, stats_df=None):
     """
     Calcola un prezzo consigliato per l'asta basato su:
@@ -886,6 +925,28 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
 
                 prezzo = st.number_input("Prezzo da pagare all'asta", min_value=1, max_value=max(1,cred), value=default_price, key="acq_p")
 
+                # === OFFERTA MAX PER QUESTO RUOLO (dopo che prezzo è definito) ===
+                riep_sq = riepilogo_rosa(sq)
+                ruolo_sel = info["Ruolo"]
+                mancanti_ruolo = riep_sq[ruolo_sel]["mancanti"]
+                off_max_ruolo = riep_sq[ruolo_sel]["offerta_max"]
+                tot_mancanti = riep_sq["tot_mancanti"]
+
+                st.markdown("---")
+                st.subheader("🎯 Offerta Massima per questo Ruolo")
+                c1_off, c2_off, c3_off = st.columns(3)
+                with c1_off:
+                    st.metric(f"Mancano {ruolo_sel}", f"{mancanti_ruolo}")
+                with c2_off:
+                    st.metric("Posti liberi totali", f"{tot_mancanti}")
+                with c3_off:
+                    st.metric("Offerta max sicura", f"{off_max_ruolo}cr")
+
+                if prezzo > off_max_ruolo:
+                    st.warning(f"⚠️ Stai offrendo **{prezzo}cr** che supera l'offerta max consigliata di **{off_max_ruolo}cr** per il ruolo {ruolo_sel}. Rischio di rimanere senza crediti per chiudere la rosa.")
+                elif prezzo > int(pc_ai * 1.3):
+                    st.info(f"ℹ️ Offerta superiore del 30% al prezzo consigliato. Se hai strategia diversa, procedi pure.")
+
                 if st.button("Conferma Acquisto", type="primary"):
                     if cred >= prezzo:
                         st.session_state.squadre[sq]["crediti"] -= prezzo
@@ -1175,6 +1236,46 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     display = display[first_cols + other_cols]
 
                     st.dataframe(display, use_container_width=True)
+
+                    # === RIEPILOGO ROSA: MANCANTI PER RUOLO ===
+                    riep = riepilogo_rosa(sq)
+                    st.markdown("---")
+                    st.subheader("📊 Stato Rosa")
+                    cols_riep = st.columns(5)
+                    ruoli_ord = ["P", "D", "C", "A"]
+                    colori_ruolo = {"P": "🔵", "D": "🟢", "C": "🟡", "A": "🔴"}
+                    for idx_r, ruolo in enumerate(ruoli_ord):
+                        with cols_riep[idx_r]:
+                            r_data = riep[ruolo]
+                            mancanti = r_data["mancanti"]
+                            posseduti = r_data["posseduti"]
+                            req = r_data["req"]
+                            off_max = r_data["offerta_max"]
+                            if mancanti == 0:
+                                stato = "✅"
+                                colore = "#00d26a"
+                            else:
+                                stato = f"+{mancanti}"
+                                colore = "#ff6b6b"
+                            st.markdown(
+                                f"<div style='text-align:center;padding:8px;border-radius:6px;background:#1a1a2e;'>"
+                                f"<div style='font-size:1.2em;'>{colori_ruolo[ruolo]} {ruolo}</div>"
+                                f"<div style='font-size:1.5em;font-weight:bold;color:{colore};'>{stato}</div>"
+                                f"<div style='font-size:0.75em;color:#888;'>{posseduti}/{req}</div>"
+                                f"<div style='font-size:0.75em;color:#aaa;'>Max: {off_max}cr</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                    with cols_riep[4]:
+                        st.markdown(
+                            f"<div style='text-align:center;padding:8px;border-radius:6px;background:#1a1a2e;'>"
+                            f"<div style='font-size:1.2em;'>💰 Crediti</div>"
+                            f"<div style='font-size:1.5em;font-weight:bold;color:#ffd700;'>{riep['crediti']}</div>"
+                            f"<div style='font-size:0.75em;color:#888;'>Tot: {riep['tot_posseduti']}/25</div>"
+                            f"<div style='font-size:0.75em;color:#aaa;'>Mancano: {riep['tot_mancanti']}</div>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
 
                     # Alert se ci sono giocatori in scadenza
                     in_scadenza = display[display["Stato_Contratto"].str.contains("🟠|🔴")]
