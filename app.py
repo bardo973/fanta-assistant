@@ -367,33 +367,42 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📂 Carica da PC")
 st.sidebar.caption("Ripristina uno stato precedentemente scaricato sul tuo PC.")
 up_json = st.sidebar.file_uploader("Seleziona file JSON", type=["json"], key="up_json")
+
+# Anti-loop: traccia l'ultimo file caricato
+if "last_json_key" not in st.session_state:
+    st.session_state.last_json_key = ""
+
 if up_json is not None:
-    try:
-        data = json.load(up_json)
-        st.session_state.squadre = data.get("squadre", {})
-        st.session_state.storico_mercato = data.get("storico_mercato", [])
-        st.session_state.watchlist = data.get("watchlist", [])
-        st.session_state.prestiti = data.get("prestiti", [])
-        st.session_state.contratti = data.get("contratti", {})
-        db = data.get("giocatori_db", [])
-        st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
-        stats = data.get("stats_storiche", [])
-        st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
-        st.session_state.stats_per_stagione = {}
-        for stag, records in data.get("stats_per_stagione", {}).items():
-            st.session_state.stats_per_stagione[stag] = pd.DataFrame(records) if records else pd.DataFrame()
-        q25 = data.get("quotazioni_2025_26", [])
-        st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
-        st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
-        # Assicurati che tutte le squadre esistano
-        for sq in NOMI_SQUADRE:
-            if sq not in st.session_state.squadre:
-                st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
-        save_state()
-        st.sidebar.success("✅ Stato caricato dal PC! Ricarico...")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Errore caricamento: {e}")
+    file_key = f"{up_json.name}_{up_json.size}"
+    if file_key != st.session_state.last_json_key:
+        try:
+            data = json.load(up_json)
+            st.session_state.squadre = data.get("squadre", {})
+            st.session_state.storico_mercato = data.get("storico_mercato", [])
+            st.session_state.watchlist = data.get("watchlist", [])
+            st.session_state.prestiti = data.get("prestiti", [])
+            st.session_state.contratti = data.get("contratti", {})
+            db = data.get("giocatori_db", [])
+            st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+            stats = data.get("stats_storiche", [])
+            st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
+            st.session_state.stats_per_stagione = {}
+            for stag, records in data.get("stats_per_stagione", {}).items():
+                st.session_state.stats_per_stagione[stag] = pd.DataFrame(records) if records else pd.DataFrame()
+            q25 = data.get("quotazioni_2025_26", [])
+            st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
+            st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
+            for sq in NOMI_SQUADRE:
+                if sq not in st.session_state.squadre:
+                    st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
+            st.session_state.last_json_key = file_key
+            save_state()
+            st.sidebar.success("✅ Stato caricato dal PC!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Errore caricamento: {e}")
+    else:
+        st.sidebar.info("📁 File già caricato. Se vuoi ricaricarlo, selezionalo di nuovo.")
 
 st.sidebar.markdown("---")
 
@@ -839,12 +848,24 @@ if menu == "🔍 Scouting & Database":
                 squadre_sa = sorted(df["Squadra_SerieA"].unique()) if "Squadra_SerieA" in df.columns else []
                 filtro_sa = st.multiselect("Squadra Serie A", ["Tutte"] + squadre_sa, default=["Tutte"], key="scout_sa")
             with f3:
-                min_q, max_q = int(df["Quotazione"].min()), int(df["Quotazione"].max())
+                q_vals = pd.to_numeric(df["Quotazione"], errors="coerce").dropna()
+                if len(q_vals) > 0:
+                    min_q, max_q = int(q_vals.min()), int(q_vals.max())
+                    if min_q == max_q:
+                        min_q, max_q = max(1, min_q - 5), max_q + 5
+                else:
+                    min_q, max_q = 1, 100
                 range_q = st.slider("Quotazione", min_q, max_q, (min_q, max_q), key="scout_q")
             with f4:
                 fm_vals = pd.to_numeric(df["FantaMedia"], errors="coerce").dropna()
-                min_fm_s = round(float(fm_vals.min()), 1) if len(fm_vals) > 0 else 4.0
-                max_fm_s = round(float(fm_vals.max()), 1) if len(fm_vals) > 0 else 10.0
+                if len(fm_vals) > 0:
+                    min_fm_s = round(float(fm_vals.min()), 1)
+                    max_fm_s = round(float(fm_vals.max()), 1)
+                    if min_fm_s == max_fm_s:
+                        min_fm_s = round(max(4.0, min_fm_s - 1.0), 1)
+                        max_fm_s = round(min(10.0, max_fm_s + 1.0), 1)
+                else:
+                    min_fm_s, max_fm_s = 4.0, 10.0
                 range_fm = st.slider("FantaMedia", min_value=min_fm_s, max_value=max_fm_s, value=(min_fm_s, max_fm_s), step=0.1, key="scout_fm")
             with f5:
                 consigli_fasce = st.multiselect("Fascia", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"], key="scout_fascia")
@@ -856,8 +877,13 @@ if menu == "🔍 Scouting & Database":
             with f7:
                 if "Variazione_%" in df.columns:
                     var_vals = pd.to_numeric(df["Variazione_%"], errors="coerce").dropna()
-                    var_min = round(float(var_vals.min()), 1) if len(var_vals) > 0 else -100.0
-                    var_max = round(float(var_vals.max()), 1) if len(var_vals) > 0 else 100.0
+                    if len(var_vals) > 0:
+                        var_min = round(float(var_vals.min()), 1)
+                        var_max = round(float(var_vals.max()), 1)
+                        if var_min == var_max:
+                            var_min, var_max = var_min - 5.0, var_max + 5.0
+                    else:
+                        var_min, var_max = -100.0, 100.0
                     range_var = st.slider("Variazione % (2025→2026)", min_value=var_min, max_value=var_max, value=(var_min, var_max), key="scout_var")
                 else:
                     range_var = (-100, 100)
