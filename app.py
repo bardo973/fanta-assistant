@@ -341,17 +341,9 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 errors.append(f"{sq_match}: crediti insufficienti per {g_nome} ({g_costo}cr)")
                                 continue
 
-                            # === CALCOLO CONTRATTO: usa scadenza file, NON resettare ===
-                            if scad_anno:
-                                # Contratto esistente: calcola anno_acq e durata in modo coerente
-                                anno_acq = scad_anno - CONTRATTO_ANNI  # stima anno acquisto originale
-                                if anno_acq < ANNO_CORRENTE - CONTRATTO_ANNI:
-                                    anno_acq = ANNO_CORRENTE - CONTRATTO_ANNI + 1
-                                contratto_durata = max(1, scad_anno - anno_acq)
-                            else:
-                                # Nessuna scadenza fornita → nuovo acquisto
-                                anno_acq = ANNO_CORRENTE
-                                contratto_durata = CONTRATTO_ANNI
+                            # === CONTRATTO: Scadenza_Anno è la fonte di verità ===
+                            if not scad_anno:
+                                # Nessuna scadenza fornita → nuovo acquisto default
                                 scad_anno = ANNO_CORRENTE + CONTRATTO_ANNI
 
                             st.session_state.squadre[sq_match]["crediti"] -= g_costo
@@ -362,8 +354,6 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                 "Quotazione": quot,
                                 "FantaMedia": fm,
                                 "Costo_Acquisto": g_costo,
-                                "Anno_Acquisto": anno_acq,
-                                "Contratto_Anni": contratto_durata,
                                 "Scadenza_Anno": scad_anno,
                             }
                             if scad_mese:
@@ -372,8 +362,6 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                             st.session_state.squadre[sq_match]["rosa"].append(entry)
                             st.session_state.contratti[g_nome] = {
                                 "squadra": sq_match,
-                                "anno": anno_acq,
-                                "durata": contratto_durata,
                                 "scadenza_anno": scad_anno,
                                 "scadenza_mese": scad_mese
                             }
@@ -573,16 +561,17 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 if st.button("Conferma Acquisto"):
                     if cred >= prezzo:
                         st.session_state.squadre[sq]["crediti"] -= prezzo
+                        scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
                         st.session_state.squadre[sq]["rosa"].append({
                             "Nome": g_sel, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
                             "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
-                            "Costo_Acquisto": prezzo, "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI
+                            "Costo_Acquisto": prezzo, "Scadenza_Anno": scad_acq
                         })
-                        st.session_state.contratti[g_sel] = {"squadra": sq, "anno": ANNO_CORRENTE, "durata": CONTRATTO_ANNI}
+                        st.session_state.contratti[g_sel] = {"squadra": sq, "scadenza_anno": scad_acq}
                         st.session_state.storico_mercato.insert(0, {
                             "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             "Operazione": "ACQUISTO",
-                            "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {ANNO_CORRENTE+CONTRATTO_ANNI}"
+                            "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {scad_acq}"
                         })
                         save_state()
                         st.success(f"✅ {g_sel} acquistato! Contratto 4 anni (fino al {ANNO_CORRENTE+CONTRATTO_ANNI}).")
@@ -769,10 +758,10 @@ elif menu == "🤝 Scambi & Prestiti":
                             g_orig = {
                                 "Nome": gp, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
                                 "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
-                                "Costo_Acquisto": 0, "Anno_Acquisto": ANNO_CORRENTE, "Contratto_Anni": CONTRATTO_ANNI
+                                "Costo_Acquisto": 0, "Scadenza_Anno": ANNO_CORRENTE + CONTRATTO_ANNI
                             }
                         else:
-                            g_orig = {"Nome": gp, "Ruolo": "C", "Squadra_SerieA": "N/D", "Quotazione": 1, "FantaMedia": 6.0, "Costo_Acquisto": 0}
+                            g_orig = {"Nome": gp, "Ruolo": "C", "Squadra_SerieA": "N/D", "Quotazione": 1, "FantaMedia": 6.0, "Costo_Acquisto": 0, "Scadenza_Anno": ANNO_CORRENTE + CONTRATTO_ANNI}
                         st.session_state.squadre[da_sq]["rosa"].append(g_orig)
                     break
             if to_remove is not None:
@@ -812,19 +801,9 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     display = rosa_df.copy()
 
                     # === EVIDENZIAZIONE SCADENZA ===
-                    def calcola_scadenza(row):
-                        if "Scadenza_Anno" in row and pd.notna(row["Scadenza_Anno"]):
-                            sa = int(row["Scadenza_Anno"])
-                            sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else 6
-                            return sa, sm
-                        elif "Anno_Acquisto" in row and pd.notna(row["Anno_Acquisto"]):
-                            sa = int(row["Anno_Acquisto"]) + int(row.get("Contratto_Anni", CONTRATTO_ANNI))
-                            return sa, 6
-                        return ANNO_CORRENTE + CONTRATTO_ANNI, 6
-
                     def stato_scadenza(row):
-                        sa, sm = calcola_scadenza(row)
-                        # In scadenza: stesso anno o anno successivo
+                        sa = int(row["Scadenza_Anno"]) if "Scadenza_Anno" in row and pd.notna(row["Scadenza_Anno"]) else ANNO_CORRENTE + CONTRATTO_ANNI
+                        sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else 6
                         if sa < ANNO_CORRENTE:
                             return "🔴 Scaduto"
                         elif sa == ANNO_CORRENTE:
@@ -841,14 +820,16 @@ elif menu == "📋 Rose, Crediti & Contratti":
                         display["Scadenza"] = display["Scadenza_Anno"].astype(str)
                         if "Scadenza_Mese" in display.columns:
                             display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
-                    elif "Anno_Acquisto" in display.columns and "Contratto_Anni" in display.columns:
-                        display["Scadenza"] = display["Anno_Acquisto"] + display["Contratto_Anni"]
 
                     # Aggiungi confronto quotazione 2025/26 se presente nel listone
                     if "Quotazione_2025_26" in st.session_state.giocatori_db.columns:
                         db_q = st.session_state.giocatori_db[["Nome","Quotazione_2025_26"]].copy()
                         display = display.merge(db_q, on="Nome", how="left")
                         display["Variazione_%"] = round((display["Quotazione"] - display["Quotazione_2025_26"]) / display["Quotazione_2025_26"].replace(0,1) * 100, 1)
+
+                    # Rimuovi colonne tecniche non utili alla visualizzazione
+                    hide_cols = ["Anno_Acquisto", "Contratto_Anni"]
+                    display = display.drop(columns=[c for c in hide_cols if c in display.columns])
 
                     # Riordina colonne per leggibilità
                     first_cols = ["Nome", "Ruolo", "Stato_Contratto", "Scadenza"]
@@ -882,19 +863,22 @@ elif menu == "📋 Rose, Crediti & Contratti":
         st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
     with tab_contratti:
-        st.subheader(f"📄 Contratti 4 anni ({ANNO_CORRENTE}-{ANNO_CORRENTE+CONTRATTO_ANNI})")
+        st.subheader(f"📄 Contratti — Scadenze")
         if st.session_state.contratti:
             rows = []
             for nome, c in st.session_state.contratti.items():
                 scad = ""
-                if c.get("scadenza_mese"):
-                    scad = f"{c['scadenza_mese']}/{c['scadenza_anno']}" if c.get("scadenza_anno") else str(c.get("scadenza_anno",""))
+                if c.get("scadenza_mese") and c.get("scadenza_anno"):
+                    scad = f"{c['scadenza_mese']}/{c['scadenza_anno']}"
                 elif c.get("scadenza_anno"):
                     scad = str(c["scadenza_anno"])
                 else:
-                    scad = c["anno"] + c["durata"]
-                rows.append({"Giocatore":nome, "Squadra":c["squadra"], "Anno":c["anno"], "Scadenza":scad, "Durata":c["durata"]})
-            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+                    scad = "N/D"
+                rows.append({"Giocatore":nome, "Squadra":c["squadra"], "Scadenza":scad})
+            df_contr = pd.DataFrame(rows)
+            # Ordina per scadenza
+            df_contr = df_contr.sort_values("Scadenza")
+            st.dataframe(df_contr, use_container_width=True)
         else:
             st.info("Nessun contratto registrato.")
 
