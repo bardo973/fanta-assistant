@@ -808,15 +808,21 @@ elif menu == "📋 Rose, Crediti & Contratti":
 
                     def stato_scadenza(row):
                         sa = int(row["Scadenza_Anno"])
-                        sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else 6
-                        if sa < ANNO_CORRENTE:
-                            return "🔴 Scaduto"
-                        elif sa == ANNO_CORRENTE:
-                            return f"🟠 Scadenza {sm}/{sa}"
-                        elif sa == ANNO_CORRENTE + 1:
-                            return f"🟡 Scade {sa}"
+                        sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else None
+                        # Testo = dato grezzo della colonna D (Scadenza_Anno), con mese se presente
+                        if sm:
+                            testo = f"{sm}/{sa}"
                         else:
-                            return f"🟢 Fino {sa}"
+                            testo = str(sa)
+                        # Emoji colore in base all'anno
+                        if sa < ANNO_CORRENTE:
+                            return f"🔴 {testo}"
+                        elif sa == ANNO_CORRENTE:
+                            return f"🟠 {testo}"
+                        elif sa == ANNO_CORRENTE + 1:
+                            return f"🟡 {testo}"
+                        else:
+                            return f"🟢 {testo}"
 
                     display["Stato_Contratto"] = display.apply(stato_scadenza, axis=1)
 
