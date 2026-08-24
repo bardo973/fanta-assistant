@@ -256,10 +256,10 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                                    index=cols.index(find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore'])) if find_best_match(cols, ['costo','prezzo','pagato','quotazione','quot','valore']) in cols else 0,
                                    key="map_cs")
             col_scad_a = st.selectbox("Colonna SCADENZA ANNO (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto'])) if find_best_match(cols, ['scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto']) in cols else 0,
+                                   index=cols.index(find_best_match(cols, ['scadenza anno','scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto'])) if find_best_match(cols, ['scadenza anno','scadenza_anno','scad_anno','anno_scadenza','fine','fine_contratto']) in cols else 0,
                                    key="map_scad_a")
             col_scad_m = st.selectbox("Colonna SCADENZA MESE (opzionale)", cols,
-                                   index=cols.index(find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine'])) if find_best_match(cols, ['scadenza_mese','scad_mese','mese_scadenza','mese_fine']) in cols else 0,
+                                   index=cols.index(find_best_match(cols, ['scadenza mese','scadenza_mese','scad_mese','mese_scadenza','mese_fine'])) if find_best_match(cols, ['scadenza mese','scadenza_mese','scad_mese','mese_scadenza','mese_fine']) in cols else 0,
                                    key="map_scad_m")
 
             if col_sq and col_nm and col_sq != "" and col_nm != "":
@@ -312,13 +312,31 @@ with st.sidebar.expander("📋 Importa Rose (con anteprima)"):
                             scad_mese = None
                             if col_scad_a and col_scad_a != "" and pd.notna(row[col_scad_a]):
                                 try:
-                                    scad_anno = int(float(row[col_scad_a]))
-                                except:
+                                    val = row[col_scad_a]
+                                    # Se è già una data (Timestamp/datetime), estrai anno/mese
+                                    if hasattr(val, 'year'):
+                                        scad_anno = int(val.year)
+                                        scad_mese = int(val.month)
+                                    else:
+                                        # Prova a convertire come numero (anno diretto o seriale Excel)
+                                        num = float(str(val).replace(',','.'))
+                                        if num > 40000:  # Numero seriale Excel
+                                            dt = pd.to_datetime(int(num), unit='D', origin='1899-12-30')
+                                            scad_anno = int(dt.year)
+                                            scad_mese = int(dt.month)
+                                        else:
+                                            scad_anno = int(num)
+                                except Exception:
                                     scad_anno = None
-                            if col_scad_m and col_scad_m != "" and pd.notna(row[col_scad_m]):
+                                    scad_mese = None
+                            if col_scad_m and col_scad_m != "" and pd.notna(row[col_scad_m]) and scad_mese is None:
                                 try:
-                                    scad_mese = int(float(row[col_scad_m]))
-                                except:
+                                    val = row[col_scad_m]
+                                    if hasattr(val, 'month'):
+                                        scad_mese = int(val.month)
+                                    else:
+                                        scad_mese = int(float(str(val).replace(',','.')))
+                                except Exception:
                                     scad_mese = None
 
                             # Cerca info nel listone
