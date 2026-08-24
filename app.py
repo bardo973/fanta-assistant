@@ -81,6 +81,12 @@ LISTONE_DEFAULT = [
 ]
 
 # ============================================================
+# AGGIUNTA COLONNA PREZZO CONSIGLIATO (retrocompatibilità)
+# ============================================================
+for g in LISTONE_DEFAULT:
+    g.setdefault("Prezzo_Consigliato", None)
+
+# ============================================================
 # PERSISTENZA
 # ============================================================
 def save_state():
@@ -109,6 +115,12 @@ def load_state():
             st.session_state.contratti = data.get("contratti", {})
             db = data.get("giocatori_db", [])
             st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+            if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
+                st.session_state.giocatori_db["Prezzo_Consigliato"] = None
+            else:
+                st.session_state.giocatori_db["Prezzo_Consigliato"] = pd.to_numeric(
+                    st.session_state.giocatori_db["Prezzo_Consigliato"], errors="coerce"
+                )
             stats = data.get("stats_storiche", [])
             st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
             q25 = data.get("quotazioni_2025_26", [])
@@ -131,6 +143,8 @@ if "initialized" not in st.session_state:
     st.session_state.prestiti = []
     st.session_state.contratti = {}
     st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
+    if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
+        st.session_state.giocatori_db["Prezzo_Consigliato"] = None
     st.session_state.stats_storiche = pd.DataFrame()
     st.session_state.quotazioni_2025_26 = pd.DataFrame()  # DataFrame: Nome, Quotazione_2025_26
 
@@ -162,6 +176,40 @@ with c2:
 
 st.sidebar.markdown("---")
 
+# --- ESPORTA LISTONE ---
+st.sidebar.subheader("📤 Esporta Listone")
+exp_fmt = st.sidebar.radio("Formato", ["CSV", "Excel"], horizontal=True, key="exp_fmt")
+if st.sidebar.button("📥 Scarica Listone", use_container_width=True):
+    df_exp = st.session_state.giocatori_db.copy()
+    if "Prezzo_Consigliato" not in df_exp.columns:
+        df_exp["Prezzo_Consigliato"] = None
+    # Riordina colonne
+    cols_exp = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Consiglio","Note","Quotazione_2025_26"] if c in df_exp.columns]
+    df_exp = df_exp[cols_exp]
+    if exp_fmt == "CSV":
+        csv = df_exp.to_csv(index=False, encoding="utf-8-sig")
+        st.sidebar.download_button(
+            label="⬇️ Scarica CSV",
+            data=csv,
+            file_name="listone_fantamanager_2026_27.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        import io
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df_exp.to_excel(writer, index=False, sheet_name="Listone")
+        st.sidebar.download_button(
+            label="⬇️ Scarica Excel",
+            data=buffer.getvalue(),
+            file_name="listone_fantamanager_2026_27.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+st.sidebar.markdown("---")
+
 # --- IMPORTA LISTONE ---
 with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
     st.markdown("Carica il listone aggiornato. Colonne: Nome, Ruolo, Squadra, Quotazione, FantaMedia.")
@@ -185,6 +233,7 @@ with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
                     else:
                         col_mappa[col] = 'Quotazione'
                 elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_mappa[col] = 'FantaMedia'
+                elif 'prezzo' in cl or 'consigliato' in cl or 'suggerito' in cl or 'acquisto' in cl or 'buy' in cl: col_mappa[col] = 'Prezzo_Consigliato'
             df_load = df_load.rename(columns=col_mappa)
             if 'Nome' in df_load.columns:
                 df_load = df_load.loc[:, ~df_load.columns.duplicated()]
@@ -198,7 +247,10 @@ with st.sidebar.expander("📁 Importa Listone (CSV/Excel)"):
                 df_load['FantaMedia'] = pd.to_numeric(fm.astype(str).str.replace(',','.',regex=False), errors='coerce').fillna(6.0)
                 if 'Consiglio' not in df_load.columns: df_load['Consiglio'] = 'consigliato'
                 if 'Note' not in df_load.columns: df_load['Note'] = ''
-                cols_final = ['Nome','Ruolo','Squadra_SerieA','Quotazione','FantaMedia','Consiglio','Note']
+                if 'Prezzo_Consigliato' not in df_load.columns: df_load['Prezzo_Consigliato'] = None
+                else:
+                    df_load['Prezzo_Consigliato'] = pd.to_numeric(df_load['Prezzo_Consigliato'], errors='coerce')
+                cols_final = ['Nome','Ruolo','Squadra_SerieA','Quotazione','FantaMedia','Consiglio','Note','Prezzo_Consigliato']
                 if 'Quotazione_2025_26' in df_load.columns: cols_final.append('Quotazione_2025_26')
                 st.session_state.giocatori_db = df_load[cols_final]
                 save_state()
@@ -523,8 +575,47 @@ if menu == "🔍 Scouting & Database":
         df_f = df_f.sort_values(by="Indice_Affare", ascending=False)
 
         st.subheader(f"Trovati: {len(df_f)} giocatori")
-        display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
+        display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
         st.dataframe(df_f[display_cols], use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("✏️ Modifica Prezzi Consigliati")
+        st.caption("Modifica il prezzo consigliato per l'acquisto direttamente nella tabella sottostante.")
+        editor_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Prezzo_Consigliato","Consiglio","Note"] if c in df.columns]
+        df_edit = df[editor_cols].copy()
+        df_edited = st.data_editor(
+            df_edit,
+            column_config={
+                "Prezzo_Consigliato": st.column_config.NumberColumn(
+                    "Prezzo Consigliato",
+                    help="Prezzo ideale per acquistare il giocatore all'asta",
+                    min_value=0,
+                    max_value=500,
+                    step=1,
+                    format="%d cr"
+                ),
+                "Nome": st.column_config.TextColumn("Nome", disabled=True),
+                "Ruolo": st.column_config.TextColumn("Ruolo", disabled=True),
+                "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
+                "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
+                "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
+                "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
+                "Note": st.column_config.TextColumn("Note", disabled=True),
+            },
+            use_container_width=True,
+            num_rows="fixed",
+            key="editor_prezzi"
+        )
+        if st.button("💾 Salva Prezzi Consigliati", type="primary"):
+            # Aggiorna solo la colonna Prezzo_Consigliato
+            if "Prezzo_Consigliato" in df_edited.columns:
+                st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
+                st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
+                    df_edited[["Nome", "Prezzo_Consigliato"]], on="Nome", how="left"
+                )
+                save_state()
+                st.success("✅ Prezzi consigliati salvati!")
+                st.rerun()
 
         st.markdown("---")
         st.subheader("⭐ Watchlist")
@@ -537,9 +628,9 @@ if menu == "🔍 Scouting & Database":
                 st.rerun()
         if st.session_state.watchlist:
             df_wl = df[df["Nome"].isin(st.session_state.watchlist)]
-            wl_cols = ["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Proprietario"]
-            if "Quotazione_2025_26" in df_wl.columns: wl_cols.insert(4, "Quotazione_2025_26")
-            if "Variazione_%" in df_wl.columns: wl_cols.insert(5, "Variazione_%")
+            wl_cols = ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Indice_Affare","Proprietario"]
+            if "Quotazione_2025_26" in df_wl.columns: wl_cols.insert(5, "Quotazione_2025_26")
+            if "Variazione_%" in df_wl.columns: wl_cols.insert(6, "Variazione_%")
             st.dataframe(df_wl[wl_cols], use_container_width=True)
             if st.button("Svuota Watchlist"):
                 st.session_state.watchlist = []
@@ -574,8 +665,11 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if len(svinc) > 0:
                 g_sel = st.selectbox("Giocatore", svinc["Nome"].values)
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
-                st.write(f"Ruolo: **{info['Ruolo']}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**")
-                prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=int(info["Quotazione"]), key="acq_p")
+                pc = info.get('Prezzo_Consigliato')
+                pc_txt = f" | 💡 Prezzo Consigliato: **{int(pc)}cr**" if pd.notna(pc) else ""
+                st.write(f"Ruolo: **{info['Ruolo']}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**{pc_txt}")
+                default_price = int(pc) if pd.notna(pc) else int(info["Quotazione"])
+                prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=default_price, key="acq_p")
                 if st.button("Conferma Acquisto"):
                     if cred >= prezzo:
                         st.session_state.squadre[sq]["crediti"] -= prezzo
