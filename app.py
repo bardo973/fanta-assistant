@@ -98,6 +98,8 @@ def save_state():
         "contratti": st.session_state.contratti,
         "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
         "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else [],
+        "stats_per_stagione": {k: v.to_dict(orient="records") for k, v in st.session_state.get("stats_per_stagione", {}).items()},
+        "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
         "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if hasattr(st.session_state.quotazioni_2025_26, 'to_dict') else []
     }
     with open(SAVE_FILE, "w", encoding="utf-8") as f:
@@ -123,6 +125,10 @@ def load_state():
                 )
             stats = data.get("stats_storiche", [])
             st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
+            st.session_state.stats_per_stagione = {}
+            for stag, records in data.get("stats_per_stagione", {}).items():
+                st.session_state.stats_per_stagione[stag] = pd.DataFrame(records) if records else pd.DataFrame()
+            st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
             q25 = data.get("quotazioni_2025_26", [])
             st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
             for sq in NOMI_SQUADRE:
@@ -1201,73 +1207,127 @@ elif menu == "📋 Rose, Crediti & Contratti":
 elif menu == "📈 Statistiche Storiche":
     st.header("📈 Statistiche Storiche — Ultimi 3 Anni")
 
-    st.markdown("""
-    Carica un file CSV/Excel con le statistiche storiche dei giocatori.
+    st.markdown("Carica i file CSV/Excel con le statistiche storiche **separati per stagione**. Ogni file viene taggato automaticamente con l'anno selezionato. I dati si accumulano: puoi caricare una stagione alla volta.")
 
-    **Colonne attese:** Nome, Stagione, Gol, Assist, FantaMedia, Partite, Rigori, Ammonizioni, Espulsioni
-    (puoi aggiungere altre colonne, verranno mostrate automaticamente)
-    """)
+    STAGIONI = ["2023-24", "2024-25", "2025-26"]
 
-    up_stats = st.file_uploader("File Statistiche Storiche", type=["csv","xlsx"], key="us")
-    if up_stats is not None:
-        try:
-            if up_stats.name.endswith('.csv'):
-                df_s = pd.read_csv(up_stats, encoding='utf-8', on_bad_lines='skip')
-            else:
-                df_s = pd.read_excel(up_stats)
-            df_s.columns = [str(c).strip() for c in df_s.columns]
-            # Mappa colonne base
-            col_map = {}
-            for col in df_s.columns:
-                cl = str(col).lower()
-                if 'nome' in cl or 'giocatore' in cl: col_map[col] = 'Nome'
-                elif 'stagione' in cl or 'anno' in cl or 'season' in cl: col_map[col] = 'Stagione'
-                elif 'gol' in cl or 'goal' in cl: col_map[col] = 'Gol'
-                elif 'assist' in cl: col_map[col] = 'Assist'
-                elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_map[col] = 'FantaMedia'
-                elif 'partite' in cl or 'presenze' in cl or 'pg' in cl: col_map[col] = 'Partite'
-                elif 'rigor' in cl: col_map[col] = 'Rigori'
-                elif 'amm' in cl or 'yellow' in cl: col_map[col] = 'Ammonizioni'
-                elif 'esp' in cl or 'red' in cl: col_map[col] = 'Espulsioni'
-            df_s = df_s.rename(columns=col_map)
-            st.session_state.stats_storiche = df_s
-            save_state()
-            st.success(f"✅ Caricate statistiche per {len(df_s)} righe!")
-        except Exception as e:
-            st.error(f"Errore: {e}")
+    if "stats_per_stagione" not in st.session_state:
+        st.session_state.stats_per_stagione = {}
 
-    if not st.session_state.stats_storiche.empty:
-        df_stats = st.session_state.stats_storiche.copy()
+    tabs = st.tabs(["⬆️ Carica", "📋 Visualizza", "🗑️ Gestione"])
 
-        st.subheader("🔍 Visualizza per giocatore")
-        giocatori_stats = df_stats["Nome"].unique() if "Nome" in df_stats.columns else []
-        if len(giocatori_stats) > 0:
-            g_sel = st.selectbox("Seleziona giocatore", sorted(giocatori_stats), key="stats_sel")
-            df_g = df_stats[df_stats["Nome"] == g_sel]
+    with tabs[0]:
+        st.subheader("Carica statistiche per stagione")
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            stagione_sel = st.selectbox("Seleziona stagione", STAGIONI, key="stagione_sel")
+        with col2:
+            up_stats = st.file_uploader(
+                f"File statistiche {stagione_sel}",
+                type=["csv","xlsx"],
+                key=f"us_{stagione_sel.replace('-','_')}"
+            )
 
-            st.markdown(f"**{g_sel}** — {len(df_g)} stagioni trovate")
-            st.dataframe(df_g, use_container_width=True)
+        if up_stats is not None:
+            try:
+                if up_stats.name.endswith('.csv'):
+                    df_s = pd.read_csv(up_stats, encoding='utf-8', on_bad_lines='skip')
+                else:
+                    df_s = pd.read_excel(up_stats)
+                df_s.columns = [str(c).strip() for c in df_s.columns]
 
-            # Grafici se ci sono dati numerici
-            numeric_cols = df_g.select_dtypes(include=['number']).columns.tolist()
-            numeric_cols = [c for c in numeric_cols if c not in ['Stagione'] and 'Stagione' not in c]
-            if numeric_cols and "Stagione" in df_g.columns:
-                st.subheader("📊 Andamento")
-                chart_data = df_g.set_index("Stagione")[numeric_cols]
-                st.line_chart(chart_data)
+                col_map = {}
+                for col in df_s.columns:
+                    cl = str(col).lower()
+                    if 'nome' in cl or 'giocatore' in cl: col_map[col] = 'Nome'
+                    elif 'stagione' in cl or 'anno' in cl or 'season' in cl: col_map[col] = 'Stagione'
+                    elif 'gol' in cl or 'goal' in cl: col_map[col] = 'Gol'
+                    elif 'assist' in cl: col_map[col] = 'Assist'
+                    elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_map[col] = 'FantaMedia'
+                    elif 'partite' in cl or 'presenze' in cl or 'pg' in cl: col_map[col] = 'Partite'
+                    elif 'rigor' in cl: col_map[col] = 'Rigori'
+                    elif 'amm' in cl or 'yellow' in cl: col_map[col] = 'Ammonizioni'
+                    elif 'esp' in cl or 'red' in cl: col_map[col] = 'Espulsioni'
+                df_s = df_s.rename(columns=col_map)
 
-            # Confronto con listone attuale
-            db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_sel.lower()]
-            if not db_match.empty:
-                st.info(f"💡 Quotazione attuale listone: **{int(db_match.iloc[0]['Quotazione'])}cr** | FantaMedia: **{db_match.iloc[0]['FantaMedia']}** | Squadra: **{db_match.iloc[0]['Squadra_SerieA']}**")
+                df_s["Stagione"] = stagione_sel
 
-        st.markdown("---")
-        st.subheader("📋 Tabella completa")
-        st.dataframe(df_stats, use_container_width=True)
+                st.session_state.stats_per_stagione[stagione_sel] = df_s
 
-        if st.button("🗑️ Cancella statistiche storiche"):
-            st.session_state.stats_storiche = pd.DataFrame()
-            save_state()
-            st.rerun()
-    else:
-        st.info("Nessuna statistica storica caricata. Usa l'uploader sopra.")
+                all_stats = []
+                for stag, df_stag in st.session_state.stats_per_stagione.items():
+                    all_stats.append(df_stag)
+                if all_stats:
+                    st.session_state.stats_storiche = pd.concat(all_stats, ignore_index=True)
+
+                save_state()
+                st.success(f"✅ Caricate {len(df_s)} righe per la stagione **{stagione_sel}**!")
+            except Exception as e:
+                st.error(f"Errore: {e}")
+
+        if st.session_state.stats_per_stagione:
+            st.markdown("---")
+            st.subheader("📂 Stagioni caricate")
+            for stag, df_stag in st.session_state.stats_per_stagione.items():
+                st.caption(f"**{stag}**: {len(df_stag)} righe | {df_stag['Nome'].nunique()} giocatori")
+
+    with tabs[1]:
+        if not st.session_state.stats_storiche.empty:
+            df_stats = st.session_state.stats_storiche.copy()
+
+            st.subheader("🔍 Visualizza per giocatore")
+            giocatori_stats = df_stats["Nome"].unique() if "Nome" in df_stats.columns else []
+            if len(giocatori_stats) > 0:
+                g_sel = st.selectbox("Seleziona giocatore", sorted(giocatori_stats), key="stats_sel")
+                df_g = df_stats[df_stats["Nome"] == g_sel].sort_values("Stagione")
+
+                st.markdown(f"**{g_sel}** — {len(df_g)} stagioni trovate")
+                st.dataframe(df_g, use_container_width=True)
+
+                numeric_cols = df_g.select_dtypes(include=['number']).columns.tolist()
+                numeric_cols = [c for c in numeric_cols if c not in ['Stagione'] and 'Stagione' not in c]
+                if numeric_cols and "Stagione" in df_g.columns:
+                    st.subheader("📊 Andamento")
+                    chart_data = df_g.set_index("Stagione")[numeric_cols]
+                    st.line_chart(chart_data)
+
+                db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_sel.lower()]
+                if not db_match.empty:
+                    st.info(f"💡 Quotazione attuale listone: **{int(db_match.iloc[0]['Quotazione'])}cr** | FantaMedia: **{db_match.iloc[0]['FantaMedia']}** | Squadra: **{db_match.iloc[0]['Squadra_SerieA']}**")
+
+            st.markdown("---")
+            st.subheader("📋 Tabella completa")
+            st.dataframe(df_stats, use_container_width=True)
+        else:
+            st.info("Nessuna statistica storica caricata. Vai nella scheda '⬆️ Carica'.")
+
+    with tabs[2]:
+        st.subheader("🗑️ Gestione dati storici")
+        if st.session_state.stats_per_stagione:
+            st.markdown("**Stagioni caricate:**")
+            for stag in list(st.session_state.stats_per_stagione.keys()):
+                col_a, col_b = st.columns([3, 1])
+                with col_a:
+                    df_stag = st.session_state.stats_per_stagione[stag]
+                    st.write(f"📁 **{stag}** — {len(df_stag)} righe, {df_stag['Nome'].nunique()} giocatori")
+                with col_b:
+                    if st.button(f"🗑️ Cancella {stag}", key=f"del_{stag.replace('-','_')}"):
+
+                        del st.session_state.stats_per_stagione[stag]
+                        all_stats = []
+                        for s, df_s in st.session_state.stats_per_stagione.items():
+                            all_stats.append(df_s)
+                        st.session_state.stats_storiche = pd.concat(all_stats, ignore_index=True) if all_stats else pd.DataFrame()
+                        save_state()
+                        st.success(f"Stagione {stag} cancellata!")
+                        st.rerun()
+
+            st.markdown("---")
+            if st.button("🗑️ Cancella TUTTE le statistiche", type="primary"):
+                st.session_state.stats_per_stagione = {}
+                st.session_state.stats_storiche = pd.DataFrame()
+                save_state()
+                st.success("Tutte le statistiche cancellate!")
+                st.rerun()
+        else:
+            st.info("Nessuna stagione caricata.")
