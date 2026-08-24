@@ -670,6 +670,31 @@ if new_cred != st.session_state.crediti_iniziali:
     save_state()
     st.sidebar.success(f"Crediti iniziali aggiornati a {new_cred}!")
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("💰 Gestione Crediti Squadre")
+st.sidebar.caption("Aggiungi o togli crediti a una squadra senza resettare.")
+
+sq_cred = st.sidebar.selectbox("Squadra", NOMI_SQUADRE, key="sq_cred")
+cred_attuali = st.session_state.squadre[sq_cred]["crediti"]
+st.sidebar.metric("Crediti attuali", f"{cred_attuali} 🪙")
+
+col_add, col_rem = st.sidebar.columns(2)
+with col_add:
+    add_val = st.number_input("Aggiungi", min_value=0, max_value=500, value=0, step=5, key="add_cred")
+    if st.button("➕ Aggiungi", use_container_width=True, key="btn_add"):
+        st.session_state.squadre[sq_cred]["crediti"] += add_val
+        save_state()
+        st.sidebar.success(f"Aggiunti {add_val}cr a {sq_cred}!")
+        st.rerun()
+with col_rem:
+    rem_val = st.number_input("Togli", min_value=0, max_value=cred_attuali, value=0, step=5, key="rem_cred")
+    if st.button("➖ Togli", use_container_width=True, key="btn_rem"):
+        st.session_state.squadre[sq_cred]["crediti"] -= rem_val
+        save_state()
+        st.sidebar.success(f"Rimossi {rem_val}cr da {sq_cred}!")
+        st.rerun()
+
+
 menu = st.sidebar.selectbox("Navigazione", [
     "🔍 Scouting & Database",
     "🛒 Mercato (Acquisti/Vendite)",
