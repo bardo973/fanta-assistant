@@ -155,6 +155,118 @@ if "initialized" not in st.session_state:
     st.session_state.initialized = True
 
 # ============================================================
+# CALCOLO PREZZO CONSIGLIATO (AI-driven)
+# ============================================================
+def calcola_prezzo_consigliato(g_info, stats_df=None):
+    """
+    Calcola un prezzo consigliato per l'asta basato su:
+    - Quotazione di listone (base)
+    - FantaMedia vs media ruolo
+    - Trend statistiche storiche (se disponibili)
+    - Indice affare (FM / Quotazione)
+    - Fascia consiglio (top/consigliato/scommessa)
+    - Ruolo (P/D/C/A hanno pesi diversi)
+    Ritorna: (prezzo_consigliato, spiegazione)
+    """
+    import math
+
+    nome = g_info.get("Nome", "")
+    ruolo = g_info.get("Ruolo", "C")
+    quot = float(g_info.get("Quotazione", 10))
+    fm = float(g_info.get("FantaMedia", 6.0))
+    fascia = g_info.get("Consiglio", "consigliato")
+
+    # Base: quotazione di listone
+    base = quot
+
+    # Fattore FantaMedia (più è alto, più vale)
+    # Media ruolo di riferimento approssimativa
+    medie_ruolo = {"P": 5.5, "D": 6.2, "C": 6.8, "A": 7.5}
+    media_rif = medie_ruolo.get(ruolo, 6.5)
+    delta_fm = fm - media_rif
+    fattore_fm = 1 + (delta_fm * 0.15)  # ogni 1.0 di FM sopra media = +15%
+
+    # Fattore fascia consiglio
+    fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85}.get(fascia, 1.0)
+
+    # Trend statistiche storiche
+    fattore_trend = 1.0
+    trend_note = ""
+    if stats_df is not None and not stats_df.empty and "Nome" in stats_df.columns:
+        g_stats = stats_df[stats_df["Nome"].str.lower() == nome.lower()]
+        if not g_stats.empty:
+            # Prendi l'ultima stagione disponibile
+            if "Stagione" in g_stats.columns:
+                g_stats = g_stats.sort_values("Stagione", ascending=False)
+            ultima = g_stats.iloc[0]
+
+            # Se c'è fantamedia storica, confronta con quella attuale
+            if "FantaMedia" in ultima and pd.notna(ultima["FantaMedia"]):
+                fm_storica = float(ultima["FantaMedia"])
+                if fm > fm_storica + 0.3:
+                    fattore_trend += 0.10
+                    trend_note = " 📈 Trend in crescita"
+                elif fm < fm_storica - 0.3:
+                    fattore_trend -= 0.10
+                    trend_note = " 📉 Trend in calo"
+                else:
+                    trend_note = " ➡️ Trend stabile"
+
+            # Gol/assist bonus
+            gol = float(ultima.get("Gol", 0)) if "Gol" in ultima and pd.notna(ultima.get("Gol")) else 0
+            assist = float(ultima.get("Assist", 0)) if "Assist" in ultima and pd.notna(ultima.get("Assist")) else 0
+            if ruolo in ["D", "C"] and gol >= 5:
+                fattore_trend += 0.08
+                trend_note += f" | ⚽ {int(gol)} gol"
+            if ruolo == "A" and gol >= 15:
+                fattore_trend += 0.12
+                trend_note += f" | ⚽ {int(gol)} gol"
+
+            # Presenze
+            if "Partite" in ultima and pd.notna(ultima["Partite"]):
+                partite = int(ultima["Partite"])
+                if partite >= 30:
+                    fattore_trend += 0.05
+                    trend_note += f" | 🏃 {partite} presenze"
+
+    # Indice affare: FM/Quotazione → più è alto, più è sottovalutato
+    indice_affare = fm / max(quot, 1)
+    if indice_affare > 0.20:
+        fattore_affare = 1.0  # già quotato correttamente
+    elif indice_affare > 0.15:
+        fattore_affare = 0.95
+    else:
+        fattore_affare = 0.90  # sottovalutato → prezzo più basso consigliato
+
+    # Calcolo finale
+    prezzo = base * fattore_fm * fattore_fascia * fattore_trend * fattore_affare
+    prezzo = max(1, round(prezzo))
+
+    # Spiegazione
+    spiegazione = (
+        f"**Base listone:** {int(base)}cr\n"
+        f"**FantaMedia:** {fm} (media ruolo {ruolo}: {media_rif}) → fattore {fattore_fm:.2f}\n"
+        f"**Fascia:** {fascia} → fattore {fattore_fascia:.2f}\n"
+        f"**Indice affare:** {indice_affare:.3f} → fattore {fattore_affare:.2f}\n"
+    )
+    if trend_note:
+        spiegazione += f"**Statistiche:**{trend_note} → fattore {fattore_trend:.2f}\n"
+    spiegazione += f"\n**💡 Prezzo consigliato: {prezzo}cr**"
+
+    return prezzo, spiegazione
+
+
+def mostra_statistiche_giocatore(nome, stats_df):
+    """Mostra le statistiche storiche di un giocatore in formato tabella/grafico."""
+    if stats_df is None or stats_df.empty or "Nome" not in stats_df.columns:
+        return None
+    g_stats = stats_df[stats_df["Nome"].str.lower() == nome.lower()]
+    if g_stats.empty:
+        return None
+    return g_stats.sort_values("Stagione") if "Stagione" in g_stats.columns else g_stats
+
+
+# ============================================================
 # SIDEBAR
 # ============================================================
 st.sidebar.title("⚽ FantaManager 2026/27")
@@ -176,37 +288,43 @@ with c2:
 
 st.sidebar.markdown("---")
 
-# --- ESPORTA LISTONE ---
+# --- ESPORTA LISTONE (Excel diretto, nessuna scelta) ---
 st.sidebar.subheader("📤 Esporta Listone")
-exp_fmt = st.sidebar.radio("Formato", ["CSV", "Excel"], horizontal=True, key="exp_fmt")
-if st.sidebar.button("📥 Scarica Listone", use_container_width=True):
-    df_exp = st.session_state.giocatori_db.copy()
-    if "Prezzo_Consigliato" not in df_exp.columns:
-        df_exp["Prezzo_Consigliato"] = None
-    # Riordina colonne
-    cols_exp = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Consiglio","Note","Quotazione_2025_26"] if c in df_exp.columns]
-    df_exp = df_exp[cols_exp]
-    if exp_fmt == "CSV":
-        csv = df_exp.to_csv(index=False, encoding="utf-8-sig")
-        st.sidebar.download_button(
-            label="⬇️ Scarica CSV",
-            data=csv,
-            file_name="listone_fantamanager_2026_27.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    else:
-        import io
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df_exp.to_excel(writer, index=False, sheet_name="Listone")
-        st.sidebar.download_button(
-            label="⬇️ Scarica Excel",
-            data=buffer.getvalue(),
-            file_name="listone_fantamanager_2026_27.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+import io
+buffer_exp = io.BytesIO()
+df_exp = st.session_state.giocatori_db.copy()
+if "Prezzo_Consigliato" not in df_exp.columns:
+    df_exp["Prezzo_Consigliato"] = None
+# Calcola prezzi consigliati AI per tutti (se mancanti) e salva nel DataFrame
+if not st.session_state.stats_storiche.empty and "Nome" in st.session_state.stats_storiche.columns:
+    for idx, row in df_exp.iterrows():
+        if pd.isna(row.get("Prezzo_Consigliato")):
+            pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), st.session_state.stats_storiche)
+            df_exp.at[idx, "Prezzo_Consigliato"] = pc_ai
+cols_exp = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Consiglio","Note","Quotazione_2025_26"] if c in df_exp.columns]
+df_exp = df_exp[cols_exp]
+with pd.ExcelWriter(buffer_exp, engine="openpyxl") as writer:
+    df_exp.to_excel(writer, index=False, sheet_name="Listone")
+    # Aggiungi sheet con rose
+    rose_exp = []
+    for sq_name, sq_data in st.session_state.squadre.items():
+        for g in sq_data["rosa"]:
+            g_copy = dict(g)
+            g_copy["Squadra_Fanta"] = sq_name
+            rose_exp.append(g_copy)
+    if rose_exp:
+        pd.DataFrame(rose_exp).to_excel(writer, index=False, sheet_name="Rose")
+    # Aggiungi sheet storico mercato
+    if st.session_state.storico_mercato:
+        pd.DataFrame(st.session_state.storico_mercato).to_excel(writer, index=False, sheet_name="Storico")
+st.sidebar.download_button(
+    label="⬇️ Scarica Backup Completo (Excel)",
+    data=buffer_exp.getvalue(),
+    file_name=f"fantamanager_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    use_container_width=True,
+    help="Scarica listone, rose e storico in un unico file Excel. Nessuna finestra di dialogo: il browser scarica direttamente."
+)
 
 st.sidebar.markdown("---")
 
@@ -665,12 +783,55 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
             if len(svinc) > 0:
                 g_sel = st.selectbox("Giocatore", svinc["Nome"].values)
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
-                pc = info.get('Prezzo_Consigliato')
-                pc_txt = f" | 💡 Prezzo Consigliato: **{int(pc)}cr**" if pd.notna(pc) else ""
-                st.write(f"Ruolo: **{info['Ruolo']}** | Squadra: **{info['Squadra_SerieA']}** | Quotazione: **{int(info['Quotazione'])}** | FM: **{info['FantaMedia']}** | Consiglio: **{info.get('Consiglio','')}**{pc_txt}")
-                default_price = int(pc) if pd.notna(pc) else int(info["Quotazione"])
-                prezzo = st.number_input("Prezzo pagato", min_value=1, max_value=max(1,cred), value=default_price, key="acq_p")
-                if st.button("Conferma Acquisto"):
+
+                # --- CARD INFO + PREZZO CONSIGLIATO ---
+                st.markdown("---")
+                col_info, col_prezzo = st.columns([2, 1])
+                with col_info:
+                    st.markdown(f"**{g_sel}** — {info['Ruolo']} | {info['Squadra_SerieA']}")
+                    st.markdown(f"Quotazione listone: **{int(info['Quotazione'])}cr** | FantaMedia: **{info['FantaMedia']}** | Fascia: **{info.get('Consiglio','')}**")
+
+                # Calcola prezzo consigliato AI
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
+
+                with col_prezzo:
+                    st.markdown(
+                        f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
+                        f"<div style='font-size:0.85em;color:#aaa;'>💡 PREZZO CONSIGLIATO</div>"
+                        f"<div style='font-size:1.8em;font-weight:bold;color:#00d26a;'>{pc_ai}cr</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+                with st.expander("🧠 Come è calcolato il prezzo consigliato?"):
+                    st.markdown(spiegazione)
+
+                # --- STATISTICHE STORICHE ---
+                stats_g = mostra_statistiche_giocatore(g_sel, stats_df)
+                if stats_g is not None:
+                    with st.expander("📊 Statistiche Storiche"):
+                        st.dataframe(stats_g, use_container_width=True)
+                        numeric_cols = stats_g.select_dtypes(include=['number']).columns.tolist()
+                        numeric_cols = [c for c in numeric_cols if c not in ['Stagione'] and 'Stagione' not in c]
+                        if numeric_cols and "Stagione" in stats_g.columns:
+                            st.line_chart(stats_g.set_index("Stagione")[numeric_cols])
+                else:
+                    st.caption("📭 Nessuna statistica storica caricata per questo giocatore.")
+
+                st.markdown("---")
+
+                # Prezzo pagato: default dal prezzo consigliato AI
+                pc_manuale = info.get('Prezzo_Consigliato')
+                if pd.notna(pc_manuale):
+                    default_price = int(pc_manuale)
+                    st.caption(f"💾 Prezzo consigliato salvato manualmente: {default_price}cr")
+                else:
+                    default_price = pc_ai
+
+                prezzo = st.number_input("Prezzo da pagare all'asta", min_value=1, max_value=max(1,cred), value=default_price, key="acq_p")
+
+                if st.button("Conferma Acquisto", type="primary"):
                     if cred >= prezzo:
                         st.session_state.squadre[sq]["crediti"] -= prezzo
                         scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
