@@ -323,14 +323,77 @@ c1, c2 = st.sidebar.columns(2)
 with c1:
     if st.button("💾 Salva", use_container_width=True):
         save_state()
-        st.sidebar.success("Salvato!")
+        st.sidebar.success("Salvato sul server!")
 with c2:
     if st.button("📂 Carica", use_container_width=True):
         if load_state():
-            st.sidebar.success("Caricato!")
+            st.sidebar.success("Caricato dal server!")
             st.rerun()
         else:
-            st.sidebar.warning("Nessun salvataggio trovato.")
+            st.sidebar.warning("Nessun salvataggio trovato sul server.")
+
+st.sidebar.markdown("---")
+
+# --- SALVA SU PC (JSON) ---
+st.sidebar.subheader("💾 Salva su PC")
+st.sidebar.caption("Scarica il file completo sul tuo computer per conservarlo o condividerlo.")
+
+# Crea il JSON in memoria per il download
+save_data = {
+    "squadre": st.session_state.squadre,
+    "storico_mercato": st.session_state.storico_mercato,
+    "watchlist": st.session_state.watchlist,
+    "prestiti": st.session_state.prestiti,
+    "contratti": st.session_state.contratti,
+    "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
+    "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else [],
+    "stats_per_stagione": {k: v.to_dict(orient="records") for k, v in st.session_state.get("stats_per_stagione", {}).items()},
+    "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if hasattr(st.session_state.quotazioni_2025_26, 'to_dict') else [],
+    "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
+}
+json_bytes = json.dumps(save_data, ensure_ascii=False, indent=2).encode('utf-8')
+st.sidebar.download_button(
+    label="⬇️ Scarica Stato Completo (JSON)",
+    data=json_bytes,
+    file_name=f"fantamanager_stato_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+    mime="application/json",
+    use_container_width=True,
+    help="Scarica TUTTO: rose, crediti, contratti, storico, watchlist, statistiche, prezzi consigliati..."
+)
+
+st.sidebar.markdown("---")
+
+# --- CARICA DA PC (JSON) ---
+st.sidebar.subheader("📂 Carica da PC")
+st.sidebar.caption("Ripristina uno stato precedentemente scaricato sul tuo PC.")
+up_json = st.sidebar.file_uploader("Seleziona file JSON", type=["json"], key="up_json")
+if up_json is not None:
+    try:
+        data = json.load(up_json)
+        st.session_state.squadre = data.get("squadre", {})
+        st.session_state.storico_mercato = data.get("storico_mercato", [])
+        st.session_state.watchlist = data.get("watchlist", [])
+        st.session_state.prestiti = data.get("prestiti", [])
+        st.session_state.contratti = data.get("contratti", {})
+        db = data.get("giocatori_db", [])
+        st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+        stats = data.get("stats_storiche", [])
+        st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
+        st.session_state.stats_per_stagione = {}
+        for stag, records in data.get("stats_per_stagione", {}).items():
+            st.session_state.stats_per_stagione[stag] = pd.DataFrame(records) if records else pd.DataFrame()
+        q25 = data.get("quotazioni_2025_26", [])
+        st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
+        st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
+        # Assicurati che tutte le squadre esistano
+        for sq in NOMI_SQUADRE:
+            if sq not in st.session_state.squadre:
+                st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
+        save_state()
+        st.sidebar.success("✅ Stato caricato dal PC! Ricarico...")
+        st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"Errore caricamento: {e}")
 
 st.sidebar.markdown("---")
 
