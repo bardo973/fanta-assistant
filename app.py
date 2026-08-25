@@ -1899,18 +1899,34 @@ elif menu == "📈 Statistiche Storiche":
 
                 col_map = {}
                 for col in df_s.columns:
-                    cl = str(col).lower()
-                    if 'nome' in cl or 'giocatore' in cl: col_map[col] = 'Nome'
-                    elif 'stagione' in cl or 'anno' in cl or 'season' in cl: col_map[col] = 'Stagione'
-                    elif 'gol' in cl or 'goal' in cl: col_map[col] = 'Gol'
-                    elif 'assist' in cl: col_map[col] = 'Assist'
-                    elif 'fm' in cl or 'fantamedia' in cl or 'media' in cl: col_map[col] = 'FantaMedia'
-                    elif 'partite' in cl or 'presenze' in cl or 'pg' in cl: col_map[col] = 'Partite'
-                    elif 'rigor' in cl: col_map[col] = 'Rigori'
-                    elif 'amm' in cl or 'yellow' in cl: col_map[col] = 'Ammonizioni'
-                    elif 'esp' in cl or 'red' in cl: col_map[col] = 'Espulsioni'
+                    cl = str(col).lower().strip()
+                    if any(k in cl for k in ['nome','giocatore','calciatore','name','player','cognome']): 
+                        col_map[col] = 'Nome'
+                    elif any(k in cl for k in ['stagione','anno','season','year']): 
+                        col_map[col] = 'Stagione'
+                    elif any(k in cl for k in ['gol','goal','reti']): 
+                        col_map[col] = 'Gol'
+                    elif 'assist' in cl: 
+                        col_map[col] = 'Assist'
+                    elif any(k in cl for k in ['fm','fantamedia','fanta media','media']): 
+                        col_map[col] = 'FantaMedia'
+                    elif any(k in cl for k in ['partite','presenze','pg','match','played']): 
+                        col_map[col] = 'Partite'
+                    elif 'rigor' in cl: 
+                        col_map[col] = 'Rigori'
+                    elif any(k in cl for k in ['amm','yellow','gialli']): 
+                        col_map[col] = 'Ammonizioni'
+                    elif any(k in cl for k in ['esp','red','rossi']): 
+                        col_map[col] = 'Espulsioni'
                 df_s = df_s.rename(columns=col_map)
 
+                # VALIDAZIONE: la colonna Nome è obbligatoria
+                if 'Nome' not in df_s.columns:
+                    st.error(f"❌ Colonna 'Nome' non trovata. Colonne rilevate: {list(df_s.columns)}")
+                    st.info("💡 Assicurati che il file contenga una colonna con il nome del giocatore (es. 'Nome', 'Name', 'Giocatore', 'Player')")
+                    st.stop()
+
+                # Se Stagione è già nel file, sovrascrivila con quella selezionata
                 df_s["Stagione"] = stagione_sel
 
                 st.session_state.stats_per_stagione[stagione_sel] = df_s
@@ -1930,7 +1946,11 @@ elif menu == "📈 Statistiche Storiche":
             st.markdown("---")
             st.subheader("📂 Stagioni caricate")
             for stag, df_stag in st.session_state.stats_per_stagione.items():
-                st.caption(f"**{stag}**: {len(df_stag)} righe | {df_stag['Nome'].nunique()} giocatori")
+                if 'Nome' in df_stag.columns:
+                    n_giocatori = df_stag['Nome'].nunique()
+                else:
+                    n_giocatori = "N/D (colonna Nome mancante)"
+                st.caption(f"**{stag}**: {len(df_stag)} righe | {n_giocatori} giocatori")
 
     with tabs[1]:
         if not st.session_state.stats_storiche.empty:
