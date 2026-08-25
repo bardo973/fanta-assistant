@@ -3,82 +3,75 @@ import pandas as pd
 import json
 import os
 import difflib
+import pickle
+import tempfile
+import shutil
 from datetime import datetime
+from typing import Dict, List, Optional, Any, Tuple
+import io
+import random
 
 # ============================================================
-# CONFIG & TEMA
+# CONFIGURAZIONE
 # ============================================================
 st.set_page_config(
-    page_title="FantaManager 2026/27 - 10 Squadre",
+    page_title="FantaManager 2026/27",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS Custom per tema dark calcistico
+SAVE_FILE_PKL = "fantamanager_state_v2.pkl"
+SAVE_FILE_JSON = "fantamanager_save.json"
+NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
+ANNO_CORRENTE = 2026
+CONTRATTO_ANNI = 3
+CREDITI_INIZIALI = 50
+ROSA_REQ = {"P": 3, "D": 9, "C": 9, "A": 7}
+MAX_UNDO = 10
+
+# ============================================================
+# CSS CUSTOM
+# ============================================================
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(180deg, #0e1117 0%, #1a1a2e 100%);
+        background: linear-gradient(180deg, #0b0f19 0%, #12122e 100%);
     }
-    .stSidebar {
-        background-color: #16162a !important;
-    }
-    h1, h2, h3 {
-        color: #00d26a !important;
-        font-family: 'Segoe UI', sans-serif;
-    }
+    .stSidebar { background-color: #0f0f24 !important; }
+    h1, h2, h3 { color: #00d26a !important; font-family: 'Segoe UI', sans-serif; }
     .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s;
+        border-radius: 8px; font-weight: 600; transition: all 0.2s;
+        background: linear-gradient(90deg, #00d26a, #00a854);
+        color: white; border: none;
     }
     .stButton>button:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(0,210,106,0.3);
     }
+    .stButton>button[kind="secondary"] {
+        background: #2a2a4a; color: #ddd;
+    }
     .card-giocatore {
-        background: #1e1e3f;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 8px;
-        border-left: 4px solid #00d26a;
+        background: #1e1e3f; border-radius: 10px; padding: 12px;
+        margin-bottom: 8px; border-left: 4px solid #00d26a;
     }
     .badge-prestito {
-        background: #ff6b6b;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75em;
-        font-weight: bold;
+        background: #ff6b6b; color: white; padding: 2px 8px;
+        border-radius: 12px; font-size: 0.75em; font-weight: bold;
     }
     .metric-box {
-        background: #1a1a2e;
-        border-radius: 10px;
-        padding: 16px;
-        text-align: center;
-        border: 1px solid #2a2a4a;
+        background: #1a1a2e; border-radius: 10px; padding: 16px;
+        text-align: center; border: 1px solid #2a2a4a;
     }
-    div[data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
-    }
+    div[data-testid="stMetricValue"] { font-size: 1.8rem !important; font-weight: 700 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-SAVE_FILE = "fantamanager_save.json"
-NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
-ANNO_CORRENTE = 2026
-CONTRATTO_ANNI = 3
-CREDITI_INIZIALI = 50
-
-ROSA_REQ = {"P": 3, "D": 9, "C": 9, "A": 7}
-
 # ============================================================
-# LISTONE DEFAULT 2026/2027
+# LISTONE DEFAULT
 # ============================================================
 LISTONE_DEFAULT = [
-    # ========== PORTIERI ==========
     {"Nome":"Svilar","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":38,"FantaMedia":6.0,"Consiglio":"top","Note":"18 clean sheet, fantamedia 6, media voto 6.35", "Quotazione_2025_26":35, "Prezzo_Consigliato":None},
     {"Nome":"Carnesecchi","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":34,"FantaMedia":6.1,"Consiglio":"top","Note":"13 clean sheet, media voto 6.5, con Sarri può migliorare", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
     {"Nome":"Maignan","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":34,"FantaMedia":5.9,"Consiglio":"top","Note":"13 clean sheet, 2 rigori parati, affidabile", "Quotazione_2025_26":29, "Prezzo_Consigliato":None},
@@ -92,8 +85,6 @@ LISTONE_DEFAULT = [
     {"Nome":"Stankovic","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":13,"FantaMedia":5.3,"Consiglio":"scommessa","Note":"Torna in Serie A, potenziale sorpresa", "Quotazione_2025_26":6, "Prezzo_Consigliato":None},
     {"Nome":"Corvi","Ruolo":"P","Squadra_SerieA":"Parma","Quotazione":12,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Nuovo titolare, aveva fatto vedere buone cose", "Quotazione_2025_26":4, "Prezzo_Consigliato":None},
     {"Nome":"Caprile","Ruolo":"P","Squadra_SerieA":"Cagliari","Quotazione":10,"FantaMedia":5.3,"Consiglio":"scommessa","Note":"Buon portiere da modificatore, low cost", "Quotazione_2025_26":3, "Prezzo_Consigliato":None},
-
-    # ========== DIFENSORI ==========
     {"Nome":"Dimarco","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":45,"FantaMedia":7.2,"Consiglio":"top","Note":"Top assoluto, vale un +3 a giornata, irraggiungibile", "Quotazione_2025_26":39, "Prezzo_Consigliato":None},
     {"Nome":"Bremer","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":38,"FantaMedia":6.9,"Consiglio":"top","Note":"4 gol, 3 assist, fantamedia alta, primo slot", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
     {"Nome":"Bisseck","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":35,"FantaMedia":6.8,"Consiglio":"top","Note":"Voti alti e bonus, può diventare top", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
@@ -112,8 +103,6 @@ LISTONE_DEFAULT = [
     {"Nome":"Jimenez","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":21,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Torna in Serie A, jolly tattico, può giocare ovunque", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
     {"Nome":"Kaiki","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":14,"FantaMedia":5.9,"Consiglio":"scommessa","Note":"Nuovo titolare sinistra, terzino di spinta", "Quotazione_2025_26":4, "Prezzo_Consigliato":None},
     {"Nome":"Çelik","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":19,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Duttile, Spalletti può schierarlo in varie occasioni", "Quotazione_2025_26":10, "Prezzo_Consigliato":None},
-
-    # ========== CENTROCAMPISTI ==========
     {"Nome":"Pulisic","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":57,"FantaMedia":7.8,"Consiglio":"top","Note":"Cambio ruolo, più appetibile, potenziale doppia-doppia", "Quotazione_2025_26":53, "Prezzo_Consigliato":None},
     {"Nome":"Orsolini","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":53,"FantaMedia":7.6,"Consiglio":"top","Note":"Cambio ruolo, bonus garantiti, doppia cifra potenziale", "Quotazione_2025_26":46, "Prezzo_Consigliato":None},
     {"Nome":"McTominay","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":50,"FantaMedia":7.4,"Consiglio":"top","Note":"Doppia cifra, sposta gli equilibri, top", "Quotazione_2025_26":42, "Prezzo_Consigliato":None},
@@ -138,8 +127,6 @@ LISTONE_DEFAULT = [
     {"Nome":"Calò","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":22,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"10 gol, 14 assist in Serie B, grande salto", "Quotazione_2025_26":14, "Prezzo_Consigliato":None},
     {"Nome":"Milla","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":20,"FantaMedia":6.4,"Consiglio":"scommessa","Note":"Solo Yamal più assist in Liga, possibile crack", "Quotazione_2025_26":10, "Prezzo_Consigliato":None},
     {"Nome":"Liberali","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Giovane dal grande potenziale, spazio con Champions", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
-
-    # ========== ATTACCANTI ==========
     {"Nome":"Lautaro","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":88,"FantaMedia":8.5,"Consiglio":"top","Note":"Capocannoniere 17 gol, 6 assist, primo slot assoluto", "Quotazione_2025_26":90, "Prezzo_Consigliato":None},
     {"Nome":"Malen","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":84,"FantaMedia":8.2,"Consiglio":"top","Note":"Vice-cannoniere 14 gol, sposta gli equilibri", "Quotazione_2025_26":72, "Prezzo_Consigliato":None},
     {"Nome":"Thuram","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":74,"FantaMedia":7.9,"Consiglio":"top","Note":"13 gol, 6 assist, primo slot nonostante annata deludente", "Quotazione_2025_26":67, "Prezzo_Consigliato":None},
@@ -170,10 +157,165 @@ for g in LISTONE_DEFAULT:
     g.setdefault("Prezzo_Consigliato", None)
 
 # ============================================================
+# STATE MANAGER (Pickle Atomico + Undo)
+# ============================================================
+class StateManager:
+    @staticmethod
+    def snapshot():
+        if "_undo_stack" not in st.session_state:
+            st.session_state._undo_stack = []
+        snap = {
+            "squadre": pickle.loads(pickle.dumps(st.session_state.squadre)),
+            "storico_mercato": list(st.session_state.storico_mercato),
+            "watchlist": list(st.session_state.watchlist),
+            "prestiti": pickle.loads(pickle.dumps(st.session_state.prestiti)),
+            "contratti": pickle.loads(pickle.dumps(st.session_state.contratti)),
+            "giocatori_db": st.session_state.giocatori_db.copy(),
+            "stats_storiche": st.session_state.stats_storiche.copy() if not st.session_state.stats_storiche.empty else pd.DataFrame(),
+            "stats_per_stagione": {k: v.copy() for k, v in st.session_state.get("stats_per_stagione", {}).items()},
+            "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
+            "quotazioni_2025_26": st.session_state.quotazioni_2025_26.copy() if not st.session_state.quotazioni_2025_26.empty else pd.DataFrame(),
+            "wizard_completato": st.session_state.get("wizard_completato", False),
+        }
+        st.session_state._undo_stack.append(snap)
+        if len(st.session_state._undo_stack) > MAX_UNDO:
+            st.session_state._undo_stack.pop(0)
+
+    @staticmethod
+    def undo():
+        if not st.session_state.get("_undo_stack"):
+            return False
+        snap = st.session_state._undo_stack.pop()
+        st.session_state.squadre = snap["squadre"]
+        st.session_state.storico_mercato = snap["storico_mercato"]
+        st.session_state.watchlist = snap["watchlist"]
+        st.session_state.prestiti = snap["prestiti"]
+        st.session_state.contratti = snap["contratti"]
+        st.session_state.giocatori_db = snap["giocatori_db"]
+        st.session_state.stats_storiche = snap["stats_storiche"]
+        st.session_state.stats_per_stagione = snap["stats_per_stagione"]
+        st.session_state.crediti_iniziali = snap["crediti_iniziali"]
+        st.session_state.quotazioni_2025_26 = snap["quotazioni_2025_26"]
+        st.session_state.wizard_completato = snap["wizard_completato"]
+        invalidate_cache()
+        return True
+
+    @staticmethod
+    def save():
+        data = {
+            "squadre": st.session_state.squadre,
+            "storico_mercato": st.session_state.storico_mercato,
+            "watchlist": st.session_state.watchlist,
+            "prestiti": st.session_state.prestiti,
+            "contratti": st.session_state.contratti,
+            "giocatori_db": st.session_state.giocatori_db,
+            "stats_storiche": st.session_state.stats_storiche,
+            "stats_per_stagione": st.session_state.get("stats_per_stagione", {}),
+            "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
+            "quotazioni_2025_26": st.session_state.quotazioni_2025_26,
+            "wizard_completato": st.session_state.get("wizard_completato", False),
+        }
+        tmp = tempfile.NamedTemporaryFile(delete=False, dir=".")
+        try:
+            with open(tmp.name, "wb") as f:
+                pickle.dump(data, f)
+            shutil.move(tmp.name, SAVE_FILE_PKL)
+        except Exception:
+            if os.path.exists(tmp.name):
+                os.remove(tmp.name)
+            raise
+
+    @staticmethod
+    def load():
+        if os.path.exists(SAVE_FILE_PKL):
+            try:
+                with open(SAVE_FILE_PKL, "rb") as f:
+                    data = pickle.load(f)
+                StateManager._hydrate(data)
+                return True
+            except Exception:
+                pass
+        if os.path.exists(SAVE_FILE_JSON):
+            try:
+                with open(SAVE_FILE_JSON, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                db = data.get("giocatori_db", [])
+                data["giocatori_db"] = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
+                stats = data.get("stats_storiche", [])
+                data["stats_storiche"] = pd.DataFrame(stats) if stats else pd.DataFrame()
+                data["stats_per_stagione"] = {k: pd.DataFrame(v) if v else pd.DataFrame() for k, v in data.get("stats_per_stagione", {}).items()}
+                q25 = data.get("quotazioni_2025_26", [])
+                data["quotazioni_2025_26"] = pd.DataFrame(q25) if q25 else pd.DataFrame()
+                StateManager._hydrate(data)
+                return True
+            except Exception:
+                pass
+        return False
+
+    @staticmethod
+    def _hydrate(data):
+        st.session_state.squadre = data.get("squadre", {})
+        st.session_state.storico_mercato = data.get("storico_mercato", [])
+        st.session_state.watchlist = data.get("watchlist", [])
+        st.session_state.prestiti = data.get("prestiti", [])
+        st.session_state.contratti = data.get("contratti", {})
+        st.session_state.giocatori_db = data.get("giocatori_db", pd.DataFrame(LISTONE_DEFAULT))
+        if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
+            st.session_state.giocatori_db["Prezzo_Consigliato"] = None
+        st.session_state.stats_storiche = data.get("stats_storiche", pd.DataFrame())
+        st.session_state.stats_per_stagione = data.get("stats_per_stagione", {})
+        st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
+        st.session_state.quotazioni_2025_26 = data.get("quotazioni_2025_26", pd.DataFrame())
+        st.session_state.wizard_completato = data.get("wizard_completato", False)
+        for sq in NOMI_SQUADRE:
+            if sq not in st.session_state.squadre:
+                st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
+        invalidate_cache()
+
+def save_state():
+    StateManager.save()
+
+def load_state():
+    return StateManager.load()
+
+# ============================================================
+# INDICI E CACHE
+# ============================================================
+def invalidate_cache():
+    st.session_state._riepiloghi_dirty = True
+    st.session_state._player_index_dirty = True
+
+def get_player_index():
+    if st.session_state.get("_player_index_dirty", True):
+        idx = {}
+        for sq, dati in st.session_state.squadre.items():
+            for g in dati["rosa"]:
+                idx[g["Nome"].lower()] = sq
+        st.session_state._player_index = idx
+        st.session_state._player_index_dirty = False
+    return st.session_state.get("_player_index", {})
+
+def get_svincolati(db: pd.DataFrame) -> pd.DataFrame:
+    idx = get_player_index()
+    mask = ~db["Nome"].str.lower().isin(idx.keys())
+    return db[mask].copy()
+
+def get_giocatore_in_rosa(nome: str) -> Optional[Tuple[str, dict]]:
+    nome_l = nome.lower()
+    for sq, dati in st.session_state.squadre.items():
+        for g in dati["rosa"]:
+            if g["Nome"].lower() == nome_l:
+                return sq, g
+    return None
+
+def rosa_proprieta(squadra: str) -> List[dict]:
+    return [g for g in st.session_state.squadre[squadra]["rosa"]
+            if g.get("Prestito_Da") is None or g.get("Prestito_Da") == squadra]
+
+# ============================================================
 # UTILITY
 # ============================================================
 def fuzzy_match(name, choices, cutoff=0.75):
-    """Trova il match migliore usando difflib (standard library)."""
     name_clean = str(name).strip().lower()
     matches = difflib.get_close_matches(name_clean, [c.lower() for c in choices], n=1, cutoff=cutoff)
     if matches:
@@ -182,12 +324,10 @@ def fuzzy_match(name, choices, cutoff=0.75):
     return None
 
 def get_quotazione_listone(nome):
-    """Ritorna la quotazione attuale dal listone."""
     db = st.session_state.giocatori_db
     match = db[db["Nome"].str.lower() == nome.lower()]
     if not match.empty:
         return int(match.iloc[0]["Quotazione"])
-    # fallback fuzzy
     nome_match = fuzzy_match(nome, db["Nome"].tolist())
     if nome_match:
         match = db[db["Nome"] == nome_match]
@@ -195,125 +335,20 @@ def get_quotazione_listone(nome):
             return int(match.iloc[0]["Quotazione"])
     return None
 
-# ============================================================
-# PERSISTENZA
-# ============================================================
-def save_state():
-    data = {
-        "squadre": st.session_state.squadre,
-        "storico_mercato": st.session_state.storico_mercato,
-        "watchlist": st.session_state.watchlist,
-        "prestiti": st.session_state.prestiti,
-        "contratti": st.session_state.contratti,
-        "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
-        "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else [],
-        "stats_per_stagione": {k: v.to_dict(orient="records") for k, v in st.session_state.get("stats_per_stagione", {}).items()},
-        "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
-        "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if hasattr(st.session_state.quotazioni_2025_26, 'to_dict') else [],
-        "wizard_completato": st.session_state.get("wizard_completato", False),
-    }
-    with open(SAVE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-def load_state():
-    if os.path.exists(SAVE_FILE):
-        try:
-            with open(SAVE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            st.session_state.squadre = data.get("squadre", {})
-            st.session_state.storico_mercato = data.get("storico_mercato", [])
-            st.session_state.watchlist = data.get("watchlist", [])
-            st.session_state.prestiti = data.get("prestiti", [])
-            st.session_state.contratti = data.get("contratti", {})
-            db = data.get("giocatori_db", [])
-            st.session_state.giocatori_db = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
-            if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
-                st.session_state.giocatori_db["Prezzo_Consigliato"] = None
-            else:
-                st.session_state.giocatori_db["Prezzo_Consigliato"] = pd.to_numeric(
-                    st.session_state.giocatori_db["Prezzo_Consigliato"], errors="coerce"
-                )
-            stats = data.get("stats_storiche", [])
-            st.session_state.stats_storiche = pd.DataFrame(stats) if stats else pd.DataFrame()
-            st.session_state.stats_per_stagione = {}
-            for stag, records in data.get("stats_per_stagione", {}).items():
-                st.session_state.stats_per_stagione[stag] = pd.DataFrame(records) if records else pd.DataFrame()
-            st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
-            q25 = data.get("quotazioni_2025_26", [])
-            st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
-            st.session_state.wizard_completato = data.get("wizard_completato", False)
-            for sq in NOMI_SQUADRE:
-                if sq not in st.session_state.squadre:
-                    st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
-            return True
-        except Exception:
-            pass
-    return False
+def get_db_info(nome):
+    db = st.session_state.giocatori_db
+    match = db[db["Nome"].str.lower() == nome.lower()]
+    if not match.empty:
+        return match.iloc[0].to_dict()
+    nome_match = fuzzy_match(nome, db["Nome"].tolist())
+    if nome_match:
+        match = db[db["Nome"] == nome_match]
+        if not match.empty:
+            return match.iloc[0].to_dict()
+    return None
 
 # ============================================================
-# INIZIALIZZAZIONE
-# ============================================================
-if "initialized" not in st.session_state:
-    st.session_state.squadre = {}
-    st.session_state.storico_mercato = []
-    st.session_state.watchlist = []
-    st.session_state.prestiti = []
-    st.session_state.contratti = {}
-    st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
-    if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
-        st.session_state.giocatori_db["Prezzo_Consigliato"] = None
-    st.session_state.stats_storiche = pd.DataFrame()
-    st.session_state.quotazioni_2025_26 = pd.DataFrame()
-    st.session_state.wizard_completato = False
-
-    if not load_state():
-        for sq in NOMI_SQUADRE:
-            st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
-
-    st.session_state.initialized = True
-
-# ============================================================
-# RIEPILOGO ROSA
-# ============================================================
-def riepilogo_rosa(squadra_nome):
-    rosa = st.session_state.squadre[squadra_nome]["rosa"]
-    crediti = st.session_state.squadre[squadra_nome]["crediti"]
-    # Conta TUTTI i giocatori in rosa (compresi prestiti in entrata) per i 28
-    conti = {"P": 0, "D": 0, "C": 0, "A": 0}
-    for g in rosa:
-        r = g.get("Ruolo", "C")
-        if r in conti:
-            conti[r] += 1
-
-    riepilogo = {}
-    tot_mancanti = 0
-    for ruolo, req in ROSA_REQ.items():
-        posseduti = conti.get(ruolo, 0)
-        mancanti = max(0, req - posseduti)
-        riepilogo[ruolo] = {"posseduti": posseduti, "mancanti": mancanti, "req": req}
-        tot_mancanti += mancanti
-
-    posti_rimanenti = sum(v["mancanti"] for v in riepilogo.values())
-    for ruolo in ROSA_REQ:
-        mancanti_ruolo = riepilogo[ruolo]["mancanti"]
-        if posti_rimanenti > 0 and mancanti_ruolo > 0:
-            budget_libero = max(0, crediti - posti_rimanenti)
-            offerta = int((budget_libero / mancanti_ruolo) + 1)
-        else:
-            offerta = crediti if mancanti_ruolo > 0 else 0
-        riepilogo[ruolo]["offerta_max"] = offerta
-
-    # Prestiti in uscita = giocatori che ho dato io in prestito (tracciati in prestiti)
-    prestiti_uscita = [p for p in st.session_state.prestiti if p["Da"] == squadra_nome]
-    riepilogo["crediti"] = crediti
-    riepilogo["tot_mancanti"] = tot_mancanti
-    riepilogo["tot_posseduti"] = len(rosa)
-    riepilogo["tot_prestiti_uscita"] = len(prestiti_uscita)
-    riepilogo["tot_giocatori_posseduti"] = len(rosa) + len(prestiti_uscita)
-    return riepilogo
-
-# ============================================================
-# CALCOLO PREZZO CONSIGLIATO
+# BUSINESS LOGIC
 # ============================================================
 def calcola_prezzo_consigliato(g_info, stats_df=None):
     nome = g_info.get("Nome", "")
@@ -328,6 +363,12 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
     delta_fm = fm - media_rif
     fattore_fm = 1 + (delta_fm * 0.15)
     fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85}.get(fascia, 1.0)
+
+    db = st.session_state.giocatori_db
+    svinc = get_svincolati(db)
+    total_fascia = len(db[(db["Ruolo"] == ruolo) & (db["Consiglio"] == fascia)])
+    rimasti = len(svinc[(svinc["Ruolo"] == ruolo) & (svinc["Consiglio"] == fascia)])
+    fattore_scarsita = 1 + max(0, (3 - rimasti)) * 0.05 if total_fascia > 0 else 1.0
 
     fattore_trend = 1.0
     trend_note = ""
@@ -372,19 +413,61 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
     else:
         fattore_affare = 0.90
 
-    prezzo = base * fattore_fm * fattore_fascia * fattore_trend * fattore_affare
+    prezzo = base * fattore_fm * fattore_fascia * fattore_scarsita * fattore_trend * fattore_affare
     prezzo = max(1, round(prezzo))
 
     spiegazione = (
         f"**Base listone:** {int(base)}cr\n"
         f"**FantaMedia:** {fm} (media ruolo {ruolo}: {media_rif}) → fattore {fattore_fm:.2f}\n"
         f"**Fascia:** {fascia} → fattore {fattore_fascia:.2f}\n"
+        f"**Scarsità:** {rimasti}/{total_fascia} rimasti → fattore {fattore_scarsita:.2f}\n"
         f"**Indice affare:** {indice_affare:.3f} → fattore {fattore_affare:.2f}\n"
     )
     if trend_note:
         spiegazione += f"**Statistiche:**{trend_note} → fattore {fattore_trend:.2f}\n"
     spiegazione += f"\n**💡 Prezzo consigliato: {prezzo}cr**"
     return prezzo, spiegazione
+
+def riepilogo_rosa(squadra_nome):
+    rosa = st.session_state.squadre[squadra_nome]["rosa"]
+    crediti = st.session_state.squadre[squadra_nome]["crediti"]
+    conti = {"P": 0, "D": 0, "C": 0, "A": 0}
+    for g in rosa:
+        r = g.get("Ruolo", "C")
+        if r in conti:
+            conti[r] += 1
+
+    riepilogo = {}
+    tot_mancanti = 0
+    for ruolo, req in ROSA_REQ.items():
+        posseduti = conti.get(ruolo, 0)
+        mancanti = max(0, req - posseduti)
+        riepilogo[ruolo] = {"posseduti": posseduti, "mancanti": mancanti, "req": req}
+        tot_mancanti += mancanti
+
+    posti_rimanenti = sum(v["mancanti"] for v in riepilogo.values())
+    for ruolo in ROSA_REQ:
+        mancanti_ruolo = riepilogo[ruolo]["mancanti"]
+        if posti_rimanenti > 0 and mancanti_ruolo > 0:
+            budget_libero = max(0, crediti - posti_rimanenti)
+            offerta = int((budget_libero / mancanti_ruolo) + 1)
+        else:
+            offerta = crediti if mancanti_ruolo > 0 else 0
+        riepilogo[ruolo]["offerta_max"] = offerta
+
+    prestiti_uscita = [p for p in st.session_state.prestiti if p["Da"] == squadra_nome]
+    riepilogo["crediti"] = crediti
+    riepilogo["tot_mancanti"] = tot_mancanti
+    riepilogo["tot_posseduti"] = len(rosa)
+    riepilogo["tot_prestiti_uscita"] = len(prestiti_uscita)
+    riepilogo["tot_giocatori_posseduti"] = len(rosa) + len(prestiti_uscita)
+    return riepilogo
+
+def get_all_riepiloghi():
+    if st.session_state.get("_riepiloghi_dirty", True):
+        st.session_state._riepiloghi = {sq: riepilogo_rosa(sq) for sq in NOMI_SQUADRE}
+        st.session_state._riepiloghi_dirty = False
+    return st.session_state._riepiloghi
 
 def mostra_statistiche_giocatore(nome, stats_df):
     if stats_df is None or stats_df.empty or "Nome" not in stats_df.columns:
@@ -398,26 +481,97 @@ def mostra_statistiche_giocatore(nome, stats_df):
         return None
     return g_stats.sort_values("Stagione") if "Stagione" in g_stats.columns else g_stats
 
+def simula_formazione(squadra_nome, modulo):
+    rosa = st.session_state.squadre[squadra_nome]["rosa"]
+    if not rosa:
+        return 0, [], []
+    df = pd.DataFrame(rosa)
+    try:
+        d, c, a = map(int, modulo.split("-"))
+    except:
+        return 0, [], []
+    p = 1
+    titolari = []
+    panchina = []
+    for ruolo, n in [("P", p), ("D", d), ("C", c), ("A", a)]:
+        subset = df[df["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
+        presi = subset.head(n)
+        rimasti = subset.iloc[n:]
+        for _, row in presi.iterrows():
+            titolari.append(row.to_dict())
+        for _, row in rimasti.iterrows():
+            panchina.append(row.to_dict())
+    fm_tit = sum(g.get("FantaMedia", 0) for g in titolari)
+    return round(fm_tit, 2), panchina, titolari
+
+def arricchisci_con_stats_2627(df_listone):
+    df = df_listone.copy()
+    if "stats_per_stagione" not in st.session_state:
+        return df
+    if "2026-27" not in st.session_state.stats_per_stagione:
+        return df
+    stats_2627 = st.session_state.stats_per_stagione["2026-27"].copy()
+    if stats_2627.empty or "Nome" not in stats_2627.columns:
+        return df
+    stats_2627["Nome_lower"] = stats_2627["Nome"].str.lower().str.strip()
+    df["Nome_lower"] = df["Nome"].str.lower().str.strip()
+    cols_stats = [c for c in stats_2627.columns if c not in ["Nome", "Stagione", "Nome_lower"]]
+    if "FantaMedia" in cols_stats and "FantaMedia" in df.columns:
+        df = df.drop(columns=["FantaMedia"])
+    if "Gol" in cols_stats and "Gol" in df.columns:
+        df = df.drop(columns=["Gol"])
+    if "Assist" in cols_stats and "Assist" in df.columns:
+        df = df.drop(columns=["Assist"])
+    merge_df = stats_2627[["Nome_lower"] + [c for c in cols_stats if c not in df.columns]].copy()
+    df = df.merge(merge_df, on="Nome_lower", how="left")
+    df = df.drop(columns=["Nome_lower"])
+    if "FantaMedia" in df.columns:
+        df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
+    return df
+
 # ============================================================
-# WIZARD SETUP INIZIALE
+# INIZIALIZZAZIONE
+# ============================================================
+if "initialized" not in st.session_state:
+    st.session_state.squadre = {}
+    st.session_state.storico_mercato = []
+    st.session_state.watchlist = []
+    st.session_state.prestiti = []
+    st.session_state.contratti = {}
+    st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
+    if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
+        st.session_state.giocatori_db["Prezzo_Consigliato"] = None
+    st.session_state.stats_storiche = pd.DataFrame()
+    st.session_state.quotazioni_2025_26 = pd.DataFrame()
+    st.session_state.stats_per_stagione = {}
+    st.session_state.wizard_completato = False
+    st.session_state.crediti_iniziali = CREDITI_INIZIALI
+    st.session_state._riepiloghi_dirty = True
+    st.session_state._player_index_dirty = True
+    st.session_state._undo_stack = []
+
+    if not load_state():
+        for sq in NOMI_SQUADRE:
+            st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
+
+    st.session_state.initialized = True
+
+# ============================================================
+# WIZARD
 # ============================================================
 def check_wizard_needed():
-    """Ritorna True se tutte le rose sono vuote e il wizard non è stato completato."""
     if st.session_state.get("wizard_completato", False):
         return False
     return all(len(st.session_state.squadre[sq]["rosa"]) == 0 for sq in NOMI_SQUADRE)
 
 def render_wizard():
     st.header("⚽ Benvenuto in FantaManager 2026/27")
-    st.markdown("Configura la tua lega in pochi passaggi.")
-
     step = st.session_state.get("wizard_step", 1)
     progress = (step / 4) * 100
     st.progress(int(progress), text=f"Passaggio {step} di 4")
 
     if step == 1:
         st.subheader("1. Listone Giocatori")
-        st.markdown("Puoi usare il listone pre-caricato o importarne uno personalizzato.")
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ Usa Listone Default", use_container_width=True):
@@ -426,7 +580,6 @@ def render_wizard():
                 save_state()
                 st.rerun()
         with c2:
-            st.markdown("📁 *Importa listone personalizzato dalla sidebar dopo il setup*")
             if st.button("⏭️ Salta per ora", use_container_width=True):
                 st.session_state.wizard_step = 2
                 st.rerun()
@@ -444,16 +597,9 @@ def render_wizard():
 
     elif step == 3:
         st.subheader("3. Importa Rose Pregresse (Opzionale)")
-        st.markdown("Se hai un file con le rose della stagione scorsa, puoi importarlo ora. Altrimenti salta.")
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("⏭️ Salta", use_container_width=True):
-                st.session_state.wizard_step = 4
-                st.rerun()
-        with c2:
-            st.markdown("📁 *Usa la sezione Importa Rose nella sidebar dopo il setup*")
-            if st.button("Vai alla sidebar per importare", use_container_width=True):
-                st.info("Usa l'expander 'Importa Rose' nella sidebar a sinistra, poi torna qui e clicca Salta.")
+        if st.button("⏭️ Salta", use_container_width=True):
+            st.session_state.wizard_step = 4
+            st.rerun()
 
     elif step == 4:
         st.subheader("4. Pronto!")
@@ -464,29 +610,36 @@ def render_wizard():
             st.rerun()
 
 # ============================================================
-# SIDEBAR RISTRUTTURATA
+# SIDEBAR
 # ============================================================
 with st.sidebar:
     st.title("⚽ FantaManager")
     st.caption("2026/27 — 10 Squadre")
     st.markdown("---")
 
-    # --- SALVATAGGIO RAPIDO ---
+    if st.session_state.get("_undo_stack"):
+        if st.button("↩️ Annulla Ultima Operazione", use_container_width=True):
+            if StateManager.undo():
+                save_state()
+                st.toast("✅ Operazione annullata!", icon="↩️")
+                st.rerun()
+            else:
+                st.toast("⚠️ Impossibile annullare", icon="⚠️")
+
     st.subheader("💾 Backup Rapido")
     c1, c2 = st.columns(2)
     with c1:
         if st.button("💾 Salva", use_container_width=True):
             save_state()
-            st.success("Salvato!")
+            st.toast("💾 Salvataggio completato", icon="✅")
     with c2:
         if st.button("📂 Carica", use_container_width=True):
             if load_state():
-                st.success("Caricato!")
+                st.toast("📂 Stato caricato!", icon="✅")
                 st.rerun()
             else:
-                st.warning("Nessun salvataggio trovato.")
+                st.toast("⚠️ Nessun salvataggio trovato", icon="⚠️")
 
-    # Download stato completo
     save_data = {
         "squadre": st.session_state.squadre,
         "storico_mercato": st.session_state.storico_mercato,
@@ -494,9 +647,9 @@ with st.sidebar:
         "prestiti": st.session_state.prestiti,
         "contratti": st.session_state.contratti,
         "giocatori_db": st.session_state.giocatori_db.to_dict(orient="records"),
-        "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if hasattr(st.session_state.stats_storiche, 'to_dict') else [],
+        "stats_storiche": st.session_state.stats_storiche.to_dict(orient="records") if not st.session_state.stats_storiche.empty else [],
         "stats_per_stagione": {k: v.to_dict(orient="records") for k, v in st.session_state.get("stats_per_stagione", {}).items()},
-        "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if hasattr(st.session_state.quotazioni_2025_26, 'to_dict') else [],
+        "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if not st.session_state.quotazioni_2025_26.empty else [],
         "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
         "wizard_completato": st.session_state.get("wizard_completato", False),
     }
@@ -509,7 +662,6 @@ with st.sidebar:
         use_container_width=True
     )
 
-    # Carica da PC
     st.markdown("---")
     st.subheader("📂 Ripristina da PC")
     up_json = st.file_uploader("File JSON stato", type=["json"], key="up_json")
@@ -546,6 +698,7 @@ with st.sidebar:
                     if sq not in st.session_state.squadre:
                         st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
                 st.session_state.last_json_key = file_key
+                invalidate_cache()
                 save_state()
                 st.success("✅ Stato caricato!")
                 st.rerun()
@@ -584,6 +737,7 @@ with st.sidebar:
     if st.button("💾 Salva Crediti Squadre", use_container_width=True):
         for _, row in edited_crediti.iterrows():
             st.session_state.squadre[row["Squadra"]]["crediti"] = int(row["Crediti"])
+        invalidate_cache()
         save_state()
         st.success("Crediti squadre aggiornati!")
         st.rerun()
@@ -595,8 +749,9 @@ with st.sidebar:
 
     with st.expander("⚠️ Reset"):
         if st.button("🗑️ Resetta TUTTO", use_container_width=True):
-            if os.path.exists(SAVE_FILE):
-                os.remove(SAVE_FILE)
+            for f in [SAVE_FILE_PKL, SAVE_FILE_JSON]:
+                if os.path.exists(f):
+                    os.remove(f)
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.success("Resettato! Ricarica la pagina.")
@@ -633,7 +788,6 @@ if menu == "🏠 Dashboard":
     st.header("🏠 FantaManager Dashboard")
     st.caption("Panoramica completa dello stato del fantacalcio 2026/27")
 
-    # Alert scadenze all'avvio
     tot_scadenze = sum(1 for sq in NOMI_SQUADRE for g in st.session_state.squadre[sq]["rosa"]
                       if g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI) <= ANNO_CORRENTE + 1)
     if tot_scadenze > 0:
@@ -656,7 +810,6 @@ if menu == "🏠 Dashboard":
             sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
             if sa <= ANNO_CORRENTE + 1:
                 in_scadenza += 1
-        # Prestiti in uscita
         prestiti_out = len([p for p in st.session_state.prestiti if p["Da"] == sq])
         dash_data.append({
             "Squadra": sq, "Crediti": dati["crediti"], "Rosa": len(rosa),
@@ -683,10 +836,7 @@ if menu == "🏠 Dashboard":
         st.metric("Rose Completate", f"{squadre_complete}/10")
     with c4:
         db = st.session_state.giocatori_db
-        in_rosa = set()
-        for d in st.session_state.squadre.values():
-            for g in d["rosa"]:
-                in_rosa.add(g["Nome"].lower())
+        in_rosa = set(get_player_index().keys())
         svinc = db[~db["Nome"].str.lower().isin(in_rosa)] if not db.empty else pd.DataFrame()
         st.metric("Svincolati", len(svinc))
     with c5:
@@ -734,35 +884,6 @@ if menu == "🏠 Dashboard":
     crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE]).sort_values("Crediti", ascending=False)
     st.bar_chart(crediti_df.set_index("Squadra"))
 
-
-# ============================================================
-# UTIL: Merge stats 2026-27 nel listone
-# ============================================================
-def arricchisci_con_stats_2627(df_listone):
-    df = df_listone.copy()
-    if "stats_per_stagione" not in st.session_state:
-        return df
-    if "2026-27" not in st.session_state.stats_per_stagione:
-        return df
-    stats_2627 = st.session_state.stats_per_stagione["2026-27"].copy()
-    if stats_2627.empty or "Nome" not in stats_2627.columns:
-        return df
-    stats_2627["Nome_lower"] = stats_2627["Nome"].str.lower().str.strip()
-    df["Nome_lower"] = df["Nome"].str.lower().str.strip()
-    cols_stats = [c for c in stats_2627.columns if c not in ["Nome", "Stagione", "Nome_lower"]]
-    if "FantaMedia" in cols_stats and "FantaMedia" in df.columns:
-        df = df.drop(columns=["FantaMedia"])
-    if "Gol" in cols_stats and "Gol" in df.columns:
-        df = df.drop(columns=["Gol"])
-    if "Assist" in cols_stats and "Assist" in df.columns:
-        df = df.drop(columns=["Assist"])
-    merge_df = stats_2627[["Nome_lower"] + [c for c in cols_stats if c not in df.columns]].copy()
-    df = df.merge(merge_df, on="Nome_lower", how="left")
-    df = df.drop(columns=["Nome_lower"])
-    if "FantaMedia" in df.columns:
-        df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
-    return df
-
 # ============================================================
 # 1. SCOUTING
 # ============================================================
@@ -782,11 +903,8 @@ if menu == "🔍 Scouting & Database":
         else:
             df["Variazione_%"] = None
 
-        assegnati = {}
-        for sq, dati in st.session_state.squadre.items():
-            for g in dati["rosa"]:
-                assegnati[g["Nome"].lower()] = sq
-        df["Proprietario"] = df["Nome"].apply(lambda x: assegnati.get(x.lower(), "Svincolato 🟢"))
+        idx = get_player_index()
+        df["Proprietario"] = df["Nome"].apply(lambda x: idx.get(x.lower(), "Svincolato 🟢"))
 
         with st.expander("🔧 Filtri Avanzati", expanded=True):
             f0, f1, f2, f3, f4, f5 = st.columns(6)
@@ -928,8 +1046,9 @@ if menu == "🔍 Scouting & Database":
             quot_t = int(info_t["Quotazione"])
             st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr")
             avv_data = []
+            riepiloghi = get_all_riepiloghi()
             for sq_avv in NOMI_SQUADRE:
-                riep_avv = riepilogo_rosa(sq_avv)
+                riep_avv = riepiloghi[sq_avv]
                 mancanti_avv = riep_avv[ruolo_t]["mancanti"]
                 off_max_avv = riep_avv[ruolo_t]["offerta_max"]
                 crediti_avv = riep_avv["crediti"]
@@ -1013,9 +1132,8 @@ if menu == "🔍 Scouting & Database":
                 save_state()
                 st.rerun()
 
-
 # ============================================================
-# 2. ASTA LIVE (NUOVO)
+# 2. ASTA LIVE
 # ============================================================
 if menu == "🔨 Asta Live":
     st.header("🔨 Gestione Asta")
@@ -1025,11 +1143,7 @@ if menu == "🔨 Asta Live":
     if db.empty:
         st.warning("Importa prima un listone.")
     else:
-        in_rosa = set()
-        for d in st.session_state.squadre.values():
-            for g in d["rosa"]:
-                in_rosa.add(g["Nome"].lower())
-        svinc = db[~db["Nome"].str.lower().isin(in_rosa)].copy()
+        svinc = get_svincolati(db).copy()
 
         if svinc.empty:
             st.success("🎉 Tutti i giocatori sono stati assegnati!")
@@ -1042,7 +1156,6 @@ if menu == "🔨 Asta Live":
                     g_asta = st.selectbox("Giocatore", svinc["Nome"].values, key="asta_sel")
                 else:
                     if st.button("🎲 Estrai Casuale", use_container_width=True):
-                        import random
                         g_asta = random.choice(svinc["Nome"].values)
                         st.session_state["asta_giocatore_corrente"] = g_asta
                         st.rerun()
@@ -1079,63 +1192,62 @@ if menu == "🔨 Asta Live":
                 offerte = {}
                 ruolo_g = info["Ruolo"]
                 quot_g = int(info["Quotazione"])
-                cols_off = st.columns(5)
-                for idx_sq, sq in enumerate(NOMI_SQUADRE):
-                    with cols_off[idx_sq % 5]:
-                        riep_sq = riepilogo_rosa(sq)
-                        off_max = riep_sq[ruolo_g]["offerta_max"]
-                        crediti_sq = riep_sq["crediti"]
-                        ha_gia = any(g["Nome"].lower() == g_asta.lower() for g in st.session_state.squadre[sq]["rosa"])
-                        st.markdown(f"**{sq}**")
-                        st.caption(f"💰 {crediti_sq}cr | Max: {off_max}cr")
-                        if ha_gia:
-                            st.warning("Già in rosa")
-                            offerte[sq] = 0
-                        else:
-                            offerte[sq] = st.number_input(
-                                f"Offerta {sq}", min_value=0, max_value=crediti_sq,
-                                value=min(pc_ai, off_max) if off_max >= quot_g else 0,
-                                step=1, key=f"off_{sq}"
-                            )
-                            if offerte[sq] > off_max:
-                                st.caption(f"⚠️ Superiore al max ({off_max})")
-                            elif offerte[sq] > crediti_sq:
-                                st.caption("❌ Oltre i crediti")
+                riepiloghi = get_all_riepiloghi()
+                with st.form("offerte_asta"):
+                    cols_off = st.columns(5)
+                    for idx_sq, sq in enumerate(NOMI_SQUADRE):
+                        with cols_off[idx_sq % 5]:
+                            riep_sq = riepiloghi[sq]
+                            off_max = riep_sq[ruolo_g]["offerta_max"]
+                            crediti_sq = riep_sq["crediti"]
+                            ha_gia = any(g["Nome"].lower() == g_asta.lower() for g in st.session_state.squadre[sq]["rosa"])
+                            st.markdown(f"**{sq}**")
+                            st.caption(f"💰 {crediti_sq}cr | Max: {off_max}cr")
+                            if ha_gia:
+                                st.warning("Già in rosa")
+                                offerte[sq] = 0
+                            else:
+                                offerte[sq] = st.number_input(
+                                    f"Offerta {sq}", min_value=0, max_value=crediti_sq,
+                                    value=min(pc_ai, off_max) if off_max >= quot_g else 0,
+                                    step=1, key=f"off_{sq}"
+                                )
+                    submitted = st.form_submit_button("📊 Calcola Vincitore", use_container_width=True)
 
-                st.markdown("---")
-                # Trova vincitore
-                offerte_valide = {k: v for k, v in offerte.items() if v > 0}
-                if offerte_valide:
-                    vincitore = max(offerte_valide, key=offerte_valide.get)
-                    prezzo_vincita = offerte_valide[vincitore]
-                    st.success(f"🏆 Miglior offerente: **{vincitore}** con **{prezzo_vincita}cr**")
+                if submitted:
+                    offerte_valide = {k: v for k, v in offerte.items() if v > 0}
+                    if offerte_valide:
+                        vincitore = max(offerte_valide, key=offerte_valide.get)
+                        prezzo_vincita = offerte_valide[vincitore]
+                        st.success(f"🏆 Miglior offerente: **{vincitore}** con **{prezzo_vincita}cr**")
 
-                    if st.button("✅ Assegna Giocatore", type="primary", use_container_width=True):
-                        if st.session_state.squadre[vincitore]["crediti"] >= prezzo_vincita:
-                            st.session_state.squadre[vincitore]["crediti"] -= prezzo_vincita
-                            scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
-                            st.session_state.squadre[vincitore]["rosa"].append({
-                                "Nome": g_asta, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
-                                "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
-                                "Costo_Acquisto": prezzo_vincita, "Scadenza_Anno": scad_acq
-                            })
-                            st.session_state.contratti[g_asta] = {"squadra": vincitore, "scadenza_anno": scad_acq}
-                            st.session_state.storico_mercato.insert(0, {
-                                "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                "Operazione": "ASTA",
-                                "Dettagli": f"{vincitore} aggiudica {g_asta} ({info['Ruolo']}) per {prezzo_vincita}cr — Contratto fino al {scad_acq}"
-                            })
-                            # Pulisci asta corrente
-                            if "asta_giocatore_corrente" in st.session_state:
-                                del st.session_state["asta_giocatore_corrente"]
-                            save_state()
-                            st.balloons()
-                            st.success(f"🎉 {g_asta} assegnato a {vincitore} per {prezzo_vincita}cr!")
-                            st.rerun()
-                        else:
-                            st.error("Crediti insufficienti!")
-                else:
-                    st.info("Nessuna offerta valida inserita.")
+                        if st.button("✅ Assegna Giocatore", type="primary", use_container_width=True):
+                            if st.session_state.squadre[vincitore]["crediti"] >= prezzo_vincita:
+                                StateManager.snapshot()
+                                st.session_state.squadre[vincitore]["crediti"] -= prezzo_vincita
+                                scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
+                                st.session_state.squadre[vincitore]["rosa"].append({
+                                    "Nome": g_asta, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
+                                    "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
+                                    "Costo_Acquisto": prezzo_vincita, "Scadenza_Anno": scad_acq
+                                })
+                                st.session_state.contratti[g_asta] = {"squadra": vincitore, "scadenza_anno": scad_acq}
+                                st.session_state.storico_mercato.insert(0, {
+                                    "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "Operazione": "ASTA",
+                                    "Dettagli": f"{vincitore} aggiudica {g_asta} ({info['Ruolo']}) per {prezzo_vincita}cr — Contratto fino al {scad_acq}"
+                                })
+                                if "asta_giocatore_corrente" in st.session_state:
+                                    del st.session_state["asta_giocatore_corrente"]
+                                invalidate_cache()
+                                save_state()
+                                st.balloons()
+                                st.success(f"🎉 {g_asta} assegnato a {vincitore} per {prezzo_vincita}cr!")
+                                st.rerun()
+                            else:
+                                st.error("Crediti insufficienti!")
+                    else:
+                        st.info("Nessuna offerta valida inserita.")
 
 # ============================================================
 # 3. MERCATO (Acquisti/Vendite/Rinnovi)
@@ -1157,11 +1269,7 @@ if menu == "🛒 Mercato":
         if db.empty:
             st.warning("Importa prima un listone.")
         else:
-            in_rosa = set()
-            for d in st.session_state.squadre.values():
-                for g in d["rosa"]:
-                    in_rosa.add(g["Nome"].lower())
-            svinc = db[~db["Nome"].str.lower().isin(in_rosa)]
+            svinc = get_svincolati(db)
             if len(svinc) > 0:
                 g_sel = st.selectbox("Giocatore", svinc["Nome"].values)
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
@@ -1252,10 +1360,11 @@ if menu == "🛒 Mercato":
                 st.markdown("---")
                 st.subheader("🎭 Cosa Possono Offrire gli Avversari?")
                 avversari = []
+                riepiloghi = get_all_riepiloghi()
                 for sq_avv in NOMI_SQUADRE:
                     if sq_avv == sq:
                         continue
-                    riep_avv = riepilogo_rosa(sq_avv)
+                    riep_avv = riepiloghi[sq_avv]
                     mancanti_avv = riep_avv[ruolo_sel]["mancanti"]
                     off_max_avv = riep_avv[ruolo_sel]["offerta_max"]
                     crediti_avv = riep_avv["crediti"]
@@ -1276,6 +1385,7 @@ if menu == "🛒 Mercato":
 
                 if st.button("Conferma Acquisto", type="primary"):
                     if cred >= prezzo:
+                        StateManager.snapshot()
                         st.session_state.squadre[sq]["crediti"] -= prezzo
                         scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
                         st.session_state.squadre[sq]["rosa"].append({
@@ -1289,6 +1399,7 @@ if menu == "🛒 Mercato":
                             "Operazione": "ACQUISTO",
                             "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {scad_acq}"
                         })
+                        invalidate_cache()
                         save_state()
                         st.success(f"✅ {g_sel} acquistato! Contratto 3 anni (fino al {ANNO_CORRENTE+CONTRATTO_ANNI}).")
                         st.rerun()
@@ -1301,12 +1412,11 @@ if menu == "🛒 Mercato":
         st.subheader("Vendi / Svincola giocatore")
         sq_v = st.selectbox("Squadra", NOMI_SQUADRE, key="vend_sq")
         rosa = st.session_state.squadre[sq_v]["rosa"]
-        # Escludi i prestiti in entrata (quelli che hanno Prestito_Da diverso dalla squadra corrente)
-        rosa_proprieta = [g for g in rosa if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq_v]
-        if rosa_proprieta:
-            nomi = [g["Nome"] for g in rosa_proprieta]
+        rosa_proprieta_list = [g for g in rosa if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq_v]
+        if rosa_proprieta_list:
+            nomi = [g["Nome"] for g in rosa_proprieta_list]
             g_v = st.selectbox("Giocatore", nomi, key="vend_g")
-            g_obj = next(g for g in rosa_proprieta if g["Nome"] == g_v)
+            g_obj = next(g for g in rosa_proprieta_list if g["Nome"] == g_v)
 
             db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_v.lower()]
             if not db_match.empty:
@@ -1328,6 +1438,7 @@ if menu == "🛒 Mercato":
             prezzo_v = st.number_input("Prezzo rimborso (modificabile)", min_value=0, value=prezzo_listone, key="vend_p")
 
             if st.button("Conferma Vendita"):
+                StateManager.snapshot()
                 st.session_state.squadre[sq_v]["rosa"] = [g for g in rosa if g["Nome"] != g_v]
                 st.session_state.squadre[sq_v]["crediti"] += prezzo_v
                 if g_v in st.session_state.contratti:
@@ -1337,6 +1448,7 @@ if menu == "🛒 Mercato":
                     "Operazione": "SVINCOLO",
                     "Dettagli": f"{sq_v} svincola {g_v}, incassa {prezzo_v}cr"
                 })
+                invalidate_cache()
                 save_state()
                 st.success(f"🗑️ {g_v} svincolato! Incassati {prezzo_v}cr.")
                 st.rerun()
@@ -1345,10 +1457,9 @@ if menu == "🛒 Mercato":
 
     with t_rinn:
         st.subheader("🔄 Rinnova Contratto")
-        st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale (con mese di scadenza) e aggiorna il costo alla quotazione di listone corrente.")
+        st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale e aggiorna il costo alla quotazione di listone corrente.")
         sq_r = st.selectbox("Squadra", NOMI_SQUADRE, key="rinn_sq")
         rosa_r = st.session_state.squadre[sq_r]["rosa"]
-        # Solo giocatori di proprietà (non prestiti in entrata)
         rosa_rinnovabili = [g for g in rosa_r if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq_r]
         if rosa_rinnovabili:
             nomi_r = [g["Nome"] for g in rosa_rinnovabili]
@@ -1358,7 +1469,6 @@ if menu == "🛒 Mercato":
             scad_attuale = g_obj_r.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
             costo_attuale = g_obj_r.get("Costo_Acquisto", 0)
 
-            # Trova quotazione listone attuale
             quot_attuale = get_quotazione_listone(g_r)
             if quot_attuale is None:
                 quot_attuale = costo_attuale
@@ -1380,9 +1490,8 @@ if menu == "🛒 Mercato":
                 st.error(f"❌ Crediti insufficienti! Hai {crediti_disp}cr, servono {costo_rinnovo}cr.")
             else:
                 if st.button("📝 Conferma Rinnovo", type="primary"):
-                    # Scala i crediti
+                    StateManager.snapshot()
                     st.session_state.squadre[sq_r]["crediti"] -= costo_rinnovo
-                    # Aggiorna giocatore in rosa
                     for g in st.session_state.squadre[sq_r]["rosa"]:
                         if g["Nome"] == g_r:
                             g["Scadenza_Anno"] = nuova_scadenza
@@ -1395,6 +1504,7 @@ if menu == "🛒 Mercato":
                         "Operazione": "RINNOVO",
                         "Dettagli": f"{sq_r} rinnova {g_r} fino al {nuovo_mese:02d}/{nuova_scadenza} per {costo_rinnovo}cr (quotazione listone)"
                     })
+                    invalidate_cache()
                     save_state()
                     st.success(f"✅ Contratto di {g_r} rinnovato fino al {nuova_scadenza} al costo di {costo_rinnovo}cr!")
                     st.rerun()
@@ -1412,9 +1522,8 @@ if menu == "🛒 Mercato":
         else:
             st.info("Nessuna operazione.")
 
-
 # ============================================================
-# 4. SCAMBI & PRESTITI (RIVISTO — campi strutturati, nome pulito)
+# 4. SCAMBI & PRESTITI
 # ============================================================
 if menu == "🤝 Scambi & Prestiti":
     st.header("🤝 Scambi Definitivi & Prestiti")
@@ -1423,7 +1532,6 @@ if menu == "🤝 Scambi & Prestiti":
     with c1:
         st.subheader("Squadra A")
         sq1 = st.selectbox("Squadra 1", NOMI_SQUADRE, key="sc1")
-        # Rosa di proprietà (esclude prestiti in entrata)
         rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq1]
         g1 = st.multiselect("Cede giocatori", [g["Nome"] for g in rosa1], key="g1")
         d1 = st.number_input(f"Conguaglio da {sq1}", min_value=0, max_value=st.session_state.squadre[sq1]["crediti"], value=0, key="d1")
@@ -1444,6 +1552,7 @@ if menu == "🤝 Scambi & Prestiti":
         elif st.session_state.squadre[sq2]["crediti"] < d2:
             st.error(f"{sq2} non ha abbastanza crediti.")
         else:
+            StateManager.snapshot()
             st.session_state.squadre[sq1]["crediti"] = st.session_state.squadre[sq1]["crediti"] - d1 + d2
             st.session_state.squadre[sq2]["crediti"] = st.session_state.squadre[sq2]["crediti"] - d2 + d1
 
@@ -1493,6 +1602,7 @@ if menu == "🤝 Scambi & Prestiti":
                 "Operazione": tipo.upper(),
                 "Dettagli": msg + (f" | Conguaglio: {d1}cr vs {d2}cr" if d1 or d2 else "")
             })
+            invalidate_cache()
             save_state()
             st.rerun()
 
@@ -1512,12 +1622,10 @@ if menu == "🤝 Scambi & Prestiti":
                     to_remove = i
                     da_sq = p["Da"]
                     a_sq = p["A"]
-                    # Rimuovi dalla rosa in prestito
                     st.session_state.squadre[a_sq]["rosa"] = [
                         g for g in st.session_state.squadre[a_sq]["rosa"]
                         if not (g.get("Nome") == gp and g.get("Prestito_Da") == da_sq)
                     ]
-                    # Verifica se è già in rosa al proprietario
                     g_orig = None
                     for g in st.session_state.squadre[da_sq]["rosa"]:
                         if g["Nome"] == gp and (g.get("Prestito_Da") is None or g.get("Prestito_Da") == da_sq):
@@ -1543,17 +1651,20 @@ if menu == "🤝 Scambi & Prestiti":
                     "Operazione": "FINE PRESTITO",
                     "Dettagli": f"{gp} torna a {da_sq}"
                 })
+                invalidate_cache()
                 save_state()
                 st.success(f"✅ {gp} rientrato da prestito!")
                 st.rerun()
 
 # ============================================================
-# 5. ROSE, CREDITI & CONTRATTI (con Rinnovo)
+# 5. ROSE, CREDITI & CONTRATTI
 # ============================================================
 if menu == "📋 Rose & Contratti":
     st.header("📋 Riepilogo Rose, Crediti & Contratti")
 
-    tab_singole, tab_matrice, tab_contratti, tab_consigli = st.tabs(["🛡️ Squadre", "📊 Matrice", "📄 Contratti", "💡 Consigli 2026/27"])
+    tab_singole, tab_matrice, tab_contratti, tab_consigli, tab_formazione = st.tabs(
+        ["🛡️ Squadre", "📊 Matrice", "📄 Contratti", "💡 Consigli 2026/27", "🎮 Simula Formazione"]
+    )
 
     with tab_singole:
         tabs = st.tabs(NOMI_SQUADRE)
@@ -1597,7 +1708,6 @@ if menu == "📋 Rose & Contratti":
                     if "Scadenza_Mese" in display.columns:
                         display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
 
-                    # Badge prestito
                     def badge_prestito(row):
                         if pd.notna(row.get("Prestito_Da")) and row.get("Prestito_Da") != sq:
                             return f"<span class='badge-prestito'>PRESTITO da {row['Prestito_Da']}</span>"
@@ -1616,10 +1726,8 @@ if menu == "📋 Rose & Contratti":
                     other_cols = [c for c in display.columns if c not in first_cols]
                     display = display[first_cols + other_cols]
 
-                    # Visualizza come HTML per i badge
                     st.write(display.to_html(escape=False, index=False), unsafe_allow_html=True)
 
-                    # Rinnovo rapido inline
                     in_scadenza = display[display["Stato_Contratto"].str.contains("🟠|🔴")]
                     if not in_scadenza.empty:
                         st.warning(f"⚠️ {len(in_scadenza)} giocatori in scadenza: " + ", ".join(in_scadenza["Nome"].tolist()))
@@ -1636,6 +1744,7 @@ if menu == "📋 Rose & Contratti":
                                 st.error("Crediti insufficienti!")
                             else:
                                 if st.button(f"📝 Rinnova {g_rinn}", key=f"btn_rinn_{sq}_{g_rinn}"):
+                                    StateManager.snapshot()
                                     nuovo_anno_rinn = datetime.now().year + CONTRATTO_ANNI
                                     nuovo_mese_rinn = datetime.now().month
                                     st.session_state.squadre[sq]["crediti"] -= quot_rinn
@@ -1651,11 +1760,11 @@ if menu == "📋 Rose & Contratti":
                                         "Operazione": "RINNOVO",
                                         "Dettagli": f"{sq} rinnova {g_rinn} fino al {nuovo_mese_rinn:02d}/{nuovo_anno_rinn} per {quot_rinn}cr"
                                     })
+                                    invalidate_cache()
                                     save_state()
                                     st.success(f"✅ {g_rinn} rinnovato!")
                                     st.rerun()
 
-                    # Riepilogo rosa
                     st.markdown("---")
                     st.subheader("📊 Stato Rosa")
                     cols_riep = st.columns(5)
@@ -1765,6 +1874,23 @@ if menu == "📋 Rose & Contratti":
                 st.markdown("**👍 Consigliati:** " + " • ".join(dati["consigliati"]))
                 st.markdown("**🎲 Scommesse:** " + " • ".join(dati["scommesse"]))
 
+    with tab_formazione:
+        st.subheader("🎮 Simula Formazione")
+        st.caption("Seleziona una squadra e un modulo per vedere la fantamedia potenziale della formazione titolare.")
+        sq_form = st.selectbox("Squadra", NOMI_SQUADRE, key="sim_sq")
+        modulo = st.selectbox("Modulo", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], key="sim_mod")
+        if st.button("🚀 Simula", type="primary"):
+            fm_tot, panchina, titolari = simula_formazione(sq_form, modulo)
+            st.metric("FantaMedia Totale Titolari", f"{fm_tot}")
+            col_t, col_p = st.columns(2)
+            with col_t:
+                st.subheader("⭐ Titolari")
+                for g in titolari:
+                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia', 0)}")
+            with col_p:
+                st.subheader("🪑 Panchina")
+                for g in panchina:
+                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia', 0)}")
 
 # ============================================================
 # 6. STATISTICHE STORICHE
@@ -1911,7 +2037,7 @@ if menu == "📈 Statistiche Storiche":
             st.info("Nessuna stagione caricata.")
 
 # ============================================================
-# 7. IMPORTA & ESPORTA (pagina dedicata)
+# 7. IMPORTA & ESPORTA
 # ============================================================
 if menu == "⚙️ Importa & Esporta":
     st.header("⚙️ Importa & Esporta Dati")
@@ -1923,7 +2049,6 @@ if menu == "⚙️ Importa & Esporta":
 
     with tab_exp:
         st.subheader("📤 Esporta Backup Completo (Excel)")
-        import io
         buffer_exp = io.BytesIO()
         df_exp = st.session_state.giocatori_db.copy()
         if "Prezzo_Consigliato" not in df_exp.columns:
@@ -2165,6 +2290,7 @@ if menu == "⚙️ Importa & Esporta":
                             except Exception as e:
                                 errors.append(f"Riga {idx}: {e}")
 
+                        invalidate_cache()
                         save_state()
                         st.success(f"✅ Importati {count} giocatori! ({skipped} saltati)")
                         if errors:
