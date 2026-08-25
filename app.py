@@ -72,7 +72,7 @@ ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 4
 CREDITI_INIZIALI = 50
 
-ROSA_REQ = {"P": 3, "D": 8, "C": 8, "A": 6}
+ROSA_REQ = {"P": 3, "D": 9, "C": 9, "A": 7}
 
 # ============================================================
 # LISTONE DEFAULT 2026/2027
@@ -278,6 +278,7 @@ if "initialized" not in st.session_state:
 def riepilogo_rosa(squadra_nome):
     rosa = st.session_state.squadre[squadra_nome]["rosa"]
     crediti = st.session_state.squadre[squadra_nome]["crediti"]
+    # Conta TUTTI i giocatori in rosa (compresi prestiti in entrata) per i 28
     conti = {"P": 0, "D": 0, "C": 0, "A": 0}
     for g in rosa:
         r = g.get("Ruolo", "C")
@@ -302,9 +303,13 @@ def riepilogo_rosa(squadra_nome):
             offerta = crediti if mancanti_ruolo > 0 else 0
         riepilogo[ruolo]["offerta_max"] = offerta
 
+    # Prestiti in uscita = giocatori che ho dato io in prestito (tracciati in prestiti)
+    prestiti_uscita = [p for p in st.session_state.prestiti if p["Da"] == squadra_nome]
     riepilogo["crediti"] = crediti
     riepilogo["tot_mancanti"] = tot_mancanti
     riepilogo["tot_posseduti"] = len(rosa)
+    riepilogo["tot_prestiti_uscita"] = len(prestiti_uscita)
+    riepilogo["tot_giocatori_posseduti"] = len(rosa) + len(prestiti_uscita)
     return riepilogo
 
 # ============================================================
@@ -628,11 +633,15 @@ if menu == "🏠 Dashboard":
             sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
             if sa <= ANNO_CORRENTE + 1:
                 in_scadenza += 1
+        # Prestiti in uscita
+        prestiti_out = len([p for p in st.session_state.prestiti if p["Da"] == sq])
         dash_data.append({
             "Squadra": sq, "Crediti": dati["crediti"], "Rosa": len(rosa),
             "P": p, "D": d, "C": c, "A": a, "Spesa": spesa,
-            "Completata": "✅" if len(rosa) >= 25 else f"{len(rosa)}/25",
-            "Scadenze": in_scadenza
+            "Completata": "✅" if len(rosa) >= 28 else f"{len(rosa)}/28",
+            "Scadenze": in_scadenza,
+            "Prestiti Uscita": prestiti_out,
+            "Totale Posseduti": len(rosa) + prestiti_out
         })
     df_dash = pd.DataFrame(dash_data)
     st.dataframe(df_dash, use_container_width=True)
@@ -1648,11 +1657,12 @@ if menu == "📋 Rose & Contratti":
                                 unsafe_allow_html=True
                             )
                     with cols_riep[4]:
+                        prestiti_out_txt = f" | 📤 {riep['tot_prestiti_uscita']} prestiti" if riep['tot_prestiti_uscita'] > 0 else ""
                         st.markdown(
                             f"<div style='text-align:center;padding:8px;border-radius:6px;background:#1a1a2e;'>"
                             f"<div style='font-size:1.2em;'>💰 Crediti</div>"
                             f"<div style='font-size:1.5em;font-weight:bold;color:#ffd700;'>{riep['crediti']}</div>"
-                            f"<div style='font-size:0.75em;color:#888;'>Tot: {riep['tot_posseduti']}/25</div>"
+                            f"<div style='font-size:0.75em;color:#888;'>Rosa: {riep['tot_posseduti']}/28{prestiti_out_txt}</div>"
                             f"<div style='font-size:0.75em;color:#aaa;'>Mancano: {riep['tot_mancanti']}</div>"
                             f"</div>",
                             unsafe_allow_html=True
@@ -1674,7 +1684,8 @@ if menu == "📋 Rose & Contratti":
                 elif r=="C": c+=1
                 elif r=="A": a+=1
                 spesa += g.get("Costo_Acquisto",0)
-            summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, "Tot":len(rosa), "P":p, "D":d, "C":c, "A":a})
+            prestiti_out = len([p for p in st.session_state.prestiti if p["Da"] == sq])
+            summary.append({"Squadra":sq, "Crediti":dati["crediti"], "Spesa":spesa, "Tot Rosa":len(rosa), "P":p, "D":d, "C":c, "A":a, "Prestiti Uscita":prestiti_out, "Tot Posseduti":len(rosa)+prestiti_out})
         st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
     with tab_contratti:
