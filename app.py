@@ -795,39 +795,46 @@ def render_giocatore_card(nome_giocatore):
             df_chart = stats_g[["Stagione"] + numeric_cols].copy()
             df_chart["Stagione"] = df_chart["Stagione"].astype(str)
 
-            metriche_pref = [c for c in ["FantaMedia", "Gol", "Assist", "Partite"] if c in numeric_cols]
-            if not metriche_pref:
-                metriche_pref = numeric_cols[:3]
-
-            df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_pref, var_name="Metrica", value_name="Valore")
-
-            try:
-                import altair as alt
-                chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
-                    x=alt.X("Stagione:N", title="Stagione", sort=None),
-                    y=alt.Y("Valore:Q", title="Valore"),
-                    color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
-                    tooltip=["Stagione", "Metrica", "Valore"]
-                ).properties(
-                    height=350,
-                    title=f"Andamento {nome_giocatore}"
-                ).configure_axis(
-                    labelColor="#fafafa",
-                    titleColor="#fafafa",
-                    gridColor="#2a2a4a"
-                ).configure_title(
-                    color="#00d26a",
-                    fontSize=16
-                ).configure_legend(
-                    labelColor="#fafafa",
-                    titleColor="#fafafa"
-                ).configure_view(
-                    strokeWidth=0,
-                    fill="#1a1a2e"
+            metriche_disponibili = [c for c in numeric_cols if c in df_chart.columns]
+            if len(metriche_disponibili) > 0:
+                metriche_sel = st.multiselect(
+                    "Seleziona le metriche da visualizzare",
+                    options=metriche_disponibili,
+                    default=metriche_disponibili[:min(4, len(metriche_disponibili))],
+                    key=f"card_metrics_{nome_giocatore}"
                 )
-                st.altair_chart(chart, use_container_width=True)
-            except Exception:
-                st.bar_chart(df_chart.set_index("Stagione")[metriche_pref])
+                if metriche_sel:
+                    df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_sel, var_name="Metrica", value_name="Valore")
+                    try:
+                        import altair as alt
+                        chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
+                            x=alt.X("Stagione:N", title="Stagione", sort=None),
+                            y=alt.Y("Valore:Q", title="Valore"),
+                            color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
+                            tooltip=["Stagione", "Metrica", "Valore"]
+                        ).properties(
+                            height=350,
+                            title=f"Andamento {nome_giocatore}"
+                        ).configure_axis(
+                            labelColor="#fafafa",
+                            titleColor="#fafafa",
+                            gridColor="#2a2a4a"
+                        ).configure_title(
+                            color="#00d26a",
+                            fontSize=16
+                        ).configure_legend(
+                            labelColor="#fafafa",
+                            titleColor="#fafafa"
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill="#1a1a2e"
+                        )
+                        st.altair_chart(chart, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Altair non disponibile, uso fallback. Errore: {e}")
+                        st.bar_chart(df_chart.set_index("Stagione")[metriche_sel])
+                else:
+                    st.info("Seleziona almeno una metrica dal menu sopra.")
     else:
         st.info("📭 Nessuna statistica storica caricata per questo giocatore.")
 
@@ -974,20 +981,20 @@ if menu == "🔍 Scouting & Database":
         display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
 
         # Tabella cliccabile: seleziona un giocatore per vederne i dettagli
-        event = st.dataframe(
-            df_f[display_cols],
-            use_container_width=True,
-            on_select="rerun",
-            selection_mode="single-row",
-            key="scout_table"
-        )
+        st.dataframe(df_f[display_cols], use_container_width=True)
 
-        if event.selection.rows:
-            selected_idx = event.selection.rows[0]
-            selected_name = df_f.iloc[selected_idx]["Nome"]
-            render_giocatore_card(selected_name)
+        st.markdown("---")
+        st.subheader("👤 Dettaglio Giocatore")
+        if len(df_f) > 0:
+            g_card = st.selectbox(
+                "Seleziona un giocatore per vedere statistiche e grafico",
+                df_f["Nome"].values,
+                key="scout_card_sel"
+            )
+            if g_card:
+                render_giocatore_card(g_card)
         else:
-            st.caption("👆 **Clicca su una riga** della tabella per vedere le statistiche dettagliate del giocatore.")
+            st.info("Nessun giocatore corrisponde ai filtri selezionati.")
 
         st.markdown("---")
         st.subheader("⚔️ Confronto Giocatori")
@@ -1913,6 +1920,10 @@ if menu == "📈 Statistiche Storiche":
                     st.info("💡 Assicurati che il file contenga una colonna con il nome del giocatore")
                     st.stop()
 
+                # Conversione forzata a numerico per colonne note
+                for num_col in ["Gol", "Assist", "FantaMedia", "Partite", "Rigori", "Ammonizioni", "Espulsioni"]:
+                    if num_col in df_s.columns:
+                        df_s[num_col] = pd.to_numeric(df_s[num_col].astype(str).str.replace(",", ".", regex=False), errors="coerce")
                 df_s["Stagione"] = stagione_sel
                 st.session_state.stats_per_stagione[stagione_sel] = df_s
 
@@ -1955,37 +1966,51 @@ if menu == "📈 Statistiche Storiche":
                     st.subheader("📊 Andamento")
                     df_chart = df_g[["Stagione"] + numeric_cols].copy()
                     df_chart["Stagione"] = df_chart["Stagione"].astype(str)
-                    metriche_pref = [c for c in ["FantaMedia", "Gol", "Assist", "Partite"] if c in numeric_cols]
-                    if not metriche_pref:
-                        metriche_pref = numeric_cols[:3]
-                    df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_pref, var_name="Metrica", value_name="Valore")
-                    try:
-                        import altair as alt
-                        chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
-                            x=alt.X("Stagione:N", title="Stagione", sort=None),
-                            y=alt.Y("Valore:Q", title="Valore"),
-                            color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
-                            tooltip=["Stagione", "Metrica", "Valore"]
-                        ).properties(
-                            height=350,
-                            title=f"Andamento {g_sel}"
-                        ).configure_axis(
-                            labelColor="#fafafa",
-                            titleColor="#fafafa",
-                            gridColor="#2a2a4a"
-                        ).configure_title(
-                            color="#00d26a",
-                            fontSize=16
-                        ).configure_legend(
-                            labelColor="#fafafa",
-                            titleColor="#fafafa"
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill="#1a1a2e"
+
+                    # Multiselect per scegliere le metriche da visualizzare
+                    metriche_disponibili = [c for c in numeric_cols if c in df_chart.columns]
+                    if len(metriche_disponibili) == 0:
+                        st.info("Nessuna metrica numerica disponibile per il grafico.")
+                    else:
+                        # Default: tutte le metriche disponibili
+                        metriche_sel = st.multiselect(
+                            "Seleziona le metriche da visualizzare",
+                            options=metriche_disponibili,
+                            default=metriche_disponibili[:min(4, len(metriche_disponibili))],
+                            key=f"stats_metrics_{g_sel}"
                         )
-                        st.altair_chart(chart, use_container_width=True)
-                    except Exception:
-                        st.bar_chart(df_chart.set_index("Stagione")[metriche_pref])
+                        if metriche_sel:
+                            df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_sel, var_name="Metrica", value_name="Valore")
+                            try:
+                                import altair as alt
+                                chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
+                                    x=alt.X("Stagione:N", title="Stagione", sort=None),
+                                    y=alt.Y("Valore:Q", title="Valore"),
+                                    color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
+                                    tooltip=["Stagione", "Metrica", "Valore"]
+                                ).properties(
+                                    height=350,
+                                    title=f"Andamento {g_sel}"
+                                ).configure_axis(
+                                    labelColor="#fafafa",
+                                    titleColor="#fafafa",
+                                    gridColor="#2a2a4a"
+                                ).configure_title(
+                                    color="#00d26a",
+                                    fontSize=16
+                                ).configure_legend(
+                                    labelColor="#fafafa",
+                                    titleColor="#fafafa"
+                                ).configure_view(
+                                    strokeWidth=0,
+                                    fill="#1a1a2e"
+                                )
+                                st.altair_chart(chart, use_container_width=True)
+                            except Exception as e:
+                                st.warning(f"Altair non disponibile, uso fallback. Errore: {e}")
+                                st.bar_chart(df_chart.set_index("Stagione")[metriche_sel])
+                        else:
+                            st.info("Seleziona almeno una metrica dal menu sopra.")
 
                 db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_sel.lower()]
                 if db_match.empty:
