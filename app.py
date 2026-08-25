@@ -69,7 +69,7 @@ st.markdown("""
 SAVE_FILE = "fantamanager_save.json"
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 ANNO_CORRENTE = 2026
-CONTRATTO_ANNI = 4
+CONTRATTO_ANNI = 3
 CREDITI_INIZIALI = 50
 
 ROSA_REQ = {"P": 3, "D": 9, "C": 9, "A": 7}
@@ -743,115 +743,6 @@ def arricchisci_con_stats_2627(df_listone):
 # ============================================================
 # 1. SCOUTING
 # ============================================================
-# ============================================================
-# CARD GIOCATORE (cliccabile)
-# ============================================================
-def render_giocatore_card(nome_giocatore):
-    """Mostra una card dettagliata con statistiche e grafico del giocatore selezionato."""
-    db = st.session_state.giocatori_db
-    info = db[db["Nome"] == nome_giocatore]
-    if info.empty:
-        nm_f = fuzzy_match(nome_giocatore, db["Nome"].tolist())
-        if nm_f:
-            info = db[db["Nome"] == nm_f]
-    if info.empty:
-        st.warning("Giocatore non trovato nel listone.")
-        return
-
-    row = info.iloc[0]
-
-    # Header card
-    st.markdown("---")
-    col_img, col_info = st.columns([1, 3])
-    with col_img:
-        ruolo_emoji = {"P": "🧤", "D": "🛡️", "C": "⚡", "A": "⚽"}
-        st.markdown(
-            f"<div style='text-align:center;font-size:4em;'>{ruolo_emoji.get(row['Ruolo'], '👤')}</div>"
-            f"<div style='text-align:center;font-weight:bold;color:#00d26a;'>{row['Ruolo']}</div>",
-            unsafe_allow_html=True
-        )
-    with col_info:
-        st.markdown(f"## {row['Nome']}")
-        st.markdown(f"**{row['Squadra_SerieA']}** | Quotazione: **{int(row['Quotazione'])}cr** | FantaMedia: **{row['FantaMedia']}**")
-        st.caption(f"💡 Fascia: {row.get('Consiglio', 'N/D')} | {row.get('Note', '')}")
-
-        # Prezzo consigliato
-        stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-        pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df)
-        st.markdown(f"<span style='background:#00d26a;padding:4px 12px;border-radius:12px;color:#0e1117;font-weight:bold;'>💡 Prezzo Consigliato: {pc_ai}cr</span>", unsafe_allow_html=True)
-
-    # Statistiche storiche
-    stats_g = mostra_statistiche_giocatore(nome_giocatore, stats_df)
-    if stats_g is not None and not stats_g.empty:
-        st.markdown("---")
-        st.subheader("📊 Statistiche Storiche")
-        st.dataframe(stats_g, use_container_width=True, hide_index=True)
-
-        # GRAFICO AVANZATO con Altair
-        numeric_cols = stats_g.select_dtypes(include=['number']).columns.tolist()
-        numeric_cols = [c for c in numeric_cols if c not in ['Stagione'] and 'Stagione' not in c]
-
-        if numeric_cols and "Stagione" in stats_g.columns:
-            df_chart = stats_g[["Stagione"] + numeric_cols].copy()
-            df_chart["Stagione"] = df_chart["Stagione"].astype(str)
-
-            metriche_disponibili = [c for c in numeric_cols if c in df_chart.columns]
-            if len(metriche_disponibili) > 0:
-                metriche_sel = st.multiselect(
-                    "Seleziona le metriche da visualizzare",
-                    options=metriche_disponibili,
-                    default=metriche_disponibili[:min(4, len(metriche_disponibili))],
-                    key=f"card_metrics_{nome_giocatore}"
-                )
-                if metriche_sel:
-                    df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_sel, var_name="Metrica", value_name="Valore")
-                    try:
-                        import altair as alt
-                        chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
-                            x=alt.X("Stagione:N", title="Stagione", sort=None),
-                            y=alt.Y("Valore:Q", title="Valore"),
-                            color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
-                            tooltip=["Stagione", "Metrica", "Valore"]
-                        ).properties(
-                            height=350,
-                            title=f"Andamento {nome_giocatore}"
-                        ).configure_axis(
-                            labelColor="#fafafa",
-                            titleColor="#fafafa",
-                            gridColor="#2a2a4a"
-                        ).configure_title(
-                            color="#00d26a",
-                            fontSize=16
-                        ).configure_legend(
-                            labelColor="#fafafa",
-                            titleColor="#fafafa"
-                        ).configure_view(
-                            strokeWidth=0,
-                            fill="#1a1a2e"
-                        )
-                        st.altair_chart(chart, use_container_width=True)
-                    except Exception as e:
-                        st.warning(f"Altair non disponibile, uso fallback. Errore: {e}")
-                        st.bar_chart(df_chart.set_index("Stagione")[metriche_sel])
-                else:
-                    st.info("Seleziona almeno una metrica dal menu sopra.")
-    else:
-        st.info("📭 Nessuna statistica storica caricata per questo giocatore.")
-
-    # Proprietario attuale
-    proprietario = "Svincolato 🟢"
-    for sq, dati in st.session_state.squadre.items():
-        for g in dati["rosa"]:
-            if g["Nome"] == nome_giocatore:
-                proprietario = sq
-                if g.get("Prestito_Da") and g.get("Prestito_Da") != sq:
-                    proprietario += f" (prestito da {g['Prestito_Da']})"
-                break
-        if proprietario != "Svincolato 🟢":
-            break
-    st.markdown(f"**👤 Proprietario attuale:** {proprietario}")
-    st.markdown("---")
-
 if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting 2026/27")
     df = st.session_state.giocatori_db.copy()
@@ -979,22 +870,7 @@ if menu == "🔍 Scouting & Database":
         st.markdown("---")
         st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
         display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
-
-        # Tabella cliccabile: seleziona un giocatore per vederne i dettagli
         st.dataframe(df_f[display_cols], use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("👤 Dettaglio Giocatore")
-        if len(df_f) > 0:
-            g_card = st.selectbox(
-                "Seleziona un giocatore per vedere statistiche e grafico",
-                df_f["Nome"].values,
-                key="scout_card_sel"
-            )
-            if g_card:
-                render_giocatore_card(g_card)
-        else:
-            st.info("Nessun giocatore corrisponde ai filtri selezionati.")
 
         st.markdown("---")
         st.subheader("⚔️ Confronto Giocatori")
@@ -1391,7 +1267,7 @@ if menu == "🛒 Mercato":
                             "Dettagli": f"{sq} acquista {g_sel} ({info['Ruolo']}) per {prezzo}cr — Contratto fino al {scad_acq}"
                         })
                         save_state()
-                        st.success(f"✅ {g_sel} acquistato! Contratto 4 anni (fino al {ANNO_CORRENTE+CONTRATTO_ANNI}).")
+                        st.success(f"✅ {g_sel} acquistato! Contratto 3 anni (fino al {ANNO_CORRENTE+CONTRATTO_ANNI}).")
                         st.rerun()
                     else:
                         st.error("Crediti insufficienti!")
@@ -1446,7 +1322,7 @@ if menu == "🛒 Mercato":
 
     with t_rinn:
         st.subheader("🔄 Rinnova Contratto")
-        st.info("Il rinnovo estende il contratto a 4 anni dalla data attuale e aggiorna il costo alla quotazione di listone corrente.")
+        st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale e aggiorna il costo alla quotazione di listone corrente.")
         sq_r = st.selectbox("Squadra", NOMI_SQUADRE, key="rinn_sq")
         rosa_r = st.session_state.squadre[sq_r]["rosa"]
         # Solo giocatori di proprietà (non prestiti in entrata)
@@ -1723,7 +1599,7 @@ if menu == "📋 Rose & Contratti":
                     if not in_scadenza.empty:
                         st.warning(f"⚠️ {len(in_scadenza)} giocatori in scadenza: " + ", ".join(in_scadenza["Nome"].tolist()))
                         st.subheader("🔄 Rinnovi Rapidi")
-                        st.caption("Seleziona un giocatore in scadenza per rinnovare subito (4 anni, prezzo listone).")
+                        st.caption("Seleziona un giocatore in scadenza per rinnovare subito (3 anni, prezzo listone).")
                         g_rinn = st.selectbox(f"Rinnova giocatore {sq}", in_scadenza["Nome"].tolist(), key=f"rinn_{sq}")
                         if g_rinn:
                             quot_rinn = get_quotazione_listone(g_rinn)
@@ -1920,10 +1796,6 @@ if menu == "📈 Statistiche Storiche":
                     st.info("💡 Assicurati che il file contenga una colonna con il nome del giocatore")
                     st.stop()
 
-                # Conversione forzata a numerico per colonne note
-                for num_col in ["Gol", "Assist", "FantaMedia", "Partite", "Rigori", "Ammonizioni", "Espulsioni"]:
-                    if num_col in df_s.columns:
-                        df_s[num_col] = pd.to_numeric(df_s[num_col].astype(str).str.replace(",", ".", regex=False), errors="coerce")
                 df_s["Stagione"] = stagione_sel
                 st.session_state.stats_per_stagione[stagione_sel] = df_s
 
@@ -1964,53 +1836,8 @@ if menu == "📈 Statistiche Storiche":
                 numeric_cols = [c for c in numeric_cols if c not in ['Stagione']]
                 if numeric_cols and "Stagione" in df_g.columns:
                     st.subheader("📊 Andamento")
-                    df_chart = df_g[["Stagione"] + numeric_cols].copy()
-                    df_chart["Stagione"] = df_chart["Stagione"].astype(str)
-
-                    # Multiselect per scegliere le metriche da visualizzare
-                    metriche_disponibili = [c for c in numeric_cols if c in df_chart.columns]
-                    if len(metriche_disponibili) == 0:
-                        st.info("Nessuna metrica numerica disponibile per il grafico.")
-                    else:
-                        # Default: tutte le metriche disponibili
-                        metriche_sel = st.multiselect(
-                            "Seleziona le metriche da visualizzare",
-                            options=metriche_disponibili,
-                            default=metriche_disponibili[:min(4, len(metriche_disponibili))],
-                            key=f"stats_metrics_{g_sel}"
-                        )
-                        if metriche_sel:
-                            df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_sel, var_name="Metrica", value_name="Valore")
-                            try:
-                                import altair as alt
-                                chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
-                                    x=alt.X("Stagione:N", title="Stagione", sort=None),
-                                    y=alt.Y("Valore:Q", title="Valore"),
-                                    color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
-                                    tooltip=["Stagione", "Metrica", "Valore"]
-                                ).properties(
-                                    height=350,
-                                    title=f"Andamento {g_sel}"
-                                ).configure_axis(
-                                    labelColor="#fafafa",
-                                    titleColor="#fafafa",
-                                    gridColor="#2a2a4a"
-                                ).configure_title(
-                                    color="#00d26a",
-                                    fontSize=16
-                                ).configure_legend(
-                                    labelColor="#fafafa",
-                                    titleColor="#fafafa"
-                                ).configure_view(
-                                    strokeWidth=0,
-                                    fill="#1a1a2e"
-                                )
-                                st.altair_chart(chart, use_container_width=True)
-                            except Exception as e:
-                                st.warning(f"Altair non disponibile, uso fallback. Errore: {e}")
-                                st.bar_chart(df_chart.set_index("Stagione")[metriche_sel])
-                        else:
-                            st.info("Seleziona almeno una metrica dal menu sopra.")
+                    chart_data = df_g.set_index("Stagione")[numeric_cols]
+                    st.line_chart(chart_data)
 
                 db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_sel.lower()]
                 if db_match.empty:
@@ -2155,7 +1982,7 @@ if menu == "⚙️ Importa & Esporta":
         st.markdown("""
         **Colonne attese:** Squadra, Nome, Ruolo, Costo
         **Opzionali per scadenze:** Scadenza_Anno, Scadenza_Mese
-        Se mancano, il contratto parte da 2026 per 4 anni.
+        Se mancano, il contratto parte da 2026 per 3 anni.
         """)
         up_rose = st.file_uploader("File Rose", type=["csv","xlsx"], key="ur")
         if up_rose is not None:
