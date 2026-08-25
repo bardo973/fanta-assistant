@@ -1695,13 +1695,45 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     st.metric("Crediti", f"{dati['crediti']} 🪙")
 
                 rosa_df = pd.DataFrame(dati["rosa"])
+
+                # === AGGIUNGI GIOCATORI DATI IN PRESTITO (non più in rosa) ===
+                prestiti_dati = [p for p in st.session_state.prestiti if p["Da"] == sq]
+                rows_prestito_dato = []
+                for p in prestiti_dati:
+                    db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == p["Giocatore"].lower()]
+                    if not db_match.empty:
+                        info = db_match.iloc[0]
+                        rows_prestito_dato.append({
+                            "Nome": p["Giocatore"],
+                            "Ruolo": info["Ruolo"],
+                            "Squadra_SerieA": info["Squadra_SerieA"],
+                            "Quotazione": int(info["Quotazione"]),
+                            "FantaMedia": float(info["FantaMedia"]),
+                            "Costo_Acquisto": 0,
+                            "Scadenza_Anno": ANNO_CORRENTE + CONTRATTO_ANNI,
+                            "_stato": "prestito_dato"
+                        })
+                    else:
+                        rows_prestito_dato.append({
+                            "Nome": p["Giocatore"],
+                            "Ruolo": "C",
+                            "Squadra_SerieA": "N/D",
+                            "Quotazione": 1,
+                            "FantaMedia": 6.0,
+                            "Costo_Acquisto": 0,
+                            "Scadenza_Anno": ANNO_CORRENTE + CONTRATTO_ANNI,
+                            "_stato": "prestito_dato"
+                        })
+                if rows_prestito_dato:
+                    rosa_df = pd.concat([rosa_df, pd.DataFrame(rows_prestito_dato)], ignore_index=True)
+
                 if not rosa_df.empty:
-                    conti = rosa_df["Ruolo"].value_counts().to_dict()
-                    st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+                    rosa_effettiva = rosa_df[rosa_df["_stato"] != "prestito_dato"] if "_stato" in rosa_df.columns else rosa_df
+                    conti = rosa_effettiva["Ruolo"].value_counts().to_dict()
+                    st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_effettiva)}")
                     display = rosa_df.copy()
 
                     # === EVIDENZIAZIONE SCADENZA ===
-                    # Assicurati che Scadenza_Anno esista sempre
                     if "Scadenza_Anno" not in display.columns:
                         display["Scadenza_Anno"] = ANNO_CORRENTE + CONTRATTO_ANNI
                     display["Scadenza_Anno"] = pd.to_numeric(display["Scadenza_Anno"], errors="coerce").fillna(ANNO_CORRENTE + CONTRATTO_ANNI).astype(int)
@@ -1709,12 +1741,10 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     def stato_scadenza(row):
                         sa = int(row["Scadenza_Anno"])
                         sm = int(row["Scadenza_Mese"]) if "Scadenza_Mese" in row and pd.notna(row["Scadenza_Mese"]) else None
-                        # Testo = dato grezzo della colonna D (Scadenza_Anno), con mese se presente
                         if sm:
                             testo = f"{sm}/{sa}"
                         else:
                             testo = str(sa)
-                        # Emoji colore in base all'anno
                         if sa < ANNO_CORRENTE:
                             return f"🔴 {testo}"
                         elif sa == ANNO_CORRENTE:
@@ -1725,28 +1755,71 @@ elif menu == "📋 Rose, Crediti & Contratti":
                             return f"🟢 {testo}"
 
                     display["Stato_Contratto"] = display.apply(stato_scadenza, axis=1)
-
-                    # Colonna scadenza leggibile (sempre presente)
                     display["Scadenza"] = display["Scadenza_Anno"].astype(str)
                     if "Scadenza_Mese" in display.columns:
                         display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
 
-                    # Aggiungi confronto quotazione 2025/26 se presente nel listone
+                    # Aggiungi confronto quotazione 2025/26
                     if "Quotazione_2025_26" in st.session_state.giocatori_db.columns:
                         db_q = st.session_state.giocatori_db[["Nome","Quotazione_2025_26"]].copy()
                         display = display.merge(db_q, on="Nome", how="left")
                         display["Variazione_%"] = round((display["Quotazione"] - display["Quotazione_2025_26"]) / display["Quotazione_2025_26"].replace(0,1) * 100, 1)
 
-                    # Rimuovi colonne tecniche non utili alla visualizzazione
-                    hide_cols = ["Anno_Acquisto", "Contratto_Anni"]
+                    # Determina stato riga per pennellata
+                    def get_stato_riga(row):
+                        if row.get("_stato") == "prestito_dato":
+                            return "prestito_dato"
+                        if pd.notna(row.get("Prestito_Da")) and str(row.get("Prestito_Da")) not in ["nan", "", "None"]:
+                            return "prestito_ricevuto"
+                        sa = int(row.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI))
+                        if sa <= ANNO_CORRENTE + 1:
+                            return "scadenza"
+                        return "normale"
+
+                    display["_stato_riga"] = display.apply(get_stato_riga, axis=1)
+
+                    # Rimuovi colonne tecniche
+                    hide_cols = ["Anno_Acquisto", "Contratto_Anni", "_stato", "Prestito_Da", "Prestito_A", "Prestito_Durata", "Prestito_Anno", "Nome_Originale"]
                     display = display.drop(columns=[c for c in hide_cols if c in display.columns])
 
-                    # Riordina colonne per leggibilità (solo colonne che esistono)
                     first_cols = [c for c in ["Nome", "Ruolo", "Stato_Contratto", "Scadenza"] if c in display.columns]
-                    other_cols = [c for c in display.columns if c not in first_cols]
+                    other_cols = [c for c in display.columns if c not in first_cols and c != "_stato_riga"]
                     display = display[first_cols + other_cols]
 
-                    st.dataframe(display, use_container_width=True)
+                    # === RENDER HTML CON PENNELLATE COLORATE ===
+                    colori = {
+                        "scadenza": ("rgba(255, 140, 0, 0.35)", "#ff8c00"),
+                        "prestito_dato": ("rgba(220, 20, 60, 0.30)", "#dc143c"),
+                        "prestito_ricevuto": ("rgba(50, 205, 50, 0.25)", "#32cd32"),
+                        "normale": ("transparent", "transparent")
+                    }
+
+                    th_cols = display.columns.tolist()
+                    html = '<table style="width:100%; border-collapse:separate; border-spacing:0 4px; font-size:0.9em;">'
+                    html += '<thead><tr style="background:#1a1a2e; color:#fff; text-align:left;">'
+                    for col in th_cols:
+                        html += f'<th style="padding:8px; border-bottom:2px solid #333;">{col}</th>'
+                    html += '</tr></thead><tbody>'
+
+                    for _, row in display.iterrows():
+                        stato = row.get("_stato_riga", "normale")
+                        bg, border = colori.get(stato, colori["normale"])
+                        style = f"background:{bg}; border-left:5px solid {border};" if stato != "normale" else ""
+                        html += f'<tr style="{style}">'
+                        for col in th_cols:
+                            val = row[col]
+                            if pd.isna(val):
+                                val = ""
+                            html += f'<td style="padding:6px 8px; border-bottom:1px solid #333;">{val}</td>'
+                        html += '</tr>'
+                    html += '</tbody></table>'
+
+                    st.markdown(html, unsafe_allow_html=True)
+
+                    # Alert scadenza
+                    in_scadenza = display[display["_stato_riga"] == "scadenza"]
+                    if not in_scadenza.empty:
+                        st.warning(f"⚠️ {len(in_scadenza)} giocatori in scadenza: " + ", ".join(in_scadenza["Nome"].astype(str).tolist()))
 
                     # === RIEPILOGO ROSA: MANCANTI PER RUOLO ===
                     riep = riepilogo_rosa(sq)
@@ -1787,11 +1860,6 @@ elif menu == "📋 Rose, Crediti & Contratti":
                             f"</div>",
                             unsafe_allow_html=True
                         )
-
-                    # Alert se ci sono giocatori in scadenza
-                    in_scadenza = display[display["Stato_Contratto"].str.contains("🟠|🔴")]
-                    if not in_scadenza.empty:
-                        st.warning(f"⚠️ {len(in_scadenza)} giocatori in scadenza: " + ", ".join(in_scadenza["Nome"].tolist()))
                 else:
                     st.info("Rosa vuota.")
 
