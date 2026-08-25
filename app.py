@@ -953,11 +953,55 @@ if menu == "🏠 Dashboard":
     st.bar_chart(crediti_df.set_index("Squadra"))
 
 # ============================================================
+# UTIL: Merge stats 2026-27 nel listone
+# ============================================================
+def arricchisci_con_stats_2627(df_listone):
+    """Se ci sono statistiche 2026-27 caricate, le merge nel listone sovrascrivendo FantaMedia, Gol, Assist, ecc."""
+    df = df_listone.copy()
+    if "stats_per_stagione" not in st.session_state:
+        return df
+    if "2026-27" not in st.session_state.stats_per_stagione:
+        return df
+    stats_2627 = st.session_state.stats_per_stagione["2026-27"].copy()
+    if stats_2627.empty or "Nome" not in stats_2627.columns:
+        return df
+
+    # Normalizza nomi per merge
+    stats_2627["Nome_lower"] = stats_2627["Nome"].str.lower().str.strip()
+    df["Nome_lower"] = df["Nome"].str.lower().str.strip()
+
+    # Colonne utili dalle stats (escludi Stagione, Nome)
+    cols_stats = [c for c in stats_2627.columns if c not in ["Nome", "Stagione", "Nome_lower"]]
+
+    # Se FantaMedia nelle stats, sovrascrivi quella del listone
+    if "FantaMedia" in cols_stats and "FantaMedia" in df.columns:
+        df = df.drop(columns=["FantaMedia"])
+    if "Gol" in cols_stats and "Gol" in df.columns:
+        df = df.drop(columns=["Gol"])
+    if "Assist" in cols_stats and "Assist" in df.columns:
+        df = df.drop(columns=["Assist"])
+
+    # Merge
+    merge_df = stats_2627[["Nome_lower"] + [c for c in cols_stats if c not in df.columns]].copy()
+    df = df.merge(merge_df, on="Nome_lower", how="left")
+    df = df.drop(columns=["Nome_lower"])
+
+    # Converti FantaMedia se presente
+    if "FantaMedia" in df.columns:
+        df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
+
+    return df
+
+
+# ============================================================
 # 1. SCOUTING
 # ============================================================
 if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting 2026/27")
     df = st.session_state.giocatori_db.copy()
+    df = arricchisci_con_stats_2627(df)
+    if "2026-27" in st.session_state.get("stats_per_stagione", {}):
+        st.caption("📊 Dati arricchiti con statistiche 2026/27 caricate")
 
     if df.empty:
         st.warning("Nessun giocatore nel database.")
@@ -1295,9 +1339,29 @@ elif menu == "🛒 Mercato (Acquisti/Vendite)":
                 # --- CARD INFO + PREZZO CONSIGLIATO ---
                 st.markdown("---")
                 col_info, col_prezzo = st.columns([2, 1])
+                # Arricchisci info con stats 2026-27 se disponibili
+                stats_2627_row = None
+                if "stats_per_stagione" in st.session_state and "2026-27" in st.session_state.stats_per_stagione:
+                    s2627 = st.session_state.stats_per_stagione["2026-27"]
+                    if not s2627.empty and "Nome" in s2627.columns:
+                        match_2627 = s2627[s2627["Nome"].str.lower() == g_sel.lower()]
+                        if not match_2627.empty:
+                            stats_2627_row = match_2627.iloc[0]
+
                 with col_info:
                     st.markdown(f"**{g_sel}** — {info['Ruolo']} | {info['Squadra_SerieA']}")
-                    st.markdown(f"Quotazione listone: **{int(info['Quotazione'])}cr** | FantaMedia: **{info['FantaMedia']}** | Fascia: **{info.get('Consiglio','')}**")
+                    fm_display = f"**{info['FantaMedia']}**"
+                    if stats_2627_row is not None and "FantaMedia" in stats_2627_row and pd.notna(stats_2627_row["FantaMedia"]):
+                        fm_display += f" <span style='color:#00d26a;'>(📊 2026/27: {stats_2627_row['FantaMedia']})</span>"
+                    st.markdown(f"Quotazione listone: **{int(info['Quotazione'])}cr** | FantaMedia: {fm_display} | Fascia: **{info.get('Consiglio','')}**", unsafe_allow_html=True)
+
+                    if stats_2627_row is not None:
+                        extra_stats = []
+                        for col in ["Gol", "Assist", "Partite", "Rigori"]:
+                            if col in stats_2627_row and pd.notna(stats_2627_row[col]):
+                                extra_stats.append(f"{col}: **{stats_2627_row[col]}**")
+                        if extra_stats:
+                            st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
 
                 # Calcola prezzo consigliato AI
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
@@ -1879,6 +1943,9 @@ elif menu == "📈 Statistiche Storiche":
                 df_g = df_stats[df_stats["Nome"] == g_sel].sort_values("Stagione")
 
                 st.markdown(f"**{g_sel}** — {len(df_g)} stagioni trovate")
+                # Evidenzia 2026-27 se presente
+                if "Stagione" in df_g.columns and "2026-27" in df_g["Stagione"].values:
+                    st.success("📊 Dati stagione 2026/27 disponibili e visualizzati sotto")
                 st.dataframe(df_g, use_container_width=True)
 
                 numeric_cols = df_g.select_dtypes(include=['number']).columns.tolist()
