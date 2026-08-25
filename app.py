@@ -1778,12 +1778,16 @@ elif menu == "📋 Rose, Crediti & Contratti":
 
                     display["_stato_riga"] = display.apply(get_stato_riga, axis=1)
 
+                    # === OPZIONE A: calcola alert e salva stato PRIMA di riordinare le colonne ===
+                    in_scadenza = display[display["_stato_riga"] == "scadenza"].copy()
+                    stato_per_nome = dict(zip(display["Nome"].astype(str), display["_stato_riga"]))
+
                     # Rimuovi colonne tecniche
-                    hide_cols = ["Anno_Acquisto", "Contratto_Anni", "_stato", "Prestito_Da", "Prestito_A", "Prestito_Durata", "Prestito_Anno", "Nome_Originale"]
+                    hide_cols = ["Anno_Acquisto", "Contratto_Anni", "_stato", "Prestito_Da", "Prestito_A", "Prestito_Durata", "Prestito_Anno", "Nome_Originale", "_stato_riga"]
                     display = display.drop(columns=[c for c in hide_cols if c in display.columns])
 
                     first_cols = [c for c in ["Nome", "Ruolo", "Stato_Contratto", "Scadenza"] if c in display.columns]
-                    other_cols = [c for c in display.columns if c not in first_cols and c != "_stato_riga"]
+                    other_cols = [c for c in display.columns if c not in first_cols]
                     display = display[first_cols + other_cols]
 
                     # === RENDER HTML CON PENNELLATE COLORATE ===
@@ -1802,7 +1806,7 @@ elif menu == "📋 Rose, Crediti & Contratti":
                     html += '</tr></thead><tbody>'
 
                     for _, row in display.iterrows():
-                        stato = row.get("_stato_riga", "normale")
+                        stato = stato_per_nome.get(str(row["Nome"]), "normale")
                         bg, border = colori.get(stato, colori["normale"])
                         style = f"background:{bg}; border-left:5px solid {border};" if stato != "normale" else ""
                         html += f'<tr style="{style}">'
@@ -1816,8 +1820,7 @@ elif menu == "📋 Rose, Crediti & Contratti":
 
                     st.markdown(html, unsafe_allow_html=True)
 
-                    # Alert scadenza
-                    in_scadenza = display[display["_stato_riga"] == "scadenza"]
+                    # Alert scadenza (già calcolato sopra)
                     if not in_scadenza.empty:
                         st.warning(f"⚠️ {len(in_scadenza)} giocatori in scadenza: " + ", ".join(in_scadenza["Nome"].astype(str).tolist()))
 
