@@ -1322,7 +1322,7 @@ if menu == "🛒 Mercato":
 
     with t_rinn:
         st.subheader("🔄 Rinnova Contratto")
-        st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale e aggiorna il costo alla quotazione di listone corrente.")
+        st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale (con mese di scadenza) e aggiorna il costo alla quotazione di listone corrente.")
         sq_r = st.selectbox("Squadra", NOMI_SQUADRE, key="rinn_sq")
         rosa_r = st.session_state.squadre[sq_r]["rosa"]
         # Solo giocatori di proprietà (non prestiti in entrata)
@@ -1341,12 +1341,13 @@ if menu == "🛒 Mercato":
                 quot_attuale = costo_attuale
                 st.warning("Giocatore non trovato nel listone attuale. Usato costo d'acquisto come fallback.")
 
-            nuova_scadenza = ANNO_CORRENTE + CONTRATTO_ANNI
+            nuova_scadenza = datetime.now().year + CONTRATTO_ANNI
+            nuovo_mese = datetime.now().month
             costo_rinnovo = quot_attuale
 
             col1, col2, col3 = st.columns(3)
             col1.metric("Scadenza attuale", scad_attuale)
-            col2.metric("Nuova scadenza", nuova_scadenza)
+            col2.metric("Nuova scadenza", f"{nuovo_mese:02d}/{nuova_scadenza}")
             col3.metric("Costo rinnovo", f"{costo_rinnovo}cr")
 
             st.caption(f"Costo precedente: {costo_attuale}cr | Differenza da pagare: {max(0, costo_rinnovo - costo_attuale)}cr")
@@ -1362,13 +1363,14 @@ if menu == "🛒 Mercato":
                     for g in st.session_state.squadre[sq_r]["rosa"]:
                         if g["Nome"] == g_r:
                             g["Scadenza_Anno"] = nuova_scadenza
+                            g["Scadenza_Mese"] = nuovo_mese
                             g["Costo_Acquisto"] = costo_rinnovo
                             break
-                    st.session_state.contratti[g_r] = {"squadra": sq_r, "scadenza_anno": nuova_scadenza}
+                    st.session_state.contratti[g_r] = {"squadra": sq_r, "scadenza_anno": nuova_scadenza, "scadenza_mese": nuovo_mese}
                     st.session_state.storico_mercato.insert(0, {
                         "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
                         "Operazione": "RINNOVO",
-                        "Dettagli": f"{sq_r} rinnova {g_r} fino al {nuova_scadenza} per {costo_rinnovo}cr (quotazione listone)"
+                        "Dettagli": f"{sq_r} rinnova {g_r} fino al {nuovo_mese:02d}/{nuova_scadenza} per {costo_rinnovo}cr (quotazione listone)"
                     })
                     save_state()
                     st.success(f"✅ Contratto di {g_r} rinnovato fino al {nuova_scadenza} al costo di {costo_rinnovo}cr!")
@@ -1606,22 +1608,25 @@ if menu == "📋 Rose & Contratti":
                             if quot_rinn is None:
                                 g_obj_r = next(g for g in dati["rosa"] if g["Nome"] == g_rinn)
                                 quot_rinn = g_obj_r.get("Costo_Acquisto", 1)
-                            st.info(f"Costo rinnovo: **{quot_rinn}cr** | Nuova scadenza: **{ANNO_CORRENTE + CONTRATTO_ANNI}**")
+                            st.info(f"Costo rinnovo: **{quot_rinn}cr** | Nuova scadenza: **{datetime.now().month:02d}/{datetime.now().year + CONTRATTO_ANNI}**")
                             if st.session_state.squadre[sq]["crediti"] < quot_rinn:
                                 st.error("Crediti insufficienti!")
                             else:
                                 if st.button(f"📝 Rinnova {g_rinn}", key=f"btn_rinn_{sq}_{g_rinn}"):
+                                    nuovo_anno_rinn = datetime.now().year + CONTRATTO_ANNI
+                                    nuovo_mese_rinn = datetime.now().month
                                     st.session_state.squadre[sq]["crediti"] -= quot_rinn
                                     for g in st.session_state.squadre[sq]["rosa"]:
                                         if g["Nome"] == g_rinn:
-                                            g["Scadenza_Anno"] = ANNO_CORRENTE + CONTRATTO_ANNI
+                                            g["Scadenza_Anno"] = nuovo_anno_rinn
+                                            g["Scadenza_Mese"] = nuovo_mese_rinn
                                             g["Costo_Acquisto"] = quot_rinn
                                             break
-                                    st.session_state.contratti[g_rinn] = {"squadra": sq, "scadenza_anno": ANNO_CORRENTE + CONTRATTO_ANNI}
+                                    st.session_state.contratti[g_rinn] = {"squadra": sq, "scadenza_anno": nuovo_anno_rinn, "scadenza_mese": nuovo_mese_rinn}
                                     st.session_state.storico_mercato.insert(0, {
                                         "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
                                         "Operazione": "RINNOVO",
-                                        "Dettagli": f"{sq} rinnova {g_rinn} fino al {ANNO_CORRENTE + CONTRATTO_ANNI} per {quot_rinn}cr"
+                                        "Dettagli": f"{sq} rinnova {g_rinn} fino al {nuovo_mese_rinn:02d}/{nuovo_anno_rinn} per {quot_rinn}cr"
                                     })
                                     save_state()
                                     st.success(f"✅ {g_rinn} rinnovato!")
