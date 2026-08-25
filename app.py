@@ -833,12 +833,124 @@ with col_rem:
 
 
 menu = st.sidebar.selectbox("Navigazione", [
+    "🏠 Dashboard",
     "🔍 Scouting & Database",
     "🛒 Mercato (Acquisti/Vendite)",
     "🤝 Scambi & Prestiti",
     "📋 Rose, Crediti & Contratti",
     "📈 Statistiche Storiche"
 ])
+
+# ============================================================
+# 0. DASHBOARD
+# ============================================================
+if menu == "🏠 Dashboard":
+    st.header("🏠 FantaManager Dashboard")
+    st.caption("Panoramica completa dello stato del fantacalcio 2026/27")
+
+    # === RIEPILOGO SQUADRE ===
+    st.subheader("📊 Stato delle Squadre")
+    dash_data = []
+    for sq in NOMI_SQUADRE:
+        dati = st.session_state.squadre[sq]
+        rosa = dati["rosa"]
+        p=d=c=a=spesa=0
+        in_scadenza = 0
+        for g in rosa:
+            r = g.get("Ruolo","C")
+            if r=="P": p+=1
+            elif r=="D": d+=1
+            elif r=="C": c+=1
+            elif r=="A": a+=1
+            spesa += g.get("Costo_Acquisto",0)
+            sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
+            if sa <= ANNO_CORRENTE + 1:
+                in_scadenza += 1
+        dash_data.append({
+            "Squadra": sq,
+            "Crediti": dati["crediti"],
+            "Rosa": len(rosa),
+            "P": p, "D": d, "C": c, "A": a,
+            "Spesa": spesa,
+            "Completata": "✅" if len(rosa) >= 25 else f"{len(rosa)}/25",
+            "Scadenze": in_scadenza
+        })
+    df_dash = pd.DataFrame(dash_data)
+    st.dataframe(df_dash, use_container_width=True)
+
+    # === METRICHE CHIAVE ===
+    st.markdown("---")
+    st.subheader("📈 Metriche Chiave")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in NOMI_SQUADRE)
+        st.metric("Giocatori Assegnati", tot_giocatori)
+    with c2:
+        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in NOMI_SQUADRE)
+        st.metric("Crediti Liberi", tot_crediti)
+    with c3:
+        squadre_complete = sum(1 for sq in NOMI_SQUADRE if len(st.session_state.squadre[sq]["rosa"]) >= 25)
+        st.metric("Rose Completate", f"{squadre_complete}/10")
+    with c4:
+        db = st.session_state.giocatori_db
+        in_rosa = set()
+        for d in st.session_state.squadre.values():
+            for g in d["rosa"]:
+                in_rosa.add(g["Nome"].lower())
+        svinc = db[~db["Nome"].str.lower().isin(in_rosa)] if not db.empty else pd.DataFrame()
+        st.metric("Svincolati", len(svinc))
+    with c5:
+        tot_scadenze = sum(1 for sq in NOMI_SQUADRE for g in st.session_state.squadre[sq]["rosa"] 
+                          if g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI) <= ANNO_CORRENTE + 1)
+        st.metric("Contratti in Scadenza", tot_scadenze)
+
+    # === TOP 5 SVINCOLATI PER INDICE AFFARE ===
+    st.markdown("---")
+    st.subheader("🏆 Top 5 Affari Liberi")
+    if not svinc.empty and "Indice_Affare" in svinc.columns:
+        top5 = svinc.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]]
+        st.dataframe(top5, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nessuno svincolato o dati insufficienti.")
+
+    # === ALERT SCADENZE GLOBALE ===
+    st.markdown("---")
+    st.subheader("🔔 Alert Contratti in Scadenza")
+    scad_rows = []
+    for sq in NOMI_SQUADRE:
+        for g in st.session_state.squadre[sq]["rosa"]:
+            sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
+            if sa <= ANNO_CORRENTE + 1:
+                scad_rows.append({
+                    "Squadra": sq,
+                    "Giocatore": g["Nome"],
+                    "Ruolo": g["Ruolo"],
+                    "Scadenza": sa,
+                    "Stato": "🔴 SCADE QUEST'ANNO" if sa == ANNO_CORRENTE else "🟠 SCADE IL PROSSIMO"
+                })
+    if scad_rows:
+        df_scad = pd.DataFrame(scad_rows).sort_values("Scadenza")
+        st.dataframe(df_scad, use_container_width=True, hide_index=True)
+    else:
+        st.success("✅ Nessun contratto in scadenza imminente.")
+
+    # === ANDAMENTO MERCATO (se c'è storico) ===
+    if st.session_state.storico_mercato:
+        st.markdown("---")
+        st.subheader("📈 Andamento Mercato")
+        hist = pd.DataFrame(st.session_state.storico_mercato)
+        if not hist.empty and "Data" in hist.columns:
+            hist["Data_dt"] = pd.to_datetime(hist["Data"])
+            hist = hist.sort_values("Data_dt")
+            # Conta operazioni per giorno
+            daily = hist.groupby(hist["Data_dt"].dt.date).size().reset_index(name="Operazioni")
+            st.line_chart(daily.set_index("Data_dt"))
+
+    # === CLASSIFICA CREDITI ===
+    st.markdown("---")
+    st.subheader("💰 Classifica Crediti")
+    crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE]).sort_values("Crediti", ascending=False)
+    st.bar_chart(crediti_df.set_index("Squadra"))
 
 # ============================================================
 # 1. SCOUTING
@@ -866,7 +978,10 @@ if menu == "🔍 Scouting & Database":
 
         # === FILTRI AVANZATI ===
         with st.expander("🔧 Filtri Avanzati", expanded=True):
-            f1, f2, f3, f4, f5 = st.columns(5)
+            f0, f1, f2, f3, f4, f5 = st.columns(6)
+            with f0:
+                sq_budget = st.selectbox("Budget Squadra", ["Nessuno"] + NOMI_SQUADRE, key="scout_budget_sq")
+                filtro_budget = st.checkbox("Solo chi posso permettermi", value=False, key="scout_budget_chk")
             with f1:
                 ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P","D","C","A"]
                 filtro_ruolo = st.multiselect("Ruolo", ruoli, default=ruoli, key="scout_ruolo")
@@ -929,6 +1044,16 @@ if menu == "🔍 Scouting & Database":
             df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
         if "Variazione_%" in df.columns:
             df_f = df_f[(df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1])]
+
+        # === FILTRO BUDGET ===
+        if filtro_budget and sq_budget != "Nessuno":
+            riep_b = riepilogo_rosa(sq_budget)
+            crediti_disp = riep_b["crediti"]
+            # Filtra per crediti disponibili e ruoli mancanti
+            ruoli_mancanti = [r for r in ROSA_REQ if riep_b[r]["mancanti"] > 0]
+            df_f = df_f[df_f["Quotazione"] <= crediti_disp]
+            df_f = df_f[df_f["Ruolo"].isin(ruoli_mancanti)]
+            st.info(f"💰 Filtro budget attivo per **{sq_budget}**: {crediti_disp}cr disponibili, ruoli mancanti: {', '.join(ruoli_mancanti)}")
 
         df_f = df_f.sort_values(by="Indice_Affare", ascending=False)
 
@@ -1100,6 +1225,22 @@ if menu == "🔍 Scouting & Database":
                 st.success("✅ Prezzi consigliati salvati!")
                 st.rerun()
 
+        # === CALCOLA PREZZI AI PER TUTTI ===
+        st.markdown("---")
+        st.subheader("🧠 Calcola Prezzi Consigliati AI")
+        st.caption("Applica l'algoritmo AI a TUTTI i giocatori del listone in base alle statistiche storiche caricate.")
+        if st.button("🚀 Calcola Tutti i Prezzi AI", type="primary"):
+            stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+            count = 0
+            for idx, row in st.session_state.giocatori_db.iterrows():
+                if pd.isna(row.get("Prezzo_Consigliato")):
+                    pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df)
+                    st.session_state.giocatori_db.at[idx, "Prezzo_Consigliato"] = pc_ai
+                    count += 1
+            save_state()
+            st.success(f"✅ Calcolati {count} prezzi consigliati! Ricarico...")
+            st.rerun()
+
         # === WATCHLIST ===
         st.markdown("---")
         st.subheader("⭐ Watchlist")
@@ -1111,10 +1252,15 @@ if menu == "🔍 Scouting & Database":
                 st.success(f"{g_sel} aggiunto!")
                 st.rerun()
         if st.session_state.watchlist:
-            df_wl = df[df["Nome"].isin(st.session_state.watchlist)]
-            wl_cols = ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Indice_Affare","Proprietario"]
-            if "Quotazione_2025_26" in df_wl.columns: wl_cols.insert(5, "Quotazione_2025_26")
-            if "Variazione_%" in df_wl.columns: wl_cols.insert(6, "Variazione_%")
+            df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
+            # Calcola Prezzo AI al volo per la watchlist
+            stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+            df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
+            # Assicurati che Variazione_% esista
+            if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
+                df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0,1) * 100, 1)
+            wl_cols = ["Nome","Ruolo","Squadra_SerieA","Quotazione","Quotazione_2025_26","Variazione_%","Prezzo_Consigliato","Prezzo_AI","FantaMedia","Indice_Affare","Proprietario"]
+            wl_cols = [c for c in wl_cols if c in df_wl.columns]
             st.dataframe(df_wl[wl_cols], use_container_width=True)
             if st.button("Svuota Watchlist"):
                 st.session_state.watchlist = []
@@ -1660,7 +1806,7 @@ elif menu == "📈 Statistiche Storiche":
 
     st.markdown("Carica i file CSV/Excel con le statistiche storiche **separati per stagione**. Ogni file viene taggato automaticamente con l'anno selezionato. I dati si accumulano: puoi caricare una stagione alla volta.")
 
-    STAGIONI = ["2023-24", "2024-25", "2025-26"]
+    STAGIONI = ["2023-24", "2024-25", "2025-26", "2026-27"]
 
     if "stats_per_stagione" not in st.session_state:
         st.session_state.stats_per_stagione = {}
