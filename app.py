@@ -743,6 +743,108 @@ def arricchisci_con_stats_2627(df_listone):
 # ============================================================
 # 1. SCOUTING
 # ============================================================
+# ============================================================
+# CARD GIOCATORE (cliccabile)
+# ============================================================
+def render_giocatore_card(nome_giocatore):
+    """Mostra una card dettagliata con statistiche e grafico del giocatore selezionato."""
+    db = st.session_state.giocatori_db
+    info = db[db["Nome"] == nome_giocatore]
+    if info.empty:
+        nm_f = fuzzy_match(nome_giocatore, db["Nome"].tolist())
+        if nm_f:
+            info = db[db["Nome"] == nm_f]
+    if info.empty:
+        st.warning("Giocatore non trovato nel listone.")
+        return
+
+    row = info.iloc[0]
+
+    # Header card
+    st.markdown("---")
+    col_img, col_info = st.columns([1, 3])
+    with col_img:
+        ruolo_emoji = {"P": "🧤", "D": "🛡️", "C": "⚡", "A": "⚽"}
+        st.markdown(
+            f"<div style='text-align:center;font-size:4em;'>{ruolo_emoji.get(row['Ruolo'], '👤')}</div>"
+            f"<div style='text-align:center;font-weight:bold;color:#00d26a;'>{row['Ruolo']}</div>",
+            unsafe_allow_html=True
+        )
+    with col_info:
+        st.markdown(f"## {row['Nome']}")
+        st.markdown(f"**{row['Squadra_SerieA']}** | Quotazione: **{int(row['Quotazione'])}cr** | FantaMedia: **{row['FantaMedia']}**")
+        st.caption(f"💡 Fascia: {row.get('Consiglio', 'N/D')} | {row.get('Note', '')}")
+
+        # Prezzo consigliato
+        stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+        pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df)
+        st.markdown(f"<span style='background:#00d26a;padding:4px 12px;border-radius:12px;color:#0e1117;font-weight:bold;'>💡 Prezzo Consigliato: {pc_ai}cr</span>", unsafe_allow_html=True)
+
+    # Statistiche storiche
+    stats_g = mostra_statistiche_giocatore(nome_giocatore, stats_df)
+    if stats_g is not None and not stats_g.empty:
+        st.markdown("---")
+        st.subheader("📊 Statistiche Storiche")
+        st.dataframe(stats_g, use_container_width=True, hide_index=True)
+
+        # GRAFICO AVANZATO con Altair
+        numeric_cols = stats_g.select_dtypes(include=['number']).columns.tolist()
+        numeric_cols = [c for c in numeric_cols if c not in ['Stagione'] and 'Stagione' not in c]
+
+        if numeric_cols and "Stagione" in stats_g.columns:
+            df_chart = stats_g[["Stagione"] + numeric_cols].copy()
+            df_chart["Stagione"] = df_chart["Stagione"].astype(str)
+
+            metriche_pref = [c for c in ["FantaMedia", "Gol", "Assist", "Partite"] if c in numeric_cols]
+            if not metriche_pref:
+                metriche_pref = numeric_cols[:3]
+
+            df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_pref, var_name="Metrica", value_name="Valore")
+
+            try:
+                import altair as alt
+                chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
+                    x=alt.X("Stagione:N", title="Stagione", sort=None),
+                    y=alt.Y("Valore:Q", title="Valore"),
+                    color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
+                    tooltip=["Stagione", "Metrica", "Valore"]
+                ).properties(
+                    height=350,
+                    title=f"Andamento {nome_giocatore}"
+                ).configure_axis(
+                    labelColor="#fafafa",
+                    titleColor="#fafafa",
+                    gridColor="#2a2a4a"
+                ).configure_title(
+                    color="#00d26a",
+                    fontSize=16
+                ).configure_legend(
+                    labelColor="#fafafa",
+                    titleColor="#fafafa"
+                ).configure_view(
+                    strokeWidth=0,
+                    fill="#1a1a2e"
+                )
+                st.altair_chart(chart, use_container_width=True)
+            except Exception:
+                st.bar_chart(df_chart.set_index("Stagione")[metriche_pref])
+    else:
+        st.info("📭 Nessuna statistica storica caricata per questo giocatore.")
+
+    # Proprietario attuale
+    proprietario = "Svincolato 🟢"
+    for sq, dati in st.session_state.squadre.items():
+        for g in dati["rosa"]:
+            if g["Nome"] == nome_giocatore:
+                proprietario = sq
+                if g.get("Prestito_Da") and g.get("Prestito_Da") != sq:
+                    proprietario += f" (prestito da {g['Prestito_Da']})"
+                break
+        if proprietario != "Svincolato 🟢":
+            break
+    st.markdown(f"**👤 Proprietario attuale:** {proprietario}")
+    st.markdown("---")
+
 if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting 2026/27")
     df = st.session_state.giocatori_db.copy()
@@ -870,7 +972,22 @@ if menu == "🔍 Scouting & Database":
         st.markdown("---")
         st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
         display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
-        st.dataframe(df_f[display_cols], use_container_width=True)
+
+        # Tabella cliccabile: seleziona un giocatore per vederne i dettagli
+        event = st.dataframe(
+            df_f[display_cols],
+            use_container_width=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="scout_table"
+        )
+
+        if event.selection.rows:
+            selected_idx = event.selection.rows[0]
+            selected_name = df_f.iloc[selected_idx]["Nome"]
+            render_giocatore_card(selected_name)
+        else:
+            st.caption("👆 **Clicca su una riga** della tabella per vedere le statistiche dettagliate del giocatore.")
 
         st.markdown("---")
         st.subheader("⚔️ Confronto Giocatori")
@@ -1836,8 +1953,39 @@ if menu == "📈 Statistiche Storiche":
                 numeric_cols = [c for c in numeric_cols if c not in ['Stagione']]
                 if numeric_cols and "Stagione" in df_g.columns:
                     st.subheader("📊 Andamento")
-                    chart_data = df_g.set_index("Stagione")[numeric_cols]
-                    st.line_chart(chart_data)
+                    df_chart = df_g[["Stagione"] + numeric_cols].copy()
+                    df_chart["Stagione"] = df_chart["Stagione"].astype(str)
+                    metriche_pref = [c for c in ["FantaMedia", "Gol", "Assist", "Partite"] if c in numeric_cols]
+                    if not metriche_pref:
+                        metriche_pref = numeric_cols[:3]
+                    df_melt = df_chart.melt(id_vars=["Stagione"], value_vars=metriche_pref, var_name="Metrica", value_name="Valore")
+                    try:
+                        import altair as alt
+                        chart = alt.Chart(df_melt).mark_line(point=True, strokeWidth=3).encode(
+                            x=alt.X("Stagione:N", title="Stagione", sort=None),
+                            y=alt.Y("Valore:Q", title="Valore"),
+                            color=alt.Color("Metrica:N", legend=alt.Legend(title="Metrica")),
+                            tooltip=["Stagione", "Metrica", "Valore"]
+                        ).properties(
+                            height=350,
+                            title=f"Andamento {g_sel}"
+                        ).configure_axis(
+                            labelColor="#fafafa",
+                            titleColor="#fafafa",
+                            gridColor="#2a2a4a"
+                        ).configure_title(
+                            color="#00d26a",
+                            fontSize=16
+                        ).configure_legend(
+                            labelColor="#fafafa",
+                            titleColor="#fafafa"
+                        ).configure_view(
+                            strokeWidth=0,
+                            fill="#1a1a2e"
+                        )
+                        st.altair_chart(chart, use_container_width=True)
+                    except Exception:
+                        st.bar_chart(df_chart.set_index("Stagione")[metriche_pref])
 
                 db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == g_sel.lower()]
                 if db_match.empty:
