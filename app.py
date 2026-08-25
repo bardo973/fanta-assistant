@@ -481,11 +481,41 @@ def mostra_statistiche_giocatore(nome, stats_df):
         return None
     return g_stats.sort_values("Stagione") if "Stagione" in g_stats.columns else g_stats
 
+def _get_fm_2627(nome):
+    """Ritorna la FantaMedia 2026-27 se caricata, altrimenti None."""
+    if "stats_per_stagione" not in st.session_state:
+        return None
+    if "2026-27" not in st.session_state.stats_per_stagione:
+        return None
+    s2627 = st.session_state.stats_per_stagione["2026-27"]
+    if s2627.empty or "Nome" not in s2627.columns:
+        return None
+    match = s2627[s2627["Nome"].str.lower() == nome.lower()]
+    if match.empty:
+        nm = fuzzy_match(nome, s2627["Nome"].tolist())
+        if nm:
+            match = s2627[s2627["Nome"] == nm]
+    if not match.empty and "FantaMedia" in match.columns and pd.notna(match.iloc[0]["FantaMedia"]):
+        return float(match.iloc[0]["FantaMedia"])
+    return None
+
 def simula_formazione(squadra_nome, modulo):
     rosa = st.session_state.squadre[squadra_nome]["rosa"]
     if not rosa:
         return 0, [], []
-    df = pd.DataFrame(rosa)
+    # Arricchisci con FM 2026/27 se disponibile
+    enriched = []
+    for g in rosa:
+        g_copy = dict(g)
+        fm_2627 = _get_fm_2627(g["Nome"])
+        if fm_2627 is not None:
+            g_copy["FantaMedia_Usata"] = fm_2627
+            g_copy["FM_Origine"] = "📊 2026/27"
+        else:
+            g_copy["FantaMedia_Usata"] = g.get("FantaMedia", 0)
+            g_copy["FM_Origine"] = "📋 Listone"
+        enriched.append(g_copy)
+    df = pd.DataFrame(enriched)
     try:
         d, c, a = map(int, modulo.split("-"))
     except:
@@ -494,14 +524,14 @@ def simula_formazione(squadra_nome, modulo):
     titolari = []
     panchina = []
     for ruolo, n in [("P", p), ("D", d), ("C", c), ("A", a)]:
-        subset = df[df["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
+        subset = df[df["Ruolo"] == ruolo].sort_values("FantaMedia_Usata", ascending=False)
         presi = subset.head(n)
         rimasti = subset.iloc[n:]
         for _, row in presi.iterrows():
             titolari.append(row.to_dict())
         for _, row in rimasti.iterrows():
             panchina.append(row.to_dict())
-    fm_tit = sum(g.get("FantaMedia", 0) for g in titolari)
+    fm_tit = sum(g.get("FantaMedia_Usata", 0) for g in titolari)
     return round(fm_tit, 2), panchina, titolari
 
 def arricchisci_con_stats_2627(df_listone):
@@ -1886,11 +1916,13 @@ if menu == "📋 Rose & Contratti":
             with col_t:
                 st.subheader("⭐ Titolari")
                 for g in titolari:
-                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia', 0)}")
+                    orig = g.get("FM_Origine", "")
+                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia_Usata', 0)} <span style='color:#888;font-size:0.8em;'>{orig}</span>", unsafe_allow_html=True)
             with col_p:
                 st.subheader("🪑 Panchina")
                 for g in panchina:
-                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia', 0)}")
+                    orig = g.get("FM_Origine", "")
+                    st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia_Usata', 0)} <span style='color:#888;font-size:0.8em;'>{orig}</span>", unsafe_allow_html=True)
 
 # ============================================================
 # 6. STATISTICHE STORICHE
