@@ -563,7 +563,30 @@ with st.sidebar:
             if len(st.session_state.squadre[sq]["rosa"]) == 0:
                 st.session_state.squadre[sq]["crediti"] = new_cred
         save_state()
-        st.success(f"Crediti aggiornati a {new_cred}!")
+        st.success(f"Crediti iniziali aggiornati a {new_cred}!")
+
+    st.markdown("---")
+    st.subheader("💰 Crediti per Squadra")
+    st.caption("Modifica i crediti attuali di ogni squadra")
+    crediti_df_edit = pd.DataFrame([
+        {"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE
+    ])
+    edited_crediti = st.data_editor(
+        crediti_df_edit,
+        column_config={
+            "Squadra": st.column_config.TextColumn("Squadra", disabled=True),
+            "Crediti": st.column_config.NumberColumn("Crediti", min_value=0, max_value=1000, step=1),
+        },
+        use_container_width=True,
+        hide_index=True,
+        key="editor_crediti_squadre"
+    )
+    if st.button("💾 Salva Crediti Squadre", use_container_width=True):
+        for _, row in edited_crediti.iterrows():
+            st.session_state.squadre[row["Squadra"]]["crediti"] = int(row["Crediti"])
+        save_state()
+        st.success("Crediti squadre aggiornati!")
+        st.rerun()
 
     st.markdown("---")
     with st.expander("📁 Importa Dati"):
