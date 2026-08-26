@@ -2373,15 +2373,27 @@ if menu == "⚙️ Importa & Esporta":
                     if 'Quotazione_2025_26' not in df_q.columns:
                         for col in df_q.columns:
                             if col != 'Nome' and pd.api.types.is_numeric_dtype(df_q[col]):
-                                df_q['Quotazione_2025_26'] = pd.to_numeric(df_q[col], errors='coerce')
-                                break
-                    df_q['Quotazione_2025_26'] = pd.to_numeric(df_q['Quotazione_2025_26'], errors='coerce').fillna(1).astype(int)
-                    df_q = df_q[['Nome', 'Quotazione_2025_26']].dropna()
-                    st.session_state.quotazioni_2025_26 = df_q
-                    save_state()
-                    st.success(f"✅ Caricate {len(df_q)} quotazioni 2025/26!")
-                    with st.expander("👁️ Anteprima"):
-                        st.dataframe(df_q.head(10), use_container_width=True)
+                                df_q['Quotazione_2025_26'] = pd.to_numeric(df_q['Quotazione_2025_26'], errors='coerce').fillna(1).astype(int)
+                df_q = df_q[['Nome', 'Quotazione_2025_26']].dropna()
+                st.session_state.quotazioni_2025_26 = df_q
+
+                # >>> FIX: unisce le quotazioni 2025/26 nel giocatori_db principale
+                db = st.session_state.giocatori_db.copy()
+                db["_tmp_lower"] = db["Nome"].str.lower().str.strip()
+                df_q_merge = df_q.copy()
+                df_q_merge["_tmp_lower"] = df_q_merge["Nome"].str.lower().str.strip()
+                if "Quotazione_2025_26" in db.columns:
+                    db = db.drop(columns=["Quotazione_2025_26"])
+                db = db.merge(df_q_merge[["_tmp_lower", "Quotazione_2025_26"]], on="_tmp_lower", how="left")
+                db = db.drop(columns=["_tmp_lower"])
+                st.session_state.giocatori_db = db
+                # <<<
+
+                save_state()
+                aggiornati = db['Quotazione_2025_26'].notna().sum()
+                st.success(f"✅ Caricate {len(df_q)} quotazioni 2025/26! Aggiornati {aggiornati} giocatori nel listone.")
+                with st.expander("👁️ Anteprima"):
+                    st.dataframe(df_q.head(10), use_container_width=True)
             except Exception as e:
                 st.error(f"Errore: {e}")
 
