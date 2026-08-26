@@ -1283,18 +1283,13 @@ if menu == "🔍 Scouting & Database":
                 comp_data[g2_c].insert(4, f"{r2['Variazione_%']}%")
             st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
 
-            # Confronto grafico a barre
-            import plotly.graph_objects as go
-            fig = go.Figure()
-            fig.add_trace(go.Bar(name=g1_c, x=["FantaMedia", "Titolarità/10", "Affare×50"],
-                               y=[r1["FantaMedia"], r1["Indice_Titolarita"]/10, r1["Indice_Affare"]*50],
-                               marker_color="#00d26a"))
-            fig.add_trace(go.Bar(name=g2_c, x=["FantaMedia", "Titolarità/10", "Affare×50"],
-                               y=[r2["FantaMedia"], r2["Indice_Titolarita"]/10, r2["Indice_Affare"]*50],
-                               marker_color="#3b82f6"))
-            fig.update_layout(barmode="group", paper_bgcolor="#0b0f19", plot_bgcolor="#12122e",
-                            font_color="#ddd", title="Confronto visivo")
-            st.plotly_chart(fig, use_container_width=True)
+            # Confronto grafico a barre nativo Streamlit
+            chart_data = pd.DataFrame({
+                "Metrica": ["FantaMedia", "Titolarità/10", "Affare×50"],
+                g1_c: [r1["FantaMedia"], r1["Indice_Titolarita"]/10, r1["Indice_Affare"]*50],
+                g2_c: [r2["FantaMedia"], r2["Indice_Titolarita"]/10, r2["Indice_Affare"]*50]
+            })
+            st.bar_chart(chart_data.set_index("Metrica"), use_container_width=True)
 
             if r1["Indice_Affare"] > r2["Indice_Affare"]:
                 st.success(f"🏆 {g1_c} ha un indice affare migliore ({r1['Indice_Affare']} vs {r2['Indice_Affare']})")
