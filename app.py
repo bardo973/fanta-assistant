@@ -591,17 +591,24 @@ def calcola_indice_titolarita(row, stats_2627=None):
     return min(100, round(totale, 1))
 
 
-def get_formazione_titolare_serie_a(squadra_sa, db, idx_proprietari=None):
+def get_formazione_titolare_serie_a(squadra_sa, db, idx_proprietari=None, modulo="4-3-3"):
     """Restituisce i migliori giocatori per ruolo di una squadra di Serie A."""
     giocatori = db[db["Squadra_SerieA"] == squadra_sa].copy()
     if giocatori.empty:
         return {}
     if idx_proprietari is None:
         idx_proprietari = {}
+    try:
+        d, c, a = map(int, modulo.split("-"))
+    except:
+        d, c, a = 4, 3, 3
+    p = 1
+    moduli = {"P": p, "D": d, "C": c, "A": a}
     result = {}
     for ruolo in ["P", "D", "C", "A"]:
+        n_vis = moduli.get(ruolo, 3) + 2  # titolari + 2 panchinari
         subset = giocatori[giocatori["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
-        records = subset.head(6 if ruolo in ["D", "C"] else 4).to_dict("records")
+        records = subset.head(n_vis).to_dict("records")
         for r in records:
             r["Proprietario"] = idx_proprietari.get(r["Nome"].lower(), "Svincolato")
         result[ruolo] = records
@@ -963,11 +970,22 @@ if menu == "🏠 Dashboard":
         st.metric("Contratti in Scadenza", tot_scadenze)
 
     st.markdown("---")
-    st.subheader("🏆 Top 5 Affari Liberi")
+    st.subheader("🏆 Top 5 Affari Liberi per Ruolo")
     if not svinc.empty:
         svinc["Indice_Affare"] = round(svinc["FantaMedia"] / svinc["Quotazione"].replace(0,1), 2)
-        top5 = svinc.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]]
-        st.dataframe(top5, use_container_width=True, hide_index=True)
+        ruolo_sel = st.select_slider(
+            "Seleziona ruolo",
+            options=["P", "D", "C", "A"],
+            value="P",
+            format_func=lambda x: {"P": "🧤 Portieri", "D": "🛡️ Difensori", "C": "⚙️ Centrocampisti", "A": "⚔️ Attaccanti"}[x],
+            key="dash_top5_ruolo"
+        )
+        svinc_r = svinc[svinc["Ruolo"] == ruolo_sel]
+        if not svinc_r.empty:
+            top5 = svinc_r.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]]
+            st.dataframe(top5, use_container_width=True, hide_index=True)
+        else:
+            st.info(f"Nessuno svincolato nel ruolo {ruolo_sel}.")
     else:
         st.info("Nessuno svincolato.")
 
@@ -1174,20 +1192,25 @@ if menu == "🔍 Scouting & Database":
         # ============================================================
         st.markdown("---")
         st.subheader("⚽ Formazioni Titolar Serie A (dal Listone)")
-        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. I titolari sono i primi per modulo classico (4-3-3).")
+        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. Seleziona il modulo per vedere chi sarebbe titolare.")
+
+        modulo_sa = st.selectbox("Modulo", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], index=2, key="modulo_sa")
+        try:
+            d_mod, c_mod, a_mod = map(int, modulo_sa.split("-"))
+        except:
+            d_mod, c_mod, a_mod = 4, 3, 3
+        moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
 
         squadre_sa_list = sorted(df["Squadra_SerieA"].dropna().unique())
         if len(squadre_sa_list) > 0:
             tabs_sa = st.tabs(squadre_sa_list)
             for i, sa in enumerate(squadre_sa_list):
                 with tabs_sa[i]:
-                    form = get_formazione_titolare_serie_a(sa, df, idx)
+                    form = get_formazione_titolare_serie_a(sa, df, idx, modulo_sa)
                     if not form:
                         st.info("Nessun giocatore nel listone per questa squadra.")
                         continue
 
-                    # Simula modulo 4-3-3
-                    moduli = {"P": 1, "D": 4, "C": 3, "A": 3}
                     col_ruoli = st.columns(4)
                     ruoli_order = ["P", "D", "C", "A"]
                     ruoli_nomi = {"P": "🧤 Portiere", "D": "🛡️ Difesa", "C": "⚙️ Centrocampo", "A": "⚔️ Attacco"}
@@ -1197,7 +1220,7 @@ if menu == "🔍 Scouting & Database":
                             st.markdown(f"**{ruoli_nomi[ruolo]}**")
                             giocatori_r = form.get(ruolo, [])
                             for k, g in enumerate(giocatori_r):
-                                is_titolare = k < moduli[ruolo]
+                                is_titolare = k < moduli_sa[ruolo]
                                 alpha = "1.0" if is_titolare else "0.5"
                                 bordo = "#00d26a" if is_titolare else "#2a2a4a"
                                 bg = "#1e1e3f" if is_titolare else "#15152b"
