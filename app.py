@@ -635,48 +635,17 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     barra_tit = ""
     if show_titolarita:
         col_bar = "#00d26a" if idx_tit >= 80 else "#eab308" if idx_tit >= 60 else "#ef4444"
-        barra_tit = f"""
-        <div style="margin-top:6px;">
-            <div style="display:flex;justify-content:space-between;font-size:0.75em;color:#aaa;">
-                <span>Titolarità</span><span>{idx_tit}/100</span>
-            </div>
-            <div style="background:#2a2a4a;border-radius:4px;height:6px;overflow:hidden;">
-                <div style="width:{idx_tit}%;background:{col_bar};height:100%;border-radius:4px;"></div>
-            </div>
-        </div>
-        """
+        barra_tit = f'<div style="margin-top:6px;"><div style="display:flex;justify-content:space-between;font-size:0.75em;color:#aaa;"><span>Titolarità</span><span>{idx_tit}/100</span></div><div style="background:#2a2a4a;border-radius:4px;height:6px;overflow:hidden;"><div style="width:{idx_tit}%;background:{col_bar};height:100%;border-radius:4px;"></div></div></div>'
 
     # Badge proprietario
-    badge_prop = ""
     if "Svincolato" in str(prop):
         badge_prop = '<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #00d26a;">🟢 LIBERO</span>'
     else:
         badge_prop = f'<span style="background:#ff6b6b20;color:#ff6b6b;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #ff6b6b;">🔒 {prop}</span>'
 
-    html = f"""
-    <div style="background: linear-gradient(135deg, #1e1e3f 0%, #2a2a4a 100%);
-                border-radius: 12px; padding: 14px; margin-bottom: 10px;
-                border-left: 4px solid {colore}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-        <div style="display:flex;justify-content:space-between;align-items:start;">
-            <div>
-                <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
-                <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div>
-                <div style="font-size:0.75em;color:#888;">FM</div>
-            </div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-            <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
-            <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
-            {f'<span style="background:#1a1a2e;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;">{pc_txt}</span>' if pc_txt else ''}
-            <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
-        </div>
-        {barra_tit}
-        <div style="margin-top:8px;">{badge_prop}</div>
-    </div>
-    """
+    pc_span = f'<span style="background:#1a1a2e;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;">{pc_txt}</span>' if pc_txt else ''
+
+    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);"><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
     return html
 
 
@@ -1164,7 +1133,7 @@ if menu == "🔍 Scouting & Database":
             cards = st.columns(4)
             for i, (_, row) in enumerate(top_mixed.iterrows()):
                 with cards[i % 4]:
-                    st.markdown(render_card_giocatore(row, stats_2627), unsafe_allow_html=True)
+                    st.html(render_card_giocatore(row, stats_2627))
         else:
             st.info("Nessuno svincolato disponibile.")
 
@@ -1190,13 +1159,12 @@ if menu == "🔍 Scouting & Database":
                             tit_bar = f'<span style="color:#eab308;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
                         else:
                             tit_bar = f'<span style="color:#ef4444;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
-                        st.markdown(
-                            f"<div style='background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;'>"
-                            f"<b>{row['Nome']}</b> ({row['Squadra_SerieA']})<br/>"
-                            f"<span style='color:#888;font-size:0.85em;'>FM {row['FantaMedia']} | Q {int(row['Quotazione'])}cr | IA {row['Indice_Affare']}</span> {pc_txt}<br/>"
-                            f"{tit_bar}"
-                            f"</div>",
-                            unsafe_allow_html=True
+                        st.html(
+                            f'<div style="background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;">'
+                            f'<b>{row["Nome"]}</b> ({row["Squadra_SerieA"]})<br/>'
+                            f'<span style="color:#888;font-size:0.85em;">FM {row["FantaMedia"]} | Q {int(row["Quotazione"])}cr | IA {row["Indice_Affare"]}</span> {pc_txt}<br/>'
+                            f'{tit_bar}'
+                            f'</div>'
                         )
                 else:
                     st.caption("Nessuno svincolato")
@@ -1240,13 +1208,12 @@ if menu == "🔍 Scouting & Database":
                                 else:
                                     prop_badge = f'<span style="font-size:0.65em;color:#00d26a;">🟢 Libero</span>'
 
-                                st.markdown(
+                                st.html(
                                     f'<div style="background:{bg};border-left:3px solid {bordo};'
                                     f'border-radius:6px;padding:6px 8px;margin-bottom:4px;opacity:{alpha};">'
                                     f'<div style="font-size:0.9em;font-weight:600;">{badge} {g["Nome"]}</div>'
                                     f'<div style="font-size:0.75em;color:#aaa;">FM {g["FantaMedia"]} | {int(g["Quotazione"])}cr</div>'
-                                    f'{prop_badge}</div>',
-                                    unsafe_allow_html=True
+                                    f'{prop_badge}</div>'
                                 )
 
         # ============================================================
