@@ -543,52 +543,56 @@ def arricchisci_con_stats_2627(df_listone):
     stats_2627 = st.session_state.stats_per_stagione["2026-27"].copy()
     if stats_2627.empty or "Nome" not in stats_2627.columns:
         return df
-    stats_2627["Nome_lower"] = stats_2627["Nome"].str.lower().str.strip()
-    df["Nome_lower"] = df["Nome"].str.lower().str.strip()
+
+    # Normalizza nomi per il merge
+    stats_2627["Nome_lower"] = stats_2627["Nome"].astype(str).str.lower().str.strip()
+    df["Nome_lower"] = df["Nome"].astype(str).str.lower().str.strip()
+
+    # Colonne stats da unire (escludi chiave e stagione)
     cols_stats = [c for c in stats_2627.columns if c not in ["Nome", "Stagione", "Nome_lower"]]
-    if "FantaMedia" in cols_stats and "FantaMedia" in df.columns:
-        df = df.drop(columns=["FantaMedia"])
-    if "Gol" in cols_stats and "Gol" in df.columns:
-        df = df.drop(columns=["Gol"])
-    if "Assist" in cols_stats and "Assist" in df.columns:
-        df = df.drop(columns=["Assist"])
-    merge_df = stats_2627[["Nome_lower"] + [c for c in cols_stats if c not in df.columns]].copy()
+
+    # Salva valori originali del listone come fallback (e convertili in numerico)
+    orig_backup = {}
+    for col in cols_stats:
+        if col in df.columns:
+            orig_backup[col] = pd.to_numeric(
+                df[col].astype(str).str.replace(',', '.', regex=False), 
+                errors='coerce'
+            ).copy()
+            df = df.drop(columns=[col])
+
+    # Prepara il dataframe di merge con solo le colonne necessarie
+    merge_cols = ["Nome_lower"] + [c for c in cols_stats if c not in df.columns]
+    merge_df = stats_2627[merge_cols].copy()
+
+    # Converte colonle numeriche delle stats (gestisce virgole come decimali)
+    for col in cols_stats:
+        if col in merge_df.columns:
+            merge_df[col] = pd.to_numeric(
+                merge_df[col].astype(str).str.replace(',', '.', regex=False), 
+                errors='coerce'
+            )
+
+    # Merge left: tutti i giocatori del listone, stats dove disponibili
     df = df.merge(merge_df, on="Nome_lower", how="left")
     df = df.drop(columns=["Nome_lower"])
-    if "FantaMedia" in df.columns:
-        df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
+
+    # Fallback: dove le stats 2026/27 sono NaN, usa il valore originale del listone
+    for col, orig in orig_backup.items():
+        if col in df.columns:
+            df[col] = df[col].fillna(orig)
+
+    # Assicurati che le colonne chiave siano numeriche (gestisce virgole, spazi, ecc.)
+    for col in ["FantaMedia", "Quotazione", "Gol", "Assist", "Partite", "Rigori"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(
+                df[col].astype(str).str.replace(',', '.', regex=False), 
+                errors='coerce'
+            )
+
     return df
 
-# ============================================================
-# INIZIALIZZAZIONE
-# ============================================================
-if "initialized" not in st.session_state:
-    st.session_state.squadre = {}
-    st.session_state.storico_mercato = []
-    st.session_state.watchlist = []
-    st.session_state.prestiti = []
-    st.session_state.contratti = {}
-    st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
-    if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
-        st.session_state.giocatori_db["Prezzo_Consigliato"] = None
-    st.session_state.stats_storiche = pd.DataFrame()
-    st.session_state.quotazioni_2025_26 = pd.DataFrame()
-    st.session_state.stats_per_stagione = {}
-    st.session_state.wizard_completato = False
-    st.session_state.crediti_iniziali = CREDITI_INIZIALI
-    st.session_state._riepiloghi_dirty = True
-    st.session_state._player_index_dirty = True
-    st.session_state._undo_stack = []
 
-    if not load_state():
-        for sq in NOMI_SQUADRE:
-            st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
-
-    st.session_state.initialized = True
-
-# ============================================================
-# WIZARD
-# ============================================================
 def check_wizard_needed():
     if st.session_state.get("wizard_completato", False):
         return False
