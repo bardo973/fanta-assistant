@@ -976,20 +976,27 @@ if menu == "🔍 Scouting & Database":
                 else:
                     range_var = (-100, 100)
 
+        # Normalizza tipi numerici per evitare filtri rotti su NaN o stringhe
+        df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
+        df["Quotazione"] = pd.to_numeric(df["Quotazione"], errors="coerce")
+        df["Consiglio"] = df["Consiglio"].fillna("consigliato")
+
         df_f = df[
             (df["Ruolo"].isin(filtro_ruolo)) &
-            (df["FantaMedia"] >= range_fm[0]) & (df["FantaMedia"] <= range_fm[1]) &
-            (df["Quotazione"] >= range_q[0]) & (df["Quotazione"] <= range_q[1]) &
+            (df["FantaMedia"].notna()) & (df["FantaMedia"] >= range_fm[0]) & (df["FantaMedia"] <= range_fm[1]) &
+            (df["Quotazione"].notna()) & (df["Quotazione"] >= range_q[0]) & (df["Quotazione"] <= range_q[1]) &
             (df["Consiglio"].isin(consigli_fasce))
-        ]
+        ].copy()
         if "Tutte" not in filtro_sa and "Squadra_SerieA" in df.columns:
             df_f = df_f[df_f["Squadra_SerieA"].isin(filtro_sa)]
         if solo_svinc:
             df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
         if search:
             df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
-        if "Variazione_%" in df.columns:
-            df_f = df_f[(df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1])]
+        if "Variazione_%" in df_f.columns:
+            # Se la colonna Variazione_% è tutta NaN, non filtrare affatto
+            if df_f["Variazione_%"].notna().any():
+                df_f = df_f[(df_f["Variazione_%"].isna()) | ((df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1]))]
 
         if filtro_budget and sq_budget != "Nessuno":
             riep_b = riepilogo_rosa(sq_budget)
