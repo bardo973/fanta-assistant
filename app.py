@@ -559,6 +559,127 @@ def arricchisci_con_stats_2627(df_listone):
         df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
     return df
 
+def calcola_indice_titolarita(row, stats_2627=None):
+    """Calcola un indice 0-100 di titolarità/solidità del giocatore."""
+    fm = float(row.get("FantaMedia", 6.0))
+    fascia = row.get("Consiglio", "consigliato")
+    quot = float(row.get("Quotazione", 10))
+    nome = str(row.get("Nome", ""))
+
+    # Base da FantaMedia (0-50 punti)
+    base = min(50, (fm / 10) * 50)
+
+    # Bonus fascia (0-25 punti)
+    bonus_fascia = {"top": 25, "consigliato": 15, "scommessa": 5}.get(fascia, 10)
+
+    # Presenze da stats 2026/27 (0-25 punti)
+    bonus_presenze = 12.5
+    if stats_2627 is not None and not stats_2627.empty and "Nome" in stats_2627.columns:
+        match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
+        if match.empty:
+            nm = fuzzy_match(nome, stats_2627["Nome"].tolist())
+            if nm:
+                match = stats_2627[stats_2627["Nome"] == nm]
+        if not match.empty and "Partite" in match.columns and pd.notna(match.iloc[0]["Partite"]):
+            partite = int(match.iloc[0]["Partite"])
+            bonus_presenze = min(25, (partite / 38) * 25)
+
+    # Quotazione come indicatore di fiducia del mercato (0-10 punti)
+    bonus_quot = min(10, max(0, (quot / 100) * 10))
+
+    totale = base + bonus_fascia + bonus_presenze + bonus_quot
+    return min(100, round(totale, 1))
+
+
+def get_formazione_titolare_serie_a(squadra_sa, db, idx_proprietari=None):
+    """Restituisce i migliori giocatori per ruolo di una squadra di Serie A."""
+    giocatori = db[db["Squadra_SerieA"] == squadra_sa].copy()
+    if giocatori.empty:
+        return {}
+    if idx_proprietari is None:
+        idx_proprietari = {}
+    result = {}
+    for ruolo in ["P", "D", "C", "A"]:
+        subset = giocatori[giocatori["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
+        records = subset.head(6 if ruolo in ["D", "C"] else 4).to_dict("records")
+        for r in records:
+            r["Proprietario"] = idx_proprietari.get(r["Nome"].lower(), "Svincolato")
+        result[ruolo] = records
+    return result
+
+
+def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
+    """Restituisce HTML per una card giocatore accattivante."""
+    nome = row["Nome"]
+    ruolo = row["Ruolo"]
+    sa = row.get("Squadra_SerieA", "N/D")
+    fm = row.get("FantaMedia", 0)
+    quot = int(row.get("Quotazione", 0))
+    fascia = row.get("Consiglio", "consigliato")
+    prop = row.get("Proprietario", "Svincolato 🟢")
+    idx_aff = row.get("Indice_Affare", 0)
+    idx_tit = row.get("Indice_Titolarita", 0)
+    pc = row.get("Prezzo_Consigliato")
+    pc_txt = f"💡 {int(pc)}cr" if pd.notna(pc) else ""
+
+    colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
+    colore = colori_ruolo.get(ruolo, "#888")
+
+    badge_fascia = {
+        "top": "⭐ TOP",
+        "consigliato": "👍 CONSIGLIATO",
+        "scommessa": "🎲 SCOMMESSA"
+    }.get(fascia, "")
+
+    # Barra titolarità
+    barra_tit = ""
+    if show_titolarita:
+        col_bar = "#00d26a" if idx_tit >= 80 else "#eab308" if idx_tit >= 60 else "#ef4444"
+        barra_tit = f"""
+        <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.75em;color:#aaa;">
+                <span>Titolarità</span><span>{idx_tit}/100</span>
+            </div>
+            <div style="background:#2a2a4a;border-radius:4px;height:6px;overflow:hidden;">
+                <div style="width:{idx_tit}%;background:{col_bar};height:100%;border-radius:4px;"></div>
+            </div>
+        </div>
+        """
+
+    # Badge proprietario
+    badge_prop = ""
+    if "Svincolato" in str(prop):
+        badge_prop = '<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #00d26a;">🟢 LIBERO</span>'
+    else:
+        badge_prop = f'<span style="background:#ff6b6b20;color:#ff6b6b;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #ff6b6b;">🔒 {prop}</span>'
+
+    html = f"""
+    <div style="background: linear-gradient(135deg, #1e1e3f 0%, #2a2a4a 100%);
+                border-radius: 12px; padding: 14px; margin-bottom: 10px;
+                border-left: 4px solid {colore}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+            <div>
+                <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
+                <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div>
+                <div style="font-size:0.75em;color:#888;">FM</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
+            <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
+            {f'<span style="background:#1a1a2e;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;">{pc_txt}</span>' if pc_txt else ''}
+            <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
+        </div>
+        {barra_tit}
+        <div style="margin-top:8px;">{badge_prop}</div>
+    </div>
+    """
+    return html
+
+
 # ============================================================
 # INIZIALIZZAZIONE
 # ============================================================
@@ -921,28 +1042,35 @@ if menu == "🔍 Scouting & Database":
     st.header("🔍 Hub Scouting 2026/27")
     df = st.session_state.giocatori_db.copy()
     df = arricchisci_con_stats_2627(df)
+    stats_2627 = None
     if "2026-27" in st.session_state.get("stats_per_stagione", {}):
+        stats_2627 = st.session_state.stats_per_stagione["2026-27"]
         st.caption("📊 Dati arricchiti con statistiche 2026/27 caricate")
 
     if df.empty:
         st.warning("Nessun giocatore nel database.")
     else:
-        df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0,1), 2)
+        df["Indice_Affare"] = round(df["FantaMedia"] / df["Quotazione"].replace(0, 1), 2)
+        df["Indice_Titolarita"] = df.apply(lambda r: calcola_indice_titolarita(r, stats_2627), axis=1)
+
         if "Quotazione_2025_26" in df.columns:
-            df["Variazione_%"] = round((df["Quotazione"] - df["Quotazione_2025_26"]) / df["Quotazione_2025_26"].replace(0,1) * 100, 1)
+            df["Variazione_%"] = round((df["Quotazione"] - df["Quotazione_2025_26"]) / df["Quotazione_2025_26"].replace(0, 1) * 100, 1)
         else:
             df["Variazione_%"] = None
 
         idx = get_player_index()
         df["Proprietario"] = df["Nome"].apply(lambda x: idx.get(x.lower(), "Svincolato 🟢"))
 
+        # ============================================================
+        # FILTRI
+        # ============================================================
         with st.expander("🔧 Filtri Avanzati", expanded=True):
             f0, f1, f2, f3, f4, f5 = st.columns(6)
             with f0:
                 sq_budget = st.selectbox("Budget Squadra", ["Nessuno"] + NOMI_SQUADRE, key="scout_budget_sq")
                 filtro_budget = st.checkbox("Solo chi posso permettermi", value=False, key="scout_budget_chk")
             with f1:
-                ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P","D","C","A"]
+                ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P", "D", "C", "A"]
                 filtro_ruolo = st.multiselect("Ruolo", ruoli, default=ruoli, key="scout_ruolo")
             with f2:
                 squadre_sa = sorted(df["Squadra_SerieA"].unique()) if "Squadra_SerieA" in df.columns else []
@@ -955,12 +1083,12 @@ if menu == "🔍 Scouting & Database":
                 range_q = st.slider("Quotazione", min_q, max_q, (min_q, max_q), key="scout_q")
             with f4:
                 fm_vals = pd.to_numeric(df["FantaMedia"], errors="coerce").dropna()
-                min_fm_s, max_fm_s = (round(float(fm_vals.min()),1), round(float(fm_vals.max()),1)) if len(fm_vals) > 0 else (4.0, 10.0)
+                min_fm_s, max_fm_s = (round(float(fm_vals.min()), 1), round(float(fm_vals.max()), 1)) if len(fm_vals) > 0 else (4.0, 10.0)
                 if min_fm_s == max_fm_s:
                     min_fm_s, max_fm_s = round(max(4.0, min_fm_s - 1.0), 1), round(min(10.0, max_fm_s + 1.0), 1)
                 range_fm = st.slider("FantaMedia", min_value=min_fm_s, max_value=max_fm_s, value=(min_fm_s, max_fm_s), step=0.1, key="scout_fm")
             with f5:
-                consigli_fasce = st.multiselect("Fascia", ["top","consigliato","scommessa"], default=["top","consigliato","scommessa"], key="scout_fascia")
+                consigli_fasce = st.multiselect("Fascia", ["top", "consigliato", "scommessa"], default=["top", "consigliato", "scommessa"], key="scout_fascia")
 
             f6, f7 = st.columns(2)
             with f6:
@@ -969,14 +1097,14 @@ if menu == "🔍 Scouting & Database":
             with f7:
                 if "Variazione_%" in df.columns:
                     var_vals = pd.to_numeric(df["Variazione_%"], errors="coerce").dropna()
-                    var_min, var_max = (round(float(var_vals.min()),1), round(float(var_vals.max()),1)) if len(var_vals) > 0 else (-100.0, 100.0)
+                    var_min, var_max = (round(float(var_vals.min()), 1), round(float(var_vals.max()), 1)) if len(var_vals) > 0 else (-100.0, 100.0)
                     if var_min == var_max:
                         var_min, var_max = var_min - 5.0, var_max + 5.0
                     range_var = st.slider("Variazione % (2025→2026)", min_value=var_min, max_value=var_max, value=(var_min, var_max), key="scout_var")
                 else:
                     range_var = (-100, 100)
 
-        # Normalizza tipi numerici per evitare filtri rotti su NaN o stringhe
+        # Normalizza tipi numerici
         df["FantaMedia"] = pd.to_numeric(df["FantaMedia"], errors="coerce")
         df["Quotazione"] = pd.to_numeric(df["Quotazione"], errors="coerce")
         df["Consiglio"] = df["Consiglio"].fillna("consigliato")
@@ -993,10 +1121,8 @@ if menu == "🔍 Scouting & Database":
             df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
         if search:
             df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
-        if "Variazione_%" in df_f.columns:
-            # Se la colonna Variazione_% è tutta NaN, non filtrare affatto
-            if df_f["Variazione_%"].notna().any():
-                df_f = df_f[(df_f["Variazione_%"].isna()) | ((df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1]))]
+        if "Variazione_%" in df_f.columns and df_f["Variazione_%"].notna().any():
+            df_f = df_f[(df_f["Variazione_%"].isna()) | ((df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1]))]
 
         if filtro_budget and sq_budget != "Nessuno":
             riep_b = riepilogo_rosa(sq_budget)
@@ -1006,11 +1132,12 @@ if menu == "🔍 Scouting & Database":
             df_f = df_f[df_f["Ruolo"].isin(ruoli_mancanti)]
             st.info(f"💰 Filtro budget attivo per **{sq_budget}**: {crediti_disp}cr disponibili, ruoli mancanti: {', '.join(ruoli_mancanti)}")
 
-        df_f = df_f.sort_values(by="Indice_Affare", ascending=False)
-
+        # ============================================================
+        # METRICHE RIEPOLOGO
+        # ============================================================
         st.markdown("---")
         st.subheader("📊 Riepilogo Mercato")
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
         with col_m1:
             st.metric("Svincolati", len(df[df["Proprietario"] == "Svincolato 🟢"]))
         with col_m2:
@@ -1022,7 +1149,28 @@ if menu == "🔍 Scouting & Database":
             if "Variazione_%" in df.columns:
                 rialzati = len(df[(df["Variazione_%"] > 20) & (df["Proprietario"] == "Svincolato 🟢")])
                 st.metric("Rialzati >20%", rialzati)
+        with col_m5:
+            top_titolari = len(df[(df["Indice_Titolarita"] >= 85) & (df["Proprietario"] == "Svincolato 🟢")])
+            st.metric("Top Titolarità Liberi", top_titolari)
 
+        # ============================================================
+        # TOP CARD — I MIGLIORI SVINCOLATI
+        # ============================================================
+        st.markdown("---")
+        st.subheader("🏆 Top Svincolati — Schede Giocatore")
+        svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
+        if not svinc_df.empty:
+            top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
+            cards = st.columns(4)
+            for i, (_, row) in enumerate(top_mixed.iterrows()):
+                with cards[i % 4]:
+                    st.markdown(render_card_giocatore(row, stats_2627), unsafe_allow_html=True)
+        else:
+            st.info("Nessuno svincolato disponibile.")
+
+        # ============================================================
+        # BEST BUY PER RUOLO (con titolarità)
+        # ============================================================
         st.markdown("---")
         st.subheader("🏆 Best Buy — Top 3 Sottovalutati per Ruolo")
         best_cols = st.columns(4)
@@ -1035,21 +1183,86 @@ if menu == "🔍 Scouting & Database":
                     for _, row in df_r.iterrows():
                         pc = row.get("Prezzo_Consigliato")
                         pc_txt = f"💡{int(pc)}cr" if pd.notna(pc) else ""
+                        tit_bar = ""
+                        if row["Indice_Titolarita"] >= 80:
+                            tit_bar = f'<span style="color:#00d26a;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
+                        elif row["Indice_Titolarita"] >= 60:
+                            tit_bar = f'<span style="color:#eab308;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
+                        else:
+                            tit_bar = f'<span style="color:#ef4444;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
                         st.markdown(
-                            f"<div style='background:#1a1a2e;padding:6px;border-radius:6px;margin-bottom:4px;'>"
+                            f"<div style='background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;'>"
                             f"<b>{row['Nome']}</b> ({row['Squadra_SerieA']})<br/>"
-                            f"<span style='color:#888;font-size:0.85em;'>FM {row['FantaMedia']} | Q {int(row['Quotazione'])}cr | IA {row['Indice_Affare']}</span> {pc_txt}"
+                            f"<span style='color:#888;font-size:0.85em;'>FM {row['FantaMedia']} | Q {int(row['Quotazione'])}cr | IA {row['Indice_Affare']}</span> {pc_txt}<br/>"
+                            f"{tit_bar}"
                             f"</div>",
                             unsafe_allow_html=True
                         )
                 else:
                     st.caption("Nessuno svincolato")
 
+        # ============================================================
+        # FORMAZIONI TITOLARI SERIE A
+        # ============================================================
+        st.markdown("---")
+        st.subheader("⚽ Formazioni Titolar Serie A (dal Listone)")
+        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. I titolari sono i primi per modulo classico (4-3-3).")
+
+        squadre_sa_list = sorted(df["Squadra_SerieA"].dropna().unique())
+        if len(squadre_sa_list) > 0:
+            tabs_sa = st.tabs(squadre_sa_list)
+            for i, sa in enumerate(squadre_sa_list):
+                with tabs_sa[i]:
+                    form = get_formazione_titolare_serie_a(sa, df, idx)
+                    if not form:
+                        st.info("Nessun giocatore nel listone per questa squadra.")
+                        continue
+
+                    # Simula modulo 4-3-3
+                    moduli = {"P": 1, "D": 4, "C": 3, "A": 3}
+                    col_ruoli = st.columns(4)
+                    ruoli_order = ["P", "D", "C", "A"]
+                    ruoli_nomi = {"P": "🧤 Portiere", "D": "🛡️ Difesa", "C": "⚙️ Centrocampo", "A": "⚔️ Attacco"}
+
+                    for j, ruolo in enumerate(ruoli_order):
+                        with col_ruoli[j]:
+                            st.markdown(f"**{ruoli_nomi[ruolo]}**")
+                            giocatori_r = form.get(ruolo, [])
+                            for k, g in enumerate(giocatori_r):
+                                is_titolare = k < moduli[ruolo]
+                                alpha = "1.0" if is_titolare else "0.5"
+                                bordo = "#00d26a" if is_titolare else "#2a2a4a"
+                                bg = "#1e1e3f" if is_titolare else "#15152b"
+                                badge = "⭐" if is_titolare else "🪑"
+                                prop_badge = ""
+                                if g["Proprietario"] != "Svincolato":
+                                    prop_badge = f'<span style="font-size:0.65em;color:#ff6b6b;">🔒 {g["Proprietario"]}</span>'
+                                else:
+                                    prop_badge = f'<span style="font-size:0.65em;color:#00d26a;">🟢 Libero</span>'
+
+                                st.markdown(
+                                    f'<div style="background:{bg};border-left:3px solid {bordo};'
+                                    f'border-radius:6px;padding:6px 8px;margin-bottom:4px;opacity:{alpha};">'
+                                    f'<div style="font-size:0.9em;font-weight:600;">{badge} {g["Nome"]}</div>'
+                                    f'<div style="font-size:0.75em;color:#aaa;">FM {g["FantaMedia"]} | {int(g["Quotazione"])}cr</div>'
+                                    f'{prop_badge}</div>',
+                                    unsafe_allow_html=True
+                                )
+
+        # ============================================================
+        # TABELLA RISULTATI
+        # ============================================================
         st.markdown("---")
         st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
-        display_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","Quotazione_2025_26","Variazione_%","FantaMedia","Indice_Affare","Proprietario","Consiglio","Note"] if c in df_f.columns]
-        st.dataframe(df_f[display_cols], use_container_width=True)
+        display_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato",
+                                    "Quotazione_2025_26", "Variazione_%", "FantaMedia", "Indice_Affare",
+                                    "Indice_Titolarita", "Proprietario", "Consiglio", "Note"] if c in df_f.columns]
+        st.dataframe(df_f[display_cols].sort_values("Indice_Titolarita", ascending=False),
+                     use_container_width=True, hide_index=True)
 
+        # ============================================================
+        # CONFRONTO GIOCATORI
+        # ============================================================
         st.markdown("---")
         st.subheader("⚔️ Confronto Giocatori")
         g1_c = st.selectbox("Giocatore 1", df["Nome"].values, key="comp1")
@@ -1058,15 +1271,31 @@ if menu == "🔍 Scouting & Database":
             r1 = df[df["Nome"] == g1_c].iloc[0]
             r2 = df[df["Nome"] == g2_c].iloc[0]
             comp_data = {
-                "Stat": ["Ruolo", "Squadra", "Quotazione", "FantaMedia", "Indice Affare", "Proprietario"],
-                g1_c: [r1["Ruolo"], r1["Squadra_SerieA"], f"{int(r1['Quotazione'])}cr", r1["FantaMedia"], r1["Indice_Affare"], r1["Proprietario"]],
-                g2_c: [r2["Ruolo"], r2["Squadra_SerieA"], f"{int(r2['Quotazione'])}cr", r2["FantaMedia"], r2["Indice_Affare"], r2["Proprietario"]]
+                "Stat": ["Ruolo", "Squadra", "Quotazione", "FantaMedia", "Indice Affare", "Indice Titolarità", "Proprietario"],
+                g1_c: [r1["Ruolo"], r1["Squadra_SerieA"], f"{int(r1['Quotazione'])}cr", r1["FantaMedia"],
+                       r1["Indice_Affare"], r1["Indice_Titolarita"], r1["Proprietario"]],
+                g2_c: [r2["Ruolo"], r2["Squadra_SerieA"], f"{int(r2['Quotazione'])}cr", r2["FantaMedia"],
+                       r2["Indice_Affare"], r2["Indice_Titolarita"], r2["Proprietario"]]
             }
             if "Variazione_%" in df.columns:
                 comp_data["Stat"].insert(4, "Variazione %")
                 comp_data[g1_c].insert(4, f"{r1['Variazione_%']}%")
                 comp_data[g2_c].insert(4, f"{r2['Variazione_%']}%")
             st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
+
+            # Confronto grafico a barre
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            fig.add_trace(go.Bar(name=g1_c, x=["FantaMedia", "Titolarità/10", "Affare×50"],
+                               y=[r1["FantaMedia"], r1["Indice_Titolarita"]/10, r1["Indice_Affare"]*50],
+                               marker_color="#00d26a"))
+            fig.add_trace(go.Bar(name=g2_c, x=["FantaMedia", "Titolarità/10", "Affare×50"],
+                               y=[r2["FantaMedia"], r2["Indice_Titolarita"]/10, r2["Indice_Affare"]*50],
+                               marker_color="#3b82f6"))
+            fig.update_layout(barmode="group", paper_bgcolor="#0b0f19", plot_bgcolor="#12122e",
+                            font_color="#ddd", title="Confronto visivo")
+            st.plotly_chart(fig, use_container_width=True)
+
             if r1["Indice_Affare"] > r2["Indice_Affare"]:
                 st.success(f"🏆 {g1_c} ha un indice affare migliore ({r1['Indice_Affare']} vs {r2['Indice_Affare']})")
             elif r2["Indice_Affare"] > r1["Indice_Affare"]:
@@ -1074,6 +1303,9 @@ if menu == "🔍 Scouting & Database":
             else:
                 st.info("⚖️ Indice affare identico")
 
+        # ============================================================
+        # CHI PUO PERMETTERSELO
+        # ============================================================
         st.markdown("---")
         st.subheader("💰 Chi può Permetterselo?")
         g_target = st.selectbox("Giocatore da analizzare", df["Nome"].values, key="g_target")
@@ -1081,7 +1313,7 @@ if menu == "🔍 Scouting & Database":
             info_t = df[df["Nome"] == g_target].iloc[0]
             ruolo_t = info_t["Ruolo"]
             quot_t = int(info_t["Quotazione"])
-            st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr")
+            st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr | Titolarità: {info_t['Indice_Titolarita']}/100")
             avv_data = []
             riepiloghi = get_all_riepiloghi()
             for sq_avv in NOMI_SQUADRE:
@@ -1104,9 +1336,12 @@ if menu == "🔍 Scouting & Database":
             else:
                 st.success(f"🛡️ Nessuna squadra può permettersi {g_target} alla quotazione di listone.")
 
+        # ============================================================
+        # EDITOR PREZZI + WATCHLIST
+        # ============================================================
         st.markdown("---")
         st.subheader("✏️ Modifica Prezzi Consigliati")
-        editor_cols = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Prezzo_Consigliato","Consiglio","Note"] if c in df.columns]
+        editor_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Consiglio", "Note"] if c in df.columns]
         df_edit = df[editor_cols].copy()
         df_edited = st.data_editor(
             df_edit,
@@ -1160,8 +1395,9 @@ if menu == "🔍 Scouting & Database":
             stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
             df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
             if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
-                df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0,1) * 100, 1)
-            wl_cols = ["Nome","Ruolo","Squadra_SerieA","Quotazione","Quotazione_2025_26","Variazione_%","Prezzo_Consigliato","Prezzo_AI","FantaMedia","Indice_Affare","Proprietario"]
+                df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
+            wl_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Quotazione_2025_26", "Variazione_%",
+                       "Prezzo_Consigliato", "Prezzo_AI", "FantaMedia", "Indice_Affare", "Indice_Titolarita", "Proprietario"]
             wl_cols = [c for c in wl_cols if c in df_wl.columns]
             st.dataframe(df_wl[wl_cols], use_container_width=True)
             if st.button("Svuota Watchlist"):
