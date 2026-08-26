@@ -986,8 +986,22 @@ if menu == "🔍 Scouting & Database":
             df_f = df_f[df_f["Squadra_SerieA"].isin(filtro_sa)]
         if solo_svinc:
             df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
-        if search:
-            df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
+        if search and search.strip():
+            search_term = search.strip()
+            try:
+                # regex=False evita crash con caratteri speciali (es. "(", "[", "+")
+                mask = df_f["Nome"].astype(str).str.contains(search_term, case=False, na=False, regex=False)
+                # Se nessun risultato, prova ricerca parola per parola (AND logico)
+                if not mask.any() and len(search_term.split()) > 1:
+                    words = [w for w in search_term.split() if len(w) > 1]
+                    if words:
+                        mask = pd.Series(True, index=df_f.index)
+                        for word in words:
+                            mask &= df_f["Nome"].astype(str).str.contains(word, case=False, na=False, regex=False)
+                df_f = df_f[mask]
+            except Exception:
+                # Fallback: ricerca semplice su stringhe lowercased
+                df_f = df_f[df_f["Nome"].astype(str).str.lower().str.contains(search_term.lower(), na=False)]
         if "Variazione_%" in df.columns:
             df_f = df_f[(df_f["Variazione_%"] >= range_var[0]) & (df_f["Variazione_%"] <= range_var[1])]
 
