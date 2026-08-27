@@ -781,13 +781,11 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
         "scommessa": "🎲 SCOMMESSA"
     }.get(fascia, "")
 
-    # Barra titolarità
     barra_tit = ""
     if show_titolarita:
         col_bar = "#00d26a" if idx_tit >= 80 else "#eab308" if idx_tit >= 60 else "#ef4444"
         barra_tit = f'<div style="margin-top:6px;"><div style="display:flex;justify-content:space-between;font-size:0.75em;color:#aaa;"><span>Titolarità</span><span>{idx_tit}/100</span></div><div style="background:#2a2a4a;border-radius:4px;height:6px;overflow:hidden;"><div style="width:{idx_tit}%;background:{col_bar};height:100%;border-radius:4px;"></div></div></div>'
 
-    # Badge proprietario
     if "Svincolato" in str(prop):
         badge_prop = '<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #00d26a;">🟢 LIBERO</span>'
     else:
@@ -795,7 +793,96 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
 
     pc_span = f'<span style="background:#1a1a2e;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;">{pc_txt}</span>' if pc_txt else ''
 
-    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);"><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
+    # Effetto hover: ingrandimento + illuminazione
+    hover_js = "onmouseover=\"this.style.transform='scale(1.04)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';\" onmouseout=\"this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';\""
+
+    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
+    return html
+
+
+def _build_stats_html(nome, stats_per_stagione):
+    """Costruisce HTML con le statistiche storiche di un giocatore."""
+    rows = []
+    for stagione, df in sorted(stats_per_stagione.items()):
+        if df.empty or "Nome" not in df.columns:
+            continue
+        match = df[df["Nome"].str.lower() == nome.lower()]
+        if match.empty:
+            close = difflib.get_close_matches(
+                nome.lower(),
+                [n.lower() for n in df["Nome"].dropna().unique().tolist()],
+                n=1, cutoff=0.8
+            )
+            if close:
+                match = df[df["Nome"].str.lower() == close[0]]
+        if not match.empty:
+            r = match.iloc[0]
+            fm = r.get("FantaMedia", "—")
+            gol = r.get("Gol", "—")
+            ast = r.get("Assist", "—")
+            part = r.get("Partite", "—")
+            rig = r.get("Rigori", "—")
+            rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td></tr>')
+    if not rows:
+        return '<div style="padding:8px;color:#888;font-size:0.8em;text-align:center;">📭 Nessuno storico disponibile</div>'
+    return f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
+
+
+def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=None, show_titolarita=True):
+    """Card giocatore con hover + click per espandere statistiche."""
+    nome = row["Nome"]
+    ruolo = row["Ruolo"]
+    sa = row.get("Squadra_SerieA", "N/D")
+    fm = row.get("FantaMedia", 0)
+    quot = int(row.get("Quotazione", 0))
+    fascia = row.get("Consiglio", "consigliato")
+    prop = row.get("Proprietario", "Svincolato 🟢")
+    idx_aff = row.get("Indice_Affare", 0)
+    idx_tit = row.get("Indice_Titolarita", 0)
+    pc = row.get("Prezzo_Consigliato")
+    pc_txt = f"💡 {int(pc)}cr" if pd.notna(pc) else ""
+    note = row.get("Note", "")
+
+    colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
+    colore = colori_ruolo.get(ruolo, "#888")
+
+    badge_fascia = {
+        "top": "⭐ TOP",
+        "consigliato": "👍 CONSIGLIATO",
+        "scommessa": "🎲 SCOMMESSA"
+    }.get(fascia, "")
+
+    barra_tit = ""
+    if show_titolarita:
+        col_bar = "#00d26a" if idx_tit >= 80 else "#eab308" if idx_tit >= 60 else "#ef4444"
+        barra_tit = f'<div style="margin-top:6px;"><div style="display:flex;justify-content:space-between;font-size:0.75em;color:#aaa;"><span>Titolarità</span><span>{idx_tit}/100</span></div><div style="background:#2a2a4a;border-radius:4px;height:6px;overflow:hidden;"><div style="width:{idx_tit}%;background:{col_bar};height:100%;border-radius:4px;"></div></div></div>'
+
+    if "Svincolato" in str(prop):
+        badge_prop = '<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #00d26a;">🟢 LIBERO</span>'
+    else:
+        badge_prop = f'<span style="background:#ff6b6b20;color:#ff6b6b;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid #ff6b6b;">🔒 {prop}</span>'
+
+    pc_span = f'<span style="background:#1a1a2e;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;">{pc_txt}</span>' if pc_txt else ''
+
+    # Costruisci contenuto espanso
+    stats_html = _build_stats_html(nome, stats_per_stagione if stats_per_stagione else {})
+    note_html = f'<div style="margin-top:8px;padding-top:8px;border-top:1px solid #2a2a4a;color:#aaa;font-size:0.8em;font-style:italic;">📝 {note}</div>' if note else ''
+
+    # Vari FM se disponibile
+    fm_extra = ""
+    if stats_2627 is not None and not stats_2627.empty and "Nome" in stats_2627.columns:
+        match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
+        if match.empty:
+            close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
+            if close:
+                match = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
+        if not match.empty and "FantaMedia" in match.columns and pd.notna(match.iloc[0]["FantaMedia"]):
+            fm_2627 = float(match.iloc[0]["FantaMedia"])
+            fm_extra = f' <span style="color:#00d26a;font-size:0.85em;">(📊 2026/27: {fm_2627})</span>'
+
+    card_inner = f'''<div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}{fm_extra}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div>{note_html}'''
+
+    html = f'''<details style="margin-bottom:10px;"><summary style="list-style:none;cursor:pointer;"><div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';">{card_inner}</div></summary><div style="background:#15152b;border-radius:0 0 12px 12px;padding:12px;border-left:4px solid {colore};border-top:1px solid #2a2a4a;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 Statistiche Storiche</div>{stats_html}</div></details>'''
     return html
 
 
@@ -1292,9 +1379,10 @@ if menu == "🔍 Scouting & Database":
         if not svinc_df.empty:
             top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
             cards = st.columns(4)
+            stats_ps = st.session_state.get("stats_per_stagione", {})
             for i, (_, row) in enumerate(top_mixed.iterrows()):
                 with cards[i % 4]:
-                    st.html(render_card_giocatore(row, stats_2627))
+                    st.html(render_card_giocatore_espandibile(row, stats_ps, stats_2627))
         else:
             st.info("Nessuno svincolato disponibile.")
 
