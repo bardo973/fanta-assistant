@@ -1232,6 +1232,8 @@ if menu == "🏠 Dashboard":
                     "Stato": "🔴 SCADE QUEST'ANNO" if sa == ANNO_CORRENTE else "🟠 SCADE IL PROSSIMO"
                 })
     if scad_rows:
+        # Alert visivo in alto
+        st.error(f"⚠️ ATTENZIONE: {len(scad_rows)} contratti in scadenza! Controlla la tabella sotto.")
         df_scad = pd.DataFrame(scad_rows).sort_values("Scadenza")
         st.dataframe(df_scad, use_container_width=True, hide_index=True)
     else:
@@ -1246,6 +1248,28 @@ if menu == "🏠 Dashboard":
             hist = hist.sort_values("Data_dt")
             daily = hist.groupby(hist["Data_dt"].dt.date).size().reset_index(name="Operazioni")
             st.line_chart(daily.set_index("Data_dt"))
+
+    st.markdown("---")
+    st.subheader("🌡️ Heatmap Composizione Rose")
+    heat_data = []
+    for sq in NOMI_SQUADRE:
+        rosa = st.session_state.squadre[sq]["rosa"]
+        conti = {"P": 0, "D": 0, "C": 0, "A": 0}
+        for g in rosa:
+            r = g.get("Ruolo", "C")
+            if r in conti:
+                conti[r] += 1
+        for ruolo in ["P", "D", "C", "A"]:
+            req = ROSA_REQ[ruolo]
+            poss = conti[ruolo]
+            pct = min(100, round((poss / req) * 100, 1))
+            heat_data.append({"Squadra": sq, "Ruolo": ruolo, "Completamento %": pct, "Posseduti": f"{poss}/{req}"})
+    df_heat = pd.DataFrame(heat_data)
+    pivot_heat = df_heat.pivot(index="Squadra", columns="Ruolo", values="Completamento %")
+    st.dataframe(
+        pivot_heat.style.background_gradient(cmap="RdYlGn", vmin=0, vmax=100).format("{:.1f}%"),
+        use_container_width=True
+    )
 
     st.markdown("---")
     st.subheader("💰 Classifica Crediti")
@@ -1482,42 +1506,56 @@ if menu == "🔍 Scouting & Database":
                      use_container_width=True, hide_index=True)
 
         # ============================================================
-        # CONFRONTO GIOCATORI
+        # CONFRONTO MULTI-GIOCATORI (fino a 4)
         # ============================================================
         st.markdown("---")
-        st.subheader("⚔️ Confronto Giocatori")
-        g1_c = st.selectbox("Giocatore 1", df["Nome"].values, key="comp1")
-        g2_c = st.selectbox("Giocatore 2", df["Nome"].values, index=1 if len(df) > 1 else 0, key="comp2")
-        if g1_c and g2_c:
-            r1 = df[df["Nome"] == g1_c].iloc[0]
-            r2 = df[df["Nome"] == g2_c].iloc[0]
-            comp_data = {
-                "Stat": ["Ruolo", "Squadra", "Quotazione", "FantaMedia", "Indice Affare", "Indice Titolarità", "Proprietario"],
-                g1_c: [r1["Ruolo"], r1["Squadra_SerieA"], f"{int(r1['Quotazione'])}cr", r1["FantaMedia"],
-                       r1["Indice_Affare"], r1["Indice_Titolarita"], r1["Proprietario"]],
-                g2_c: [r2["Ruolo"], r2["Squadra_SerieA"], f"{int(r2['Quotazione'])}cr", r2["FantaMedia"],
-                       r2["Indice_Affare"], r2["Indice_Titolarita"], r2["Proprietario"]]
-            }
-            if "Variazione_%" in df.columns:
-                comp_data["Stat"].insert(4, "Variazione %")
-                comp_data[g1_c].insert(4, f"{r1['Variazione_%']}%")
-                comp_data[g2_c].insert(4, f"{r2['Variazione_%']}%")
-            st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
+        st.subheader("⚔️ Confronto Multi-Giocatore")
+        n_giocatori = st.segmented_control("Quanti confrontare?", [2, 3, 4], default=2, key="n_comp")
+        n_giocatori = n_giocatori or 2
+        nomi = df["Nome"].values.tolist()
+        selezionati = []
+        cols_comp = st.columns(n_giocatori)
+        for i in range(n_giocatori):
+            with cols_comp[i]:
+                default_idx = min(i, len(nomi)-1)
+                g = st.selectbox(f"Giocatore {i+1}", nomi, index=default_idx, key=f"comp{i}")
+                selezionati.append(g)
 
-            # Confronto grafico a barre nativo Streamlit
-            chart_data = pd.DataFrame({
-                "Metrica": ["FantaMedia", "Titolarità/10", "Affare×50"],
-                g1_c: [r1["FantaMedia"], r1["Indice_Titolarita"]/10, r1["Indice_Affare"]*50],
-                g2_c: [r2["FantaMedia"], r2["Indice_Titolarita"]/10, r2["Indice_Affare"]*50]
-            })
-            st.bar_chart(chart_data.set_index("Metrica"), use_container_width=True)
+        selezionati = list(dict.fromkeys(selezionati))  # rimuovi duplicati
+        if len(selezionati) >= 2:
+            rows = []
+            for nome_g in selezionati:
+                r = df[df["Nome"] == nome_g].iloc[0]
+                row = {
+                    "Giocatore": nome_g,
+                    "Ruolo": r["Ruolo"],
+                    "Squadra": r["Squadra_SerieA"],
+                    "Quotazione": f"{int(r['Quotazione'])}cr",
+                    "FantaMedia": r["FantaMedia"],
+                    "Indice Affare": r["Indice_Affare"],
+                    "Titolarità": r["Indice_Titolarita"],
+                    "Proprietario": r["Proprietario"],
+                }
+                if "Variazione_%" in df.columns:
+                    row["Variazione %"] = f"{r['Variazione_%']}%"
+                rows.append(row)
+            df_comp = pd.DataFrame(rows)
+            st.dataframe(df_comp.set_index("Giocatore").T, use_container_width=True)
 
-            if r1["Indice_Affare"] > r2["Indice_Affare"]:
-                st.success(f"🏆 {g1_c} ha un indice affare migliore ({r1['Indice_Affare']} vs {r2['Indice_Affare']})")
-            elif r2["Indice_Affare"] > r1["Indice_Affare"]:
-                st.success(f"🏆 {g2_c} ha un indice affare migliore ({r2['Indice_Affare']} vs {r1['Indice_Affare']})")
-            else:
-                st.info("⚖️ Indice affare identico")
+            # Grafico radar-like con barre
+            chart_rows = []
+            for nome_g in selezionati:
+                r = df[df["Nome"] == nome_g].iloc[0]
+                chart_rows.append({"Giocatore": nome_g, "Metrica": "FantaMedia", "Valore": r["FantaMedia"]})
+                chart_rows.append({"Giocatore": nome_g, "Metrica": "Titolarità/10", "Valore": r["Indice_Titolarita"]/10})
+                chart_rows.append({"Giocatore": nome_g, "Metrica": "Affare×50", "Valore": r["Indice_Affare"]*50})
+            chart_df = pd.DataFrame(chart_rows)
+            pivot = chart_df.pivot(index="Metrica", columns="Giocatore", values="Valore")
+            st.bar_chart(pivot, use_container_width=True)
+
+            # Vincitore per indice affare
+            best = max(rows, key=lambda x: x["Indice Affare"])
+            st.success(f"🏆 Miglior indice affare: **{best['Giocatore']}** ({best['Indice Affare']})")
 
         # ============================================================
         # CHI PUO PERMETTERSELO
@@ -1635,6 +1673,47 @@ if menu == "🔨 Asta Live":
     st.header("🔨 Gestione Asta")
     st.caption("Gestisci l'asta in tempo reale: seleziona giocatore, raccogli offerte, assegna.")
 
+    # --- TIMER ASTA ---
+    with st.expander("⏱️ Timer Asta", expanded=False):
+        t1, t2, t3 = st.columns(3)
+        with t1:
+            durata_timer = st.number_input("Durata offerta (sec)", min_value=5, max_value=300, value=30, step=5, key="timer_durata")
+        with t2:
+            if st.button("▶️ Avvia Timer", use_container_width=True):
+                st.session_state.asta_timer_end = datetime.now().timestamp() + durata_timer
+                st.session_state.asta_timer_active = True
+                st.rerun()
+        with t3:
+            if st.button("⏹️ Stop", use_container_width=True):
+                st.session_state.asta_timer_active = False
+                if "asta_timer_end" in st.session_state:
+                    del st.session_state.asta_timer_end
+                st.rerun()
+
+        if st.session_state.get("asta_timer_active") and "asta_timer_end" in st.session_state:
+            rimanente = max(0, int(st.session_state.asta_timer_end - datetime.now().timestamp()))
+            progresso = 1 - (rimanente / durata_timer)
+            colore_timer = "#00d26a" if rimanente > 10 else "#eab308" if rimanente > 5 else "#ef4444"
+            st.markdown(
+                f"<div style='text-align:center;'><div style='font-size:3em;font-weight:bold;color:{colore_timer};'>{rimanente}s</div>"
+                f"<div style='background:#2a2a4a;border-radius:8px;height:12px;overflow:hidden;'>"
+                f"<div style='width:{progresso*100}%;background:{colore_timer};height:100%;transition:width 1s;'></div></div></div>",
+                unsafe_allow_html=True
+            )
+            if rimanente <= 0:
+                st.session_state.asta_timer_active = False
+                st.toast("⏰ TEMPO SCADUTO!", icon="⏰")
+            else:
+                st.rerun()
+
+    # --- WATCHLIST ALERT ---
+    if st.session_state.watchlist:
+        db = st.session_state.giocatori_db
+        svinc = get_svincolati(db)
+        wl_in_asta = [g for g in st.session_state.watchlist if g in svinc["Nome"].values]
+        if wl_in_asta:
+            st.info(f"🔔 **Watchlist Alert**: {len(wl_in_asta)} giocatori della tua watchlist sono ancora liberi: {', '.join(wl_in_asta[:5])}{'...' if len(wl_in_asta) > 5 else ''}")
+
     db = st.session_state.giocatori_db
     if db.empty:
         st.warning("Importa prima un listone.")
@@ -1685,10 +1764,26 @@ if menu == "🔨 Asta Live":
                 st.subheader("💰 Offerte")
                 st.caption("Inserisci l'offerta di ciascuna squadra. Il sistema evidenzia chi può permetterselo.")
 
-                offerte = {}
+                # --- SUGGERIMENTO SMART ---
                 ruolo_g = info["Ruolo"]
                 quot_g = int(info["Quotazione"])
                 riepiloghi = get_all_riepiloghi()
+
+                # Calcola offerta smart: media tra prezzo AI e offerta max del ruolo, con margine
+                offerte_smart = {}
+                for sq in NOMI_SQUADRE:
+                    riep_sq = riepiloghi[sq]
+                    off_max = riep_sq[ruolo_g]["offerta_max"]
+                    mancanti = riep_sq[ruolo_g]["mancanti"]
+                    ha_gia = any(g["Nome"].lower() == g_asta.lower() for g in st.session_state.squadre[sq]["rosa"])
+                    if not ha_gia and mancanti > 0:
+                        # Formula smart: min(pc_ai*1.1, off_max*0.9, crediti_sq)
+                        sug = min(int(pc_ai * 1.05), int(off_max * 0.95), st.session_state.squadre[sq]["crediti"])
+                        offerte_smart[sq] = max(1, sug)
+                    else:
+                        offerte_smart[sq] = 0
+
+                offerte = {}
                 with st.form("offerte_asta"):
                     cols_off = st.columns(5)
                     for idx_sq, sq in enumerate(NOMI_SQUADRE):
@@ -1703,9 +1798,12 @@ if menu == "🔨 Asta Live":
                                 st.warning("Già in rosa")
                                 offerte[sq] = 0
                             else:
+                                sug_val = offerte_smart.get(sq, 0)
+                                if sug_val > 0:
+                                    st.caption(f"💡 Suggerito: {sug_val}cr")
                                 offerte[sq] = st.number_input(
                                     f"Offerta {sq}", min_value=0, max_value=crediti_sq,
-                                    value=min(pc_ai, off_max) if off_max >= quot_g else 0,
+                                    value=sug_val,
                                     step=1, key=f"off_{sq}"
                                 )
                     submitted = st.form_submit_button("📊 Calcola Vincitore", use_container_width=True)
