@@ -257,6 +257,9 @@ class StateManager:
         st.session_state.squadre = data.get("squadre", {})
         st.session_state.storico_mercato = data.get("storico_mercato", [])
         st.session_state.watchlist = data.get("watchlist", [])
+        # --- NORMALIZZAZIONE WATCHLIST (retrocompatibilità) ---
+        if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
+            st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
         st.session_state.prestiti = data.get("prestiti", [])
         st.session_state.contratti = data.get("contratti", {})
         st.session_state.giocatori_db = data.get("giocatori_db", pd.DataFrame(LISTONE_DEFAULT))
@@ -681,6 +684,10 @@ if "initialized" not in st.session_state:
         for sq in NOMI_SQUADRE:
             st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
 
+    # --- NORMALIZZAZIONE WATCHLIST (retrocompatibilità) ---
+    if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
+        st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
+
     st.session_state.initialized = True
 
 # ============================================================
@@ -802,6 +809,9 @@ with st.sidebar:
                 st.session_state.squadre = data.get("squadre", {})
                 st.session_state.storico_mercato = data.get("storico_mercato", [])
                 st.session_state.watchlist = data.get("watchlist", [])
+        # --- NORMALIZZAZIONE WATCHLIST (retrocompatibilità) ---
+        if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
+            st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
                 st.session_state.prestiti = data.get("prestiti", [])
                 st.session_state.contratti = data.get("contratti", {})
                 db = data.get("giocatori_db", [])
@@ -1368,27 +1378,90 @@ if menu == "🔍 Scouting & Database":
 
         st.markdown("---")
         st.subheader("⭐ Watchlist")
-        g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
-        if st.button("Aggiungi"):
-            if g_sel not in st.session_state.watchlist:
-                st.session_state.watchlist.append(g_sel)
+
+        # --- Retrocompatibilità in-page ---
+        if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
+            st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
+
+        # --- Menu a tendina: Ruolo → Fascia → Giocatore ---
+        col_wl1, col_wl2, col_wl3 = st.columns(3)
+        with col_wl1:
+            wl_ruolo = st.selectbox("Ruolo", ["D", "C", "A"], key="wl_ruolo")
+        with col_wl2:
+            fasce_labels = {"1ª Fascia (Top)": "top", "2ª Fascia (Consigliati)": "consigliato", "3ª Fascia (Scommesse)": "scommessa"}
+            wl_fascia_label = st.selectbox("Fascia", list(fasce_labels.keys()), key="wl_fascia")
+            wl_fascia = fasce_labels[wl_fascia_label]
+        with col_wl3:
+            wl_candidates = df[(df["Ruolo"] == wl_ruolo) & (df["Consiglio"] == wl_fascia)]["Nome"].tolist()
+            g_sel = st.selectbox("Giocatore", wl_candidates, key="wl_gioc")
+
+        wl_note = st.text_input("Note personali sul giocatore", "", key="wl_note")
+
+        if st.button("➕ Aggiungi alla Watchlist"):
+            nomi_wl = [item["nome"] for item in st.session_state.watchlist]
+            if g_sel not in nomi_wl:
+                st.session_state.watchlist.append({"nome": g_sel, "note": wl_note})
                 save_state()
-                st.success(f"{g_sel} aggiunto!")
+                st.success(f"✅ {g_sel} aggiunto alla watchlist!")
                 st.rerun()
+            else:
+                st.warning(f"⚠️ {g_sel} è già presente nella watchlist.")
+
+        # --- Visualizzazione & editing note ---
         if st.session_state.watchlist:
-            df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
+            nomi_wl = [item["nome"] for item in st.session_state.watchlist]
+            df_wl = df[df["Nome"].isin(nomi_wl)].copy()
+            note_map = {item["nome"]: item.get("note", "") for item in st.session_state.watchlist}
+            df_wl["Note_Watchlist"] = df_wl["Nome"].map(note_map)
+
             stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
             df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
             if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
                 df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
+
             wl_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Quotazione_2025_26", "Variazione_%",
-                       "Prezzo_Consigliato", "Prezzo_AI", "FantaMedia", "Indice_Affare", "Indice_Titolarita", "Proprietario"]
+                       "Prezzo_Consigliato", "Prezzo_AI", "FantaMedia", "Indice_Affare", "Indice_Titolarita", "Proprietario", "Note_Watchlist"]
             wl_cols = [c for c in wl_cols if c in df_wl.columns]
-            st.dataframe(df_wl[wl_cols], use_container_width=True)
-            if st.button("Svuota Watchlist"):
-                st.session_state.watchlist = []
-                save_state()
-                st.rerun()
+
+            st.markdown("**✏️ Modifica le note direttamente nella tabella e clicca Salva:**")
+            edited_wl = st.data_editor(
+                df_wl[wl_cols],
+                column_config={
+                    "Note_Watchlist": st.column_config.TextColumn("Note", width="large"),
+                    "Nome": st.column_config.TextColumn("Nome", disabled=True),
+                    "Ruolo": st.column_config.TextColumn("Ruolo", disabled=True),
+                    "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
+                    "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
+                    "Quotazione_2025_26": st.column_config.NumberColumn("Quotazione 2025/26", disabled=True),
+                    "Variazione_%": st.column_config.NumberColumn("Variazione %", disabled=True),
+                    "Prezzo_Consigliato": st.column_config.NumberColumn("Prezzo Consigliato", disabled=True),
+                    "Prezzo_AI": st.column_config.NumberColumn("Prezzo AI", disabled=True),
+                    "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
+                    "Indice_Affare": st.column_config.NumberColumn("Indice Affare", disabled=True),
+                    "Indice_Titolarita": st.column_config.NumberColumn("Indice Titolarità", disabled=True),
+                    "Proprietario": st.column_config.TextColumn("Proprietario", disabled=True),
+                },
+                use_container_width=True,
+                hide_index=True,
+                key="editor_watchlist"
+            )
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("💾 Salva Note Watchlist", type="primary", use_container_width=True):
+                    for _, row in edited_wl.iterrows():
+                        for item in st.session_state.watchlist:
+                            if item["nome"] == row["Nome"]:
+                                item["note"] = str(row.get("Note_Watchlist", ""))
+                                break
+                    save_state()
+                    st.success("✅ Note salvate!")
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ Svuota Watchlist", use_container_width=True):
+                    st.session_state.watchlist = []
+                    save_state()
+                    st.rerun()
 
 # ============================================================
 # 2. ASTA LIVE
