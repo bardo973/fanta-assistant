@@ -809,9 +809,9 @@ with st.sidebar:
                 st.session_state.squadre = data.get("squadre", {})
                 st.session_state.storico_mercato = data.get("storico_mercato", [])
                 st.session_state.watchlist = data.get("watchlist", [])
-        # --- NORMALIZZAZIONE WATCHLIST (retrocompatibilità) ---
-        if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
-            st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
+                # --- NORMALIZZAZIONE WATCHLIST (retrocompatibilità) ---
+                if st.session_state.watchlist and isinstance(st.session_state.watchlist[0], str):
+                    st.session_state.watchlist = [{"nome": n, "note": ""} for n in st.session_state.watchlist]
                 st.session_state.prestiti = data.get("prestiti", [])
                 st.session_state.contratti = data.get("contratti", {})
                 db = data.get("giocatori_db", [])
