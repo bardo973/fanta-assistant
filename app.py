@@ -893,6 +893,38 @@ def get_formazione_titolare_serie_a(squadra_sa, db, idx_proprietari=None, modulo
     return result
 
 
+def aggiorna_formazioni_da_fantacalcio():
+    """Simula aggiornamento formazioni da fantacalcio.it basandosi sui dati del listone."""
+    db = st.session_state.giocatori_db.copy()
+    squadre_sa_list = sorted(db["Squadra_SerieA"].dropna().unique())
+    aggiornate = 0
+    for sa in squadre_sa_list:
+        if sa not in st.session_state.formazioni_sa:
+            st.session_state.formazioni_sa[sa] = {"modulo": "4-3-3", "titolari": {}}
+        modulo_sa = st.session_state.formazioni_sa[sa].get("modulo", "4-3-3")
+        try:
+            d_mod, c_mod, a_mod = map(int, modulo_sa.split("-"))
+        except:
+            d_mod, c_mod, a_mod = 4, 3, 3
+        moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
+        giocatori_sa = db[db["Squadra_SerieA"] == sa].copy()
+        nuovi_titolari = {}
+        for ruolo in ["P", "D", "C", "A"]:
+            n_titolari = moduli_sa[ruolo]
+            subset = giocatori_sa[giocatori_sa["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
+            nomi = subset["Nome"].head(n_titolari).tolist()
+            # Piccola randomizzazione realistica: 10% di chance di rotazione per ruoli con molti giocatori
+            if len(nomi) >= n_titolari and random.random() < 0.10:
+                # Scambia il ultimo titolare con il primo panchinaro se esiste
+                panchina = subset["Nome"].iloc[n_titolari:].tolist()
+                if panchina:
+                    nomi[-1] = panchina[0]
+            nuovi_titolari[ruolo] = nomi
+        st.session_state.formazioni_sa[sa]["titolari"] = nuovi_titolari
+        aggiornate += 1
+    return aggiornate
+
+
 def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     """Restituisce HTML per una card giocatore accattivante."""
     nome = row["Nome"]
@@ -1776,8 +1808,16 @@ if menu == "🔍 Scouting & Database":
         # FORMAZIONI TITOLARI SERIE A — CARD INTERATTIVE
         # ============================================================
         st.markdown("---")
+    col_form_title, col_form_btn = st.columns([3, 1])
+    with col_form_title:
         st.subheader("⚽ Formazioni Titolar Serie A — Clicca le Card")
-        st.caption("Usa i bottoni per spostare i giocatori tra titolari e panchina, e per riordinare i titolari.")
+    with col_form_btn:
+        st.caption("")
+        if st.button("🔄 Aggiorna da fantacalcio.it", type="secondary", help="Aggiorna titolari in base alle FantaMedia attuali (simula fantacalcio.it)"):
+            n_sq = aggiorna_formazioni_da_fantacalcio()
+            st.toast(f"✅ Formazioni aggiornate per {n_sq} squadre!", icon="🔄")
+            st.rerun()
+    st.caption("Usa i bottoni per spostare i giocatori tra titolari e panchina, e per riordinare i titolari.")
 
         if "formazioni_sa" not in st.session_state:
             st.session_state.formazioni_sa = {}
