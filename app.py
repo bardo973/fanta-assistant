@@ -1327,6 +1327,7 @@ menu = st.radio(
         "🛒 Mercato",
         "🤝 Scambi & Prestiti",
         "📋 Rose & Contratti",
+        "🎯 Simulatore Rosa",
         "📈 Statistiche Storiche",
         "⚙️ Importa & Esporta"
     ],
@@ -3969,3 +3970,340 @@ if menu == "⚙️ Importa & Esporta":
                 save_state()
                 st.success("Cancellate!")
                 st.rerun()
+
+# ============================================================
+# 8. SIMULATORE ROSA — Pianifica e prevedi il completamento
+# ============================================================
+if menu == "🎯 Simulatore Rosa":
+    st.header("🎯 Simulatore di Completamento Rosa")
+    st.caption("Pianifica gli acquisti per reparto, inserisci i prezzi che pensi di pagare, e scopri se chiudi la rosa col budget.")
+
+    # --- INIZIALIZZAZIONE STATO SIMULATORE ---
+    if "simulatore_rosa" not in st.session_state:
+        st.session_state.simulatore_rosa = {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}
+
+    sq_sim = st.selectbox("Squadra da simulare", NOMI_SQUADRE, key="sim_sq")
+    dati_sq = st.session_state.squadre[sq_sim]
+    crediti_disp = dati_sq["crediti"]
+
+    # Riepilogo rosa attuale
+    rosa_att = dati_sq["rosa"]
+    conti_att = {"P": 0, "D": 0, "C": 0, "A": 0}
+    spesi_att = {"P": 0, "D": 0, "C": 0, "A": 0}
+    for g in rosa_att:
+        r = g.get("Ruolo", "C")
+        if r in conti_att:
+            conti_att[r] += 1
+            spesi_att[r] += g.get("Costo_Acquisto", 0)
+
+    # --- HEADER METRICHE ---
+    st.markdown("---")
+    st.subheader(f"📊 Situazione Attuale — {sq_sim}")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("💰 Crediti Liberi", f"{crediti_disp}cr")
+    with c2:
+        tot_speso = sum(spesi_att.values())
+        st.metric("💸 Già Speso", f"{tot_speso}cr")
+    with c3:
+        tot_poss = len(rosa_att)
+        st.metric("👥 Rosa Attuale", f"{tot_poss}/28")
+    with c4:
+        mancanti_tot = sum(max(0, ROSA_REQ[r] - conti_att[r]) for r in ROSA_REQ)
+        st.metric("📦 Posti Mancanti", mancanti_tot)
+
+    # Progress bar per reparto
+    st.markdown("##### Completamento per Reparto")
+    cols_prog = st.columns(4)
+    colori_r = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
+    for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
+        with cols_prog[idx_r]:
+            poss = conti_att[ruolo]
+            req = ROSA_REQ[ruolo]
+            pct = min(100, int((poss / req) * 100))
+            colore = colori_r[ruolo]
+            st.progress(pct / 100, text=f"{ruolo}: {poss}/{req}")
+
+    st.markdown("---")
+    st.subheader("📝 Piano d'Acquisto")
+    st.caption("Inserisci i giocatori che vuoi prendere e il prezzo che pensi di pagare. Il sistema calcola in tempo reale se il budget basta.")
+
+    # --- EDITOR PER RUOLO ---
+    sim_data = st.session_state.simulatore_rosa[sq_sim]
+    tot_pianificato = 0
+    conti_sim = dict(conti_att)
+
+    for ruolo in ["P", "D", "C", "A"]:
+        req = ROSA_REQ[ruolo]
+        poss = conti_att[ruolo]
+        mancanti = max(0, req - poss)
+
+        with st.expander(f"{'🧤' if ruolo=='P' else '🛡️' if ruolo=='D' else '⚙️' if ruolo=='C' else '⚔️'} {ruolo} — Hai {poss}/{req}, ne mancano {mancanti}", expanded=mancanti > 0):
+
+            # Pre-popola con righe vuote = posti mancanti
+            default_rows = sim_data[ruolo] if sim_data[ruolo] else []
+            while len(default_rows) < mancanti:
+                default_rows.append({"Nome": "", "Prezzo_Stimato": 1, "Fascia": "consigliato", "Note": ""})
+
+            df_edit = pd.DataFrame(default_rows)
+            edited = st.data_editor(
+                df_edit,
+                column_config={
+                    "Nome": st.column_config.TextColumn("Giocatore", help="Nome del giocatore da acquistare"),
+                    "Prezzo_Stimato": st.column_config.NumberColumn("Prezzo €", min_value=0, max_value=500, step=1, help="Quanto pensi di pagare"),
+                    "Fascia": st.column_config.SelectboxColumn("Fascia", options=["top", "consigliato", "scommessa"], help="Fascia di qualità prevista"),
+                    "Note": st.column_config.TextColumn("Note", help="Es: 'Alternativa a X'"),
+                },
+                num_rows="dynamic",
+                use_container_width=True,
+                hide_index=True,
+                key=f"sim_editor_{sq_sim}_{ruolo}"
+            )
+
+            # Salva nello stato
+            st.session_state.simulatore_rosa[sq_sim][ruolo] = edited.to_dict("records")
+
+            # Calcoli per questo ruolo
+            valid_rows = edited[edited["Nome"].str.strip() != ""]
+            costo_ruolo = valid_rows["Prezzo_Stimato"].sum()
+            tot_pianificato += costo_ruolo
+            conti_sim[ruolo] = poss + len(valid_rows)
+
+            # Alert per reparto
+            if mancanti > 0 and len(valid_rows) < mancanti:
+                st.warning(f"⚠️ Mancano ancora {mancanti - len(valid_rows)} giocatori in {ruolo}")
+            elif len(valid_rows) > mancanti:
+                st.info(f"ℹ️ Hai pianificato {len(valid_rows) - mancanti} giocatori in più per {ruolo} (max {req})")
+
+    # --- RIEPILOGO PREVISIONE ---
+    st.markdown("---")
+    st.subheader("🔮 Previsione di Completamento")
+
+    crediti_necessari = tot_pianificato
+    crediti_rimanenti = crediti_disp - crediti_necessari
+    budget_post_acquisti = crediti_rimanenti
+
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        st.metric("💰 Budget Necessario", f"{crediti_necessari}cr")
+    with col_p2:
+        st.metric("💰 Budget Rimanente", f"{crediti_rimanenti}cr", delta=f"{crediti_rimanenti}cr" if crediti_rimanenti >= 0 else f"{-crediti_rimanenti}cr in deficit", delta_color="normal" if crediti_rimanenti >= 0 else "inverse")
+    with col_p3:
+        rosa_finale = sum(conti_sim.values())
+        st.metric("👥 Rosa Finale Prevista", f"{rosa_finale}/28")
+
+    # Alert globale
+    if crediti_rimanenti < 0:
+        st.error(f"🚨 DEFICIT DI {-crediti_rimanenti}cr! Devi tagliare {abs(crediti_rimanenti)} crediti dal piano.")
+    elif crediti_rimanenti == 0:
+        st.success("✅ Budget perfettamente bilanciato! Ogni credito contato.")
+    else:
+        st.success(f"✅ Hai {crediti_rimanenti}cr di margine. Puoi puntare più in alto o tenere riserva.")
+
+    # --- VISUALIZZAZIONE COMPLETAMENTO PREVISTO ---
+    st.markdown("---")
+    st.subheader("📊 Completamento Previsto per Reparto")
+    cols_prev = st.columns(4)
+    for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
+        with cols_prev[idx_r]:
+            poss_finale = conti_sim[ruolo]
+            req = ROSA_REQ[ruolo]
+            pct = min(100, int((poss_finale / req) * 100))
+            colore = "#00d26a" if poss_finale >= req else "#eab308" if poss_finale >= req * 0.7 else "#ef4444"
+            st.markdown(
+                f"<div style='text-align:center;padding:10px;border-radius:8px;background:#1a1a2e;border:1px solid {colore};'>"
+                f"<div style='font-size:1.2em;font-weight:bold;color:#fff;'>{ruolo}</div>"
+                f"<div style='font-size:2em;font-weight:bold;color:{colore};'>{poss_finale}/{req}</div>"
+                f"<div style='font-size:0.8em;color:#888;'>{'✅ OK' if poss_finale >= req else f'+{req-poss_finale} mancanti'}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+    # --- SUGGERIMENTI SMART ---
+    st.markdown("---")
+    st.subheader("🧠 Suggerimenti Smart")
+
+    suggerimenti = []
+
+    # 1. Deficit budget
+    if crediti_rimanenti < 0:
+        deficit = abs(crediti_rimanenti)
+        # Trova dove si spende di più
+        spese_sim = {}
+        for ruolo in ["P", "D", "C", "A"]:
+            df_r = pd.DataFrame(st.session_state.simulatore_rosa[sq_sim][ruolo])
+            valid = df_r[df_r["Nome"].str.strip() != ""]
+            spese_sim[ruolo] = valid["Prezzo_Stimato"].sum()
+        ruolo_piu_costoso = max(spese_sim, key=spese_sim.get)
+        suggerimenti.append(f"🔴 **Deficit di {deficit}cr**: considera di scendere di fascia in {ruolo_piu_costoso} dove hai pianificato di spendere {spese_sim[ruolo_piu_costoso]}cr.")
+
+    # 2. Reparti sottodimensionati
+    for ruolo in ["P", "D", "C", "A"]:
+        if conti_sim[ruolo] < ROSA_REQ[ruolo]:
+            mancanti = ROSA_REQ[ruolo] - conti_sim[ruolo]
+            suggerimenti.append(f"🟠 **{ruolo}**: mancano ancora {mancanti} giocatori. Aggiungili al piano.")
+
+    # 3. Troppi top
+    for ruolo in ["P", "D", "C", "A"]:
+        df_r = pd.DataFrame(st.session_state.simulatore_rosa[sq_sim][ruolo])
+        valid = df_r[df_r["Nome"].str.strip() != ""]
+        n_top = len(valid[valid["Fascia"] == "top"])
+        if n_top >= 2:
+            suggerimenti.append(f"💡 **{ruolo}**: hai pianificato {n_top} top. Se il budget stringe, converti 1-2 in 'consigliato' per risparmiare ~10-15cr ciascuno.")
+
+    # 4. Budget libero eccessivo
+    if crediti_rimanenti > 10:
+        suggerimenti.append(f"🟢 **Hai {crediti_rimanenti}cr di margine**: puoi puntare a un top in più o tenere riserva per sorprese all'asta.")
+
+    # 5. Equilibrio reparti
+    spese_per_rep = {}
+    for ruolo in ["P", "D", "C", "A"]:
+        df_r = pd.DataFrame(st.session_state.simulatore_rosa[sq_sim][ruolo])
+        valid = df_r[df_r["Nome"].str.strip() != ""]
+        spese_per_rep[ruolo] = valid["Prezzo_Stimato"].sum() + spesi_att[ruolo]
+    tot_speso_rep = sum(spese_per_rep.values()) or 1
+    for ruolo, spesa in spese_per_rep.items():
+        pct_rep = spesa / tot_speso_rep
+        if pct_rep > 0.4:
+            suggerimenti.append(f"⚠️ Stai investendo il {pct_rep*100:.0f}% del budget in {ruolo}. Considera di bilanciare meglio.")
+
+    if suggerimenti:
+        for s in suggerimenti:
+            st.markdown(s)
+    else:
+        st.info("ℹ️ Nessun suggerimento particolare. Il piano sembra bilanciato!")
+
+    # --- DONUT BUDGET PREVISTO ---
+    st.markdown("---")
+    st.subheader("💰 Distribuzione Budget Prevista")
+    st.caption("Come sarà ripartito il budget dopo i tuoi acquisti pianificati")
+
+    import math
+    budget_data = {}
+    for ruolo in ["P", "D", "C", "A"]:
+        budget_data[ruolo] = spesi_att[ruolo]
+        df_r = pd.DataFrame(st.session_state.simulatore_rosa[sq_sim][ruolo])
+        valid = df_r[df_r["Nome"].str.strip() != ""]
+        budget_data[ruolo] += valid["Prezzo_Stimato"].sum()
+    if crediti_rimanenti > 0:
+        budget_data["Libero"] = crediti_rimanenti
+
+    size = 200
+    total = sum(budget_data.values())
+    svg_pie = [f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" style="display:block;margin:auto;">']
+    cx, cy = size // 2, size // 2
+    r = size // 2 - 15
+    start_angle = 0
+    colori_b = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444", "Libero": "#2a2a4a"}
+
+    for ruolo, val in budget_data.items():
+        if total == 0:
+            break
+        angle = (val / total) * 360
+        start_rad = math.radians(start_angle - 90)
+        end_rad = math.radians(start_angle + angle - 90)
+        x1 = cx + r * math.cos(start_rad)
+        y1 = cy + r * math.sin(start_rad)
+        x2 = cx + r * math.cos(end_rad)
+        y2 = cy + r * math.sin(end_rad)
+        large_arc = 1 if angle > 180 else 0
+        svg_pie.append(
+            f'<path d="M {cx} {cy} L {x1:.1f} {y1:.1f} A {r} {r} 0 {large_arc} 1 {x2:.1f} {y2:.1f} Z" '
+            f'fill="{colori_b.get(ruolo, "#888")}" stroke="#0b0f19" stroke-width="2"/>'
+        )
+        mid_rad = math.radians(start_angle + angle / 2 - 90)
+        lx = cx + (r * 0.65) * math.cos(mid_rad)
+        ly = cy + (r * 0.65) * math.sin(mid_rad)
+        if angle > 25:
+            svg_pie.append(
+                f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dominant-baseline="middle" '
+                f'fill="#fff" font-size="10" font-weight="bold">{val}</text>'
+            )
+        start_angle += angle
+
+    svg_pie.append(f'<circle cx="{cx}" cy="{cy}" r="{int(r * 0.45)}" fill="#12122e" stroke="#2a2a4a" stroke-width="1"/>')
+    svg_pie.append(f'<text x="{cx}" y="{cy - 4}" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">{total}</text>')
+    svg_pie.append(f'<text x="{cx}" y="{cy + 12}" text-anchor="middle" fill="#888" font-size="9">totale</text>')
+    svg_pie.append('</svg>')
+
+    col_d1, col_d2 = st.columns([1, 1])
+    with col_d1:
+        st.markdown("".join(svg_pie), unsafe_allow_html=True)
+    with col_d2:
+        st.markdown("**Legenda:**")
+        for ruolo in ["P", "D", "C", "A"]:
+            if budget_data.get(ruolo, 0) > 0:
+                st.markdown(f"<span style='color:{colori_b[ruolo]}'>●</span> **{ruolo}**: {budget_data[ruolo]}cr (attuale + pianificato)", unsafe_allow_html=True)
+        if crediti_rimanenti > 0:
+            st.markdown(f"<span style='color:{colori_b['Libero']}'>●</span> **Libero**: {crediti_rimanenti}cr", unsafe_allow_html=True)
+
+    # --- BOTTONI AZIONE ---
+    st.markdown("---")
+    c_act1, c_act2, c_act3 = st.columns(3)
+    with c_act1:
+        if st.button("🔄 Reset Piano", use_container_width=True):
+            st.session_state.simulatore_rosa[sq_sim] = {"P": [], "D": [], "C": [], "A": []}
+            st.success("Piano azzerato!")
+            st.rerun()
+    with c_act2:
+        if st.button("💾 Salva Piano", use_container_width=True):
+            save_state()
+            st.toast("💾 Piano salvato", icon="✅")
+    with c_act3:
+        if crediti_rimanenti >= 0 and all(conti_sim[r] >= ROSA_REQ[r] for r in ROSA_REQ):
+            if st.button("✅ Applica Acquisti alla Rosa", type="primary", use_container_width=True):
+                StateManager.snapshot()
+                applicati = 0
+                for ruolo in ["P", "D", "C", "A"]:
+                    df_r = pd.DataFrame(st.session_state.simulatore_rosa[sq_sim][ruolo])
+                    valid = df_r[df_r["Nome"].str.strip() != ""]
+                    for _, row in valid.iterrows():
+                        nome_g = row["Nome"].strip()
+                        prezzo = int(row["Prezzo_Stimato"])
+                        # Cerca nel database
+                        db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].str.lower() == nome_g.lower()]
+                        if db_match.empty:
+                            db_match = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].apply(lambda x: str(x).lower()) == nome_g.lower()]
+                        if not db_match.empty:
+                            info = db_match.iloc[0]
+                            ruolo_db = info["Ruolo"]
+                            sq_sa = info["Squadra_SerieA"]
+                            quot = int(info["Quotazione"])
+                            fm = float(info["FantaMedia"])
+                        else:
+                            ruolo_db = ruolo
+                            sq_sa = "N/D"
+                            quot = prezzo
+                            fm = 6.0
+
+                        if st.session_state.squadre[sq_sim]["crediti"] >= prezzo:
+                            st.session_state.squadre[sq_sim]["crediti"] -= prezzo
+                            scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
+                            st.session_state.squadre[sq_sim]["rosa"].append({
+                                "Nome": nome_g, "Ruolo": ruolo_db, "Squadra_SerieA": sq_sa,
+                                "Quotazione": quot, "FantaMedia": fm,
+                                "Costo_Acquisto": prezzo, "Scadenza_Anno": scad_acq
+                            })
+                            st.session_state.contratti[nome_g] = {"squadra": sq_sim, "scadenza_anno": scad_acq}
+                            st.session_state.storico_mercato.insert(0, {
+                                "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                "Operazione": "SIMULATORE → ROSA",
+                                "Dettagli": f"{sq_sim} acquista {nome_g} ({ruolo_db}) per {prezzo}cr — da Simulatore Rosa"
+                            })
+                            applicati += 1
+                        else:
+                            st.error(f"Crediti insufficienti per {nome_g} ({prezzo}cr)")
+                            break
+                if applicati > 0:
+                    st.session_state.simulatore_rosa[sq_sim] = {"P": [], "D": [], "C": [], "A": []}
+                    invalidate_cache()
+                    save_state()
+                    st.balloons()
+                    st.success(f"🎉 {applicati} giocatori aggiunti alla rosa di {sq_sim}!")
+                    st.rerun()
+        else:
+            st.button("✅ Applica Acquisti", disabled=True, use_container_width=True)
+            if crediti_rimanenti < 0:
+                st.caption("❌ Disabilitato: deficit budget")
+            elif not all(conti_sim[r] >= ROSA_REQ[r] for r in ROSA_REQ):
+                st.caption("❌ Disabilitato: rosa incompleta")
