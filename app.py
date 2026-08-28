@@ -918,6 +918,71 @@ def applica_fasce_automatiche():
     )
 
 
+
+# ============================================================
+# 🔥 FLAME TREND INDICATOR
+# ============================================================
+def flame_indicator(nome: str, stats_per_stagione: dict) -> str:
+    """Restituisce HTML con indicatore di calore se il giocatore è in crescita."""
+    if not stats_per_stagione:
+        return ""
+    fm_vals = []
+    for stagione, df in sorted(stats_per_stagione.items()):
+        if df.empty or "Nome" not in df.columns:
+            continue
+        match = df[df["Nome"].str.lower() == nome.lower()]
+        if match.empty:
+            close = difflib.get_close_matches(nome.lower(), [n.lower() for n in df["Nome"].dropna().unique().tolist()], n=1, cutoff=0.8)
+            if close:
+                match = df[df["Nome"].str.lower() == close[0]]
+        if not match.empty and "FantaMedia" in match.columns and pd.notna(match.iloc[0]["FantaMedia"]):
+            try:
+                fm_vals.append(float(match.iloc[0]["FantaMedia"]))
+            except:
+                pass
+    if len(fm_vals) < 2:
+        return ""
+    delta = fm_vals[-1] - fm_vals[-2]
+    if delta > 0.4:
+        flames = "🔥🔥🔥"
+        color = "#ff4500"
+        label = "HOT"
+    elif delta > 0.2:
+        flames = "🔥🔥"
+        color = "#ff8c00"
+        label = "WARM"
+    elif delta > 0.05:
+        flames = "🔥"
+        color = "#eab308"
+        label = "RISING"
+    else:
+        return ""
+    return f'<div style="display:inline-flex;align-items:center;gap:4px;background:{color}18;border:1px solid {color}40;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:bold;color:{color};margin-left:4px;">{flames} {label} +{delta:.2f}</div>'
+
+
+# ============================================================
+# 🎯 GAUGE TACHIMETRO SVG
+# ============================================================
+def gauge_svg(value, max_val=100, size=60, label=""):
+    """Genera un mini tachimetro SVG."""
+    import math
+    pct = min(1.0, max(0.0, value / max_val))
+    angle = -135 + (pct * 270)
+    rad = math.radians(angle)
+    cx, cy = size // 2, size // 2
+    r = size // 2 - 6
+    nx = cx + r * math.cos(rad)
+    ny = cy + r * math.sin(rad)
+    color = "#00d26a" if pct >= 0.7 else "#eab308" if pct >= 0.4 else "#ef4444"
+    return f'''<svg width="{size}" height="{size//2+8}" viewBox="0 0 {size} {size//2+8}" style="display:inline-block;vertical-align:middle;">
+        <path d="M 6,{size//2} A {r},{r} 0 0,1 {size-6},{size//2}" fill="none" stroke="#2a2a4a" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 6,{size//2} A {r},{r} 0 0,1 {size-6},{size//2}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-dasharray="{math.pi*r:.1f}" stroke-dashoffset="{math.pi*r*(1-pct):.1f}" style="filter:drop-shadow(0 0 3px {color});"/>
+        <line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="{cx}" cy="{cy}" r="3" fill="#fff"/>
+        <text x="{cx}" y="{size//2+2}" text-anchor="middle" fill="#888" font-size="8" font-family="Segoe UI">{label}</text>
+    </svg>'''
+
+
 def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     """Restituisce HTML per una card giocatore accattivante."""
     nome = row["Nome"]
