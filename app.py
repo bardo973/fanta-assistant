@@ -124,6 +124,34 @@ st.markdown("""
     .stScatterChart {
         background: transparent !important;
     }
+
+    /* 🎴 Flip Card 3D */
+    .flip-card {
+        background-color: transparent;
+        perspective: 1000px;
+    }
+    .flip-card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: left;
+        transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-style: preserve-3d;
+    }
+    .flip-card:hover .flip-card-inner {
+        transform: rotateY(180deg);
+    }
+    .flip-card-front, .flip-card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        border-radius: 12px;
+    }
+    .flip-card-back {
+        transform: rotateY(180deg);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1733,7 +1761,8 @@ if menu == "🔍 Scouting & Database":
                 st.info("Nessuno svincolato da visualizzare.")
 
         with st.expander("🏆 Top Picks — Schede & Best Buy", expanded=True):
-            st.subheader("🏆 Top Svincolati — Schede Giocatore")
+            st.subheader("🏆 Top Svincolati — Flip Card 3D")
+            st.caption("🖱️ Passa il mouse sulla card per girarla e vedere le statistiche!")
             svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
             if not svinc_df.empty:
                 top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
@@ -1741,7 +1770,32 @@ if menu == "🔍 Scouting & Database":
                 stats_ps = st.session_state.get("stats_per_stagione", {})
                 for i, (_, row) in enumerate(top_mixed.iterrows()):
                     with cards[i % 4]:
-                        st.html(render_card_giocatore_espandibile(row, stats_ps, stats_2627))
+                        nome = row["Nome"]
+                        ruolo = row["Ruolo"]
+                        sa = row.get("Squadra_SerieA", "N/D")
+                        fm = row.get("FantaMedia", 0)
+                        quot = int(row.get("Quotazione", 0))
+                        fascia = row.get("Consiglio", "consigliato")
+                        idx_aff = row.get("Indice_Affare", 0)
+                        idx_tit = row.get("Indice_Titolarita", 0)
+                        pc = row.get("Prezzo_Consigliato")
+                        pc_txt = f"💡 {int(pc)}cr" if pd.notna(pc) else ""
+
+                        colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
+                        colore = colori_ruolo.get(ruolo, "#888")
+                        badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA"}.get(fascia, "")
+                        flame_badge = flame_indicator(nome, stats_ps) if stats_ps else ""
+
+                        # FRONTE
+                        front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}</div>{flame_badge}</div>'''
+
+                        # RETRO (stats)
+                        stats_html = _build_stats_html(nome, stats_ps)
+                        back_html = f'''<div style="background:linear-gradient(135deg, #0f0f24 0%, #1a1a2e 100%);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border:1px solid {colore}40;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;overflow:hidden;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 {nome}</div><div style="overflow-y:auto;max-height:140px;">{stats_html}</div></div>'''
+
+                        # FLIP CARD HTML
+                        flip = f'''<div class="flip-card" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
+                        st.markdown(flip, unsafe_allow_html=True)
             else:
                 st.info("Nessuno svincolato disponibile.")
 
