@@ -103,6 +103,27 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 0 15px rgba(0,210,106,0.3);
     }
+
+    /* ✨ Chicche grafiche — Glassmorphism & Glow */
+    .card-giocatore {
+        background: rgba(30,30,63,0.7) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .stButton>button {
+        box-shadow: 0 0 15px rgba(0,210,106,0.2);
+    }
+    .stButton>button:hover {
+        box-shadow: 0 0 25px rgba(0,210,106,0.5);
+        transform: translateY(-2px) scale(1.02);
+    }
+    div[data-testid="stMetricValue"] {
+        text-shadow: 0 0 10px rgba(0,210,106,0.3);
+    }
+    .stScatterChart {
+        background: transparent !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -907,7 +928,7 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     # Effetto hover: ingrandimento + illuminazione
     hover_js = "onmouseover=\"this.style.transform='scale(1.04)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';\" onmouseout=\"this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';\""
 
-    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
+    html = f'<div style="background:linear-gradient(135deg, rgba(30,30,63,0.9) 0%, rgba(42,42,74,0.6) 100%);backdrop-filter:blur(12px);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid rgba(255,255,255,0.05);">{quot}cr</span>{pc_span}<span style="background:rgba(26,26,46,0.6);color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;border:1px solid rgba(255,255,255,0.05);">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
     return html
 
 
@@ -1335,6 +1356,39 @@ if menu == "🏠 Dashboard":
     st.dataframe(df_dash, use_container_width=True)
 
     st.markdown("---")
+    st.subheader("⭕ Completamento Rosa — Cerchi di Progresso")
+    st.caption("Ogni cerchio mostra quanti giocatori mancano per completare il reparto (P=3, D=9, C=9, A=7)")
+    for sq in NOMI_SQUADRE:
+        rosa = st.session_state.squadre[sq]["rosa"]
+        conti = {"P": 0, "D": 0, "C": 0, "A": 0}
+        for g in rosa:
+            r = g.get("Ruolo", "C")
+            if r in conti:
+                conti[r] += 1
+        cols_prog = st.columns([1.5, 1, 1, 1, 1])
+        with cols_prog[0]:
+            st.markdown(f"<div style='font-weight:bold;color:#00d26a;font-size:1.1em;padding-top:18px;'>{sq}</div>", unsafe_allow_html=True)
+        for i, ruolo in enumerate(["P", "D", "C", "A"]):
+            with cols_prog[i+1]:
+                req = ROSA_REQ[ruolo]
+                poss = conti[ruolo]
+                pct = min(100, int((poss / req) * 100))
+                colore = "#00d26a" if pct >= 100 else "#eab308" if pct >= 60 else "#ef4444"
+                circ = 2 * 3.14159 * 24
+                dash = circ * (pct / 100)
+                svg_c = f'''<svg width="52" height="52" viewBox="0 0 52 52" style="margin:auto;display:block;">
+                    <circle cx="26" cy="26" r="24" fill="none" stroke="#1a1a2e" stroke-width="5"/>
+                    <circle cx="26" cy="26" r="24" fill="none" stroke="{colore}" stroke-width="5"
+                        stroke-dasharray="{dash:.1f} {circ:.1f}"
+                        stroke-linecap="round"
+                        transform="rotate(-90 26 26)"
+                        style="filter:drop-shadow(0 0 4px {colore});"/>
+                    <text x="26" y="30" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold" font-family="Segoe UI">{poss}/{req}</text>
+                </svg>'''
+                st.markdown(svg_c, unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center;color:#888;font-size:0.7em;'>{ruolo}</div>", unsafe_allow_html=True)
+
+    st.markdown("---")
     st.subheader("📈 Metriche Chiave")
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
@@ -1658,6 +1712,26 @@ if menu == "🔍 Scouting & Database":
         # ============================================================
         # TOP CARD — I MIGLIORI SVINCOLATI
         # ============================================================
+        with st.expander("🫧 Bubble Chart Mercato", expanded=True):
+            st.subheader("🫧 Mappa Mercato — FantaMedia vs Quotazione")
+            st.caption("Bolla = Titolarità | Colore = Ruolo | Solo svincolati")
+            df_bubble = df_f.copy() if not df_f.empty else df.copy()
+            df_bubble = df_bubble[df_bubble["Proprietario"] == "Svincolato 🟢"].copy()
+            if not df_bubble.empty:
+                df_bubble["Dim"] = df_bubble["Indice_Titolarita"].fillna(50)
+                st.markdown("<div style='background:linear-gradient(135deg,#0f0f24 0%,#1a1a2e 100%);padding:12px;border-radius:12px;border:1px solid #2a2a4a;box-shadow:0 8px 32px rgba(0,210,106,0.1);'>", unsafe_allow_html=True)
+                st.scatter_chart(
+                    df_bubble,
+                    x="Quotazione",
+                    y="FantaMedia",
+                    size="Dim",
+                    color="Ruolo",
+                    use_container_width=True
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("Nessuno svincolato da visualizzare.")
+
         with st.expander("🏆 Top Picks — Schede & Best Buy", expanded=True):
             st.subheader("🏆 Top Svincolati — Schede Giocatore")
             svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
@@ -1793,16 +1867,71 @@ if menu == "🔍 Scouting & Database":
                 df_comp = pd.DataFrame(rows)
                 st.dataframe(df_comp.set_index("Giocatore").T, use_container_width=True)
 
-                # Grafico radar-like con barre
-                chart_rows = []
+                # 🕸️ RADAR CHART SVG INTERATTIVO
+                import math
+                metrics = ["FantaMedia", "Titolarità", "Indice Affare", "Quotazione/10", "Variazione"]
+                colors = ["#00d26a", "#3b82f6", "#ef4444", "#eab308", "#a855f7", "#ec4899"]
+
+                def norm(val, mini, maxi):
+                    if maxi == mini: return 50
+                    return 10 + 80 * (val - mini) / (maxi - mini)
+
+                radar_data = {}
                 for nome_g in selezionati:
                     r = df[df["Nome"] == nome_g].iloc[0]
-                    chart_rows.append({"Giocatore": nome_g, "Metrica": "FantaMedia", "Valore": r["FantaMedia"]})
-                    chart_rows.append({"Giocatore": nome_g, "Metrica": "Titolarità/10", "Valore": r["Indice_Titolarita"]/10})
-                    chart_rows.append({"Giocatore": nome_g, "Metrica": "Affare×50", "Valore": r["Indice_Affare"]*50})
-                chart_df = pd.DataFrame(chart_rows)
-                pivot = chart_df.pivot(index="Metrica", columns="Giocatore", values="Valore")
-                st.bar_chart(pivot, use_container_width=True)
+                    var_val = r.get("Variazione_%", 0) or 0
+                    radar_data[nome_g] = [
+                        norm(r["FantaMedia"], 4, 9),
+                        norm(r["Indice_Titolarita"], 0, 100),
+                        norm(r["Indice_Affare"], 0, 0.3),
+                        norm(r["Quotazione"], 1, 100),
+                        norm(var_val + 50, 0, 100)
+                    ]
+
+                n = len(metrics)
+                angle_step = 2 * math.pi / n
+                size = 320
+                cx, cy = size // 2, size // 2
+                radius = 120
+
+                svg_parts = [f'<svg width="{size}" height="{size}" style="background:#0f0f24;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">']
+                for level in [20, 40, 60, 80, 100]:
+                    pts = []
+                    for i in range(n):
+                        a = i * angle_step - math.pi / 2
+                        r = radius * (level / 100)
+                        x = cx + r * math.cos(a)
+                        y = cy + r * math.sin(a)
+                        pts.append(f"{x:.1f},{y:.1f}")
+                    svg_parts.append(f'<polygon points="{" ".join(pts)}" fill="none" stroke="#2a2a4a" stroke-width="1"/>')
+                for i in range(n):
+                    a = i * angle_step - math.pi / 2
+                    x2 = cx + radius * math.cos(a)
+                    y2 = cy + radius * math.sin(a)
+                    svg_parts.append(f'<line x1="{cx}" y1="{cy}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#2a2a4a" stroke-width="1"/>')
+                    lx = cx + (radius + 22) * math.cos(a)
+                    ly = cy + (radius + 22) * math.sin(a)
+                    svg_parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" fill="#888" font-size="11" font-family="Segoe UI">{metrics[i]}</text>')
+                for gi, (nome_g, vals) in enumerate(radar_data.items()):
+                    col = colors[gi % len(colors)]
+                    pts = []
+                    for i, v in enumerate(vals):
+                        a = i * angle_step - math.pi / 2
+                        r = radius * (v / 100)
+                        x = cx + r * math.cos(a)
+                        y = cy + r * math.sin(a)
+                        pts.append(f"{x:.1f},{y:.1f}")
+                        svg_parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{col}" stroke="#0f0f24" stroke-width="2"/>')
+                    svg_parts.append(f'<polygon points="{" ".join(pts)}" fill="{col}" fill-opacity="0.15" stroke="{col}" stroke-width="2.5" stroke-linejoin="round"/>')
+                for gi, nome_g in enumerate(radar_data.keys()):
+                    col = colors[gi % len(colors)]
+                    y_leg = 24 + gi * 18
+                    svg_parts.append(f'<rect x="{size-140}" y="{y_leg-8}" width="10" height="10" fill="{col}" rx="2"/>')
+                    svg_parts.append(f'<text x="{size-125}" y="{y_leg+2}" fill="#ddd" font-size="11" font-family="Segoe UI">{nome_g}</text>')
+                svg_parts.append('</svg>')
+
+                st.markdown("#### 🕸️ Confronto Radar")
+                st.markdown("".join(svg_parts), unsafe_allow_html=True)
 
                 # Vincitore per indice affare
                 best = max(rows, key=lambda x: x["Indice Affare"])
