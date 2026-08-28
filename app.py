@@ -2538,6 +2538,54 @@ if menu == "📋 Rose & Contratti":
                     st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
                     display = rosa_df.copy()
 
+                    # --- FIX FANTAMEDIA: arricchisci con stats 2026/27 ---
+                    def _enrich_fm(row):
+                        nome = row.get("Nome", "")
+                        fm_db = row.get("FantaMedia", 6.0)
+                        fm_2627 = _get_fm_2627(nome)
+                        if fm_2627 is not None:
+                            return fm_2627
+                        # Cerca nelle stats storiche aggregate
+                        if not st.session_state.stats_storiche.empty and "Nome" in st.session_state.stats_storiche.columns:
+                            stats_all = st.session_state.stats_storiche
+                            match = stats_all[stats_all["Nome"].str.lower() == nome.lower()]
+                            if match.empty:
+                                close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_all["Nome"].tolist()], n=1, cutoff=0.8)
+                                if close:
+                                    match = stats_all[stats_all["Nome"].str.lower() == close[0]]
+                            if not match.empty and "FantaMedia" in match.columns and pd.notna(match.iloc[0]["FantaMedia"]):
+                                return float(match.iloc[0]["FantaMedia"])
+                        return fm_db
+
+                    display["FantaMedia"] = display.apply(_enrich_fm, axis=1)
+
+                    # --- FIX QUOTAZIONI 2025/26: cerca sia nel listone che nel file caricato ---
+                    def _get_q2526(nome):
+                        # 1. Cerca nel listone
+                        db = st.session_state.giocatori_db
+                        match = db[db["Nome"].str.lower() == nome.lower()]
+                        if not match.empty and "Quotazione_2025_26" in match.columns and pd.notna(match.iloc[0]["Quotazione_2025_26"]):
+                            return float(match.iloc[0]["Quotazione_2025_26"])
+                        # 2. Cerca nel file quotazioni_2025_26 caricato separatamente
+                        q25 = st.session_state.quotazioni_2025_26
+                        if not q25.empty and "Nome" in q25.columns:
+                            match_q = q25[q25["Nome"].str.lower() == nome.lower()]
+                            if match_q.empty:
+                                close = difflib.get_close_matches(nome.lower(), [n.lower() for n in q25["Nome"].tolist()], n=1, cutoff=0.8)
+                                if close:
+                                    match_q = q25[q25["Nome"].str.lower() == close[0]]
+                            if not match_q.empty:
+                                col_q = "Quotazione_2025_26" if "Quotazione_2025_26" in match_q.columns else ("Quotazione" if "Quotazione" in match_q.columns else None)
+                                if col_q and pd.notna(match_q.iloc[0][col_q]):
+                                    return float(match_q.iloc[0][col_q])
+                        return None
+
+                    display["Quotazione_2025_26"] = display["Nome"].apply(_get_q2526)
+                    display["Variazione_%"] = display.apply(
+                        lambda r: round((r["Quotazione"] - r["Quotazione_2025_26"]) / r["Quotazione_2025_26"] * 100, 1) if pd.notna(r.get("Quotazione_2025_26")) and r.get("Quotazione_2025_26", 0) > 0 else None,
+                        axis=1
+                    )
+
                     if "Scadenza_Anno" not in display.columns:
                         display["Scadenza_Anno"] = ANNO_CORRENTE + CONTRATTO_ANNI
                     display["Scadenza_Anno"] = pd.to_numeric(display["Scadenza_Anno"], errors="coerce").fillna(ANNO_CORRENTE + CONTRATTO_ANNI).astype(int)
@@ -2563,22 +2611,21 @@ if menu == "📋 Rose & Contratti":
                     if "Scadenza_Mese" in display.columns:
                         display["Scadenza"] = display["Scadenza_Mese"].astype(str) + "/" + display["Scadenza_Anno"].astype(str)
 
+                    # --- FIX BADGE: mostra solo se c'è un prestito attivo ---
                     def badge_prestito(row):
-                        if pd.notna(row.get("Prestito_Da")) and row.get("Prestito_Da") != sq:
-                            return f"<span class='badge-prestito'>PRESTITO da {row['Prestito_Da']}</span>"
-                        return ""
-                    display["Badge"] = display.apply(badge_prestito, axis=1)
+                        if pd.notna(row.get("Prestito_Da")) and str(row.get("Prestito_Da")).strip() != "" and row.get("Prestito_Da") != sq:
+                            return f"<span style='background:#ff6b6b;color:white;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:bold;'>📤 PRESTITO da {row['Prestito_Da']}</span>"
+                        return "<span style='color:#444;font-size:0.75em;'>—</span>"
+                    display["Prestito"] = display.apply(badge_prestito, axis=1)
 
-                    if "Quotazione_2025_26" in st.session_state.giocatori_db.columns:
-                        db_q = st.session_state.giocatori_db[["Nome","Quotazione_2025_26"]].copy()
-                        display = display.merge(db_q, on="Nome", how="left")
-                        display["Variazione_%"] = round((display["Quotazione"] - display["Quotazione_2025_26"]) / display["Quotazione_2025_26"].replace(0,1) * 100, 1)
+                    # Rimuovi colonne tecniche
+                    hide_cols = ["Anno_Acquisto", "Contratto_Anni", "Prestito_A", "Prestito_Durata_Mesi", "Prestito_Anno_Inizio", "Prestito_Da", "Prestito_Anno_Inizio"]
+                    display = display.drop(columns=[c for c in hide_cols if c in display.columns], errors="ignore")
 
-                    hide_cols = ["Anno_Acquisto", "Contratto_Anni", "Prestito_A", "Prestito_Durata_Mesi", "Prestito_Anno_Inizio"]
-                    display = display.drop(columns=[c for c in hide_cols if c in display.columns])
-
-                    first_cols = [c for c in ["Nome", "Ruolo", "Stato_Contratto", "Scadenza", "Badge"] if c in display.columns]
-                    other_cols = [c for c in display.columns if c not in first_cols]
+                    # Ordina colonne: Nome, Ruolo, FM, Squadra, Costo, Quotazione, Q2526, Var%, Scadenza, Stato, Prestito
+                    preferred_order = ["Nome", "Ruolo", "FantaMedia", "Squadra_SerieA", "Costo_Acquisto", "Quotazione", "Quotazione_2025_26", "Variazione_%", "Scadenza", "Stato_Contratto", "Prestito"]
+                    first_cols = [c for c in preferred_order if c in display.columns]
+                    other_cols = [c for c in display.columns if c not in first_cols and c not in ["Scadenza_Anno", "Scadenza_Mese"]]
                     display = display[first_cols + other_cols]
 
                     st.write(display.to_html(escape=False, index=False), unsafe_allow_html=True)
