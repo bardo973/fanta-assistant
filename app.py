@@ -618,6 +618,76 @@ def calcola_indice_titolarita(row, stats_2627=None):
     return min(100, round(totale, 1))
 
 
+
+# ============================================================
+# ANALISI BUDGET ASTA — UTILITY PER GIOCATORI COSTOSI (>40cr)
+# ============================================================
+
+def budget_libero_effettivo(squadra_nome):
+    """Crediti spendibili su un top, dopo riserva minima per completare rosa."""
+    riep = riepilogo_rosa(squadra_nome)
+    crediti = riep["crediti"]
+    posti_mancanti = riep["tot_mancanti"]
+    budget_minimo = posti_mancanti * 1
+    return max(0, crediti - budget_minimo)
+
+
+def offerta_massima_realistica(squadra_nome, ruolo):
+    """Offerta max consigliata per ruolo, lasciando margine per completare."""
+    riep = riepilogo_rosa(squadra_nome)
+    crediti = riep["crediti"]
+    posti_mancanti = riep["tot_mancanti"]
+    budget_sicurezza = posti_mancanti * 2
+    return max(0, crediti - budget_sicurezza)
+
+
+def spese_per_ruolo(squadra_nome):
+    """Restituisce spese totali e media per ruolo."""
+    rosa = st.session_state.squadre[squadra_nome]["rosa"]
+    spese = {"P": {"tot": 0, "n": 0, "avg": 0}, "D": {"tot": 0, "n": 0, "avg": 0},
+             "C": {"tot": 0, "n": 0, "avg": 0}, "A": {"tot": 0, "n": 0, "avg": 0}}
+    for g in rosa:
+        r = g.get("Ruolo", "C")
+        costo = g.get("Costo_Acquisto", 0)
+        if r in spese:
+            spese[r]["tot"] += costo
+            spese[r]["n"] += 1
+    for r in spese:
+        if spese[r]["n"] > 0:
+            spese[r]["avg"] = round(spese[r]["tot"] / spese[r]["n"], 1)
+    return spese
+
+
+def fuga_top_tracker():
+    """Quanti top/consigliati sono ancora liberi per ruolo."""
+    db = st.session_state.giocatori_db.copy()
+    idx = get_player_index()
+    db["Proprietario"] = db["Nome"].apply(lambda x: idx.get(x.lower(), "Svincolato"))
+    svinc = db[db["Proprietario"] == "Svincolato"]
+    result = {}
+    for ruolo in ["P", "D", "C", "A"]:
+        total_top = len(db[(db["Ruolo"] == ruolo) & (db["Consiglio"] == "top")])
+        rimasti_top = len(svinc[(svinc["Ruolo"] == ruolo) & (svinc["Consiglio"] == "top")])
+        total_cons = len(db[(db["Ruolo"] == ruolo) & (db["Consiglio"] == "consigliato")])
+        rimasti_cons = len(svinc[(svinc["Ruolo"] == ruolo) & (svinc["Consiglio"] == "consigliato")])
+        result[ruolo] = {
+            "top_totali": total_top, "top_rimasti": rimasti_top,
+            "cons_totali": total_cons, "cons_rimasti": rimasti_cons,
+            "pct_top_rimasti": round((rimasti_top / max(total_top, 1)) * 100, 1),
+            "pct_cons_rimasti": round((rimasti_cons / max(total_cons, 1)) * 100, 1),
+        }
+    return result
+
+
+def alert_scarsita_top(ruolo):
+    """True se i top di un ruolo stanno per finire (< 30% rimasti, <= 2)."""
+    tracker = fuga_top_tracker()
+    if ruolo in tracker:
+        return tracker[ruolo]["pct_top_rimasti"] < 30 and tracker[ruolo]["top_rimasti"] <= 2
+    return False
+
+
+# ============================================================
 # ============================================================
 # CLASSIFICAZIONE FASCE AUTOMATICA DA STATISTICHE STORICHE
 # ============================================================
@@ -1379,6 +1449,63 @@ if menu == "🏠 Dashboard":
     st.html(html_table)
 
     st.markdown("---")
+    st.subheader("🎯 Budget Libero per Top (>40cr)")
+    st.caption("Crediti effettivamente spendibili su un giocatore costoso, dopo riserva minima per completare la rosa.")
+    budget_top_data = []
+    for sq in NOMI_SQUADRE:
+        riep = riepilogo_rosa(sq)
+        libero = budget_libero_effettivo(sq)
+        budget_top_data.append({
+            "Squadra": sq, "Crediti Totali": riep["crediti"], "Posti Mancanti": riep["tot_mancanti"],
+            "🎯 Budget Libero Top": libero, "💰 Può spendere >40cr?": "✅ SÌ" if libero >= 40 else "❌ NO"
+        })
+    st.dataframe(pd.DataFrame(budget_top_data).sort_values("🎯 Budget Libero Top", ascending=False), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.subheader("🔥 Fuga Top Tracker")
+    st.caption("Quanti top e consigliati sono ancora liberi? Rosso = ultima chiamata!")
+    tracker = fuga_top_tracker()
+    cols_track = st.columns(4)
+    ruoli_track = {"P": "🧤 Portieri", "D": "🛡️ Difensori", "C": "⚙️ Centrocampisti", "A": "⚔️ Attaccanti"}
+    for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
+        with cols_track[idx_r]:
+            t = tracker[ruolo]
+            colore = "#ef4444" if t["pct_top_rimasti"] < 30 else "#eab308" if t["pct_top_rimasti"] < 60 else "#00d26a"
+            st.markdown(f"<div style='text-align:center;padding:10px;border-radius:8px;background:#1a1a2e;border:1px solid {colore};'>"
+                        f"<div style='font-size:1em;font-weight:bold;color:#fff;'>{ruoli_track[ruolo]}</div>"
+                        f"<div style='font-size:1.8em;font-weight:bold;color:{colore};'>{t['top_rimasti']}/{t['top_totali']} ⭐</div>"
+                        f"<div style='font-size:0.8em;color:#aaa;'>{t['pct_top_rimasti']:.0f}% top rimasti</div>"
+                        f"<div style='font-size:1.1em;color:#888;margin-top:4px;'>{t['cons_rimasti']}/{t['cons_totali']} 👍</div></div>", unsafe_allow_html=True)
+            if t["pct_top_rimasti"] < 30 and t["top_rimasti"] <= 2:
+                st.error(f"⚠️ Ultimi {t['top_rimasti']} top!")
+
+    st.markdown("---")
+    st.subheader("💸 Heatmap Spese per Ruolo")
+    spese_data = []
+    for sq in NOMI_SQUADRE:
+        spese = spese_per_ruolo(sq)
+        for ruolo in ["P", "D", "C", "A"]:
+            spese_data.append({"Squadra": sq, "Ruolo": ruolo, "Spesa": spese[ruolo]["tot"], "N": spese[ruolo]["n"]})
+    df_spese = pd.DataFrame(spese_data)
+    max_spesa = df_spese["Spesa"].max() or 1
+    def _heat_spese(val):
+        pct = val / max_spesa
+        return "#7f1d1d" if pct >= 0.8 else "#9a3412" if pct >= 0.6 else "#ca8a04" if pct >= 0.4 else "#166534" if pct >= 0.2 else "#14532d"
+    html_spese = '<table style="width:100%;border-collapse:collapse;font-size:0.9em;"><thead><tr style="background:#1a1a2e;"><th style="padding:8px;text-align:left;color:#888;border-bottom:2px solid #2a2a4a;">Squadra</th>'
+    for ruolo in ["P", "D", "C", "A"]: html_spese += f'<th style="padding:8px;text-align:center;color:#888;border-bottom:2px solid #2a2a4a;">{ruolo}</th>'
+    html_spese += '</tr></thead><tbody>'
+    for sq in NOMI_SQUADRE:
+        html_spese += f'<tr><td style="padding:8px;color:#fff;font-weight:600;border-bottom:1px solid #2a2a4a;">{sq}</td>'
+        for ruolo in ["P", "D", "C", "A"]:
+            val = df_spese[(df_spese["Squadra"]==sq)&(df_spese["Ruolo"]==ruolo)]["Spesa"].values
+            val = val[0] if len(val)>0 else 0
+            n_val = df_spese[(df_spese["Squadra"]==sq)&(df_spese["Ruolo"]==ruolo)]["N"].values
+            n_val = int(n_val[0]) if len(n_val)>0 else 0
+            html_spese += f'<td style="padding:8px;text-align:center;border-bottom:1px solid #2a2a4a;background:{_heat_spese(val)};color:#fff;font-weight:bold;border-radius:4px;">{int(val)}cr<br><span style="font-size:0.7em;color:#ccc;">({n_val})</span></td>'
+        html_spese += '</tr>'
+    html_spese += '</tbody></table>'
+    st.html(html_spese)
+    st.markdown("---")
     st.subheader("💰 Classifica Crediti")
     crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE]).sort_values("Crediti", ascending=False)
     st.bar_chart(crediti_df.set_index("Squadra"))
@@ -1608,13 +1735,12 @@ if menu == "🔍 Scouting & Database":
                 st.rerun()
 
         # ============================================================
-        # FORMAZIONI TITOLARI SERIE A (EDITABILI)
+        # FORMAZIONI TITOLARI SERIE A — CARD CON SPOSTAMENTO
         # ============================================================
         st.markdown("---")
-        st.subheader("⚽ Formazioni Titolar Serie A (Modificabili)")
-        st.caption("Per ogni squadra di Serie A seleziona il modulo e i titolari. Puoi scegliere tra tutti i giocatori del listone di quella squadra. Le tue scelte vengono salvate automaticamente.")
+        st.subheader("⚽ Formazioni Titolar Serie A — Trascina con i Bottoni")
+        st.caption("Usa ⭐ per promuovere in titolare, 🪑 per retrocedere in panchina, ▲▼ per cambiare ordine tra i titolari.")
 
-        # Inizializza stato formazioni se mancante
         if "formazioni_sa" not in st.session_state:
             st.session_state.formazioni_sa = {}
 
@@ -1623,11 +1749,10 @@ if menu == "🔍 Scouting & Database":
             tabs_sa = st.tabs(squadre_sa_list)
             for i, sa in enumerate(squadre_sa_list):
                 with tabs_sa[i]:
-                    # Inizializza stato per questa squadra
                     if sa not in st.session_state.formazioni_sa:
                         st.session_state.formazioni_sa[sa] = {"modulo": "4-3-3", "titolari": {}}
 
-                    # Modulo INDIPENDENTE per ogni squadra
+                    # Modulo
                     c_mod1, c_mod2 = st.columns([1, 3])
                     with c_mod1:
                         modulo_sa = st.selectbox(
@@ -1644,13 +1769,14 @@ if menu == "🔍 Scouting & Database":
                         except:
                             d_mod, c_mod, a_mod = 4, 3, 3
                         moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
-                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | I non selezionati sono panchinari")
+                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | ▲▼ per riordinare i titolari")
 
                     giocatori_sa = df[df["Squadra_SerieA"] == sa].copy()
 
                     col_ruoli = st.columns(4)
                     ruoli_order = ["P", "D", "C", "A"]
                     ruoli_nomi = {"P": "🧤 Portiere", "D": "🛡️ Difesa", "C": "⚙️ Centrocampo", "A": "⚔️ Attacco"}
+                    colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
 
                     for j, ruolo in enumerate(ruoli_order):
                         with col_ruoli[j]:
@@ -1666,42 +1792,102 @@ if menu == "🔍 Scouting & Database":
                             # Recupera selezione precedente
                             prev_sel = st.session_state.formazioni_sa[sa]["titolari"].get(ruolo, [])
                             prev_sel = [n for n in prev_sel if n in nomi_disponibili]
-
-                            # Se vuoto o incompleto, precompila con i migliori
+                            # Se vuoto, precompila con i migliori
                             if len(prev_sel) < n_titolari:
                                 prev_sel = nomi_disponibili[:n_titolari]
+                            # Se troppi, taglia
+                            if len(prev_sel) > n_titolari:
+                                prev_sel = prev_sel[:n_titolari]
 
-                            sel = st.multiselect(
-                                f"Titolari {ruolo}",
-                                options=nomi_disponibili,
-                                default=prev_sel,
-                                max_selections=n_titolari,
-                                key=f"tit_sa_{sa.replace(' ', '_')}_{ruolo}",
-                                help=f"Seleziona esattamente {n_titolari} titolari"
-                            )
-                            st.session_state.formazioni_sa[sa]["titolari"][ruolo] = sel
+                            # --- GESTIONE BOTTONI SPOSTAMENTO ---
+                            # Controlla se ci sono azioni pending
+                            action_key = f"action_{sa.replace(' ', '_')}_{ruolo}"
+                            if action_key in st.session_state:
+                                action = st.session_state[action_key]
+                                del st.session_state[action_key]
+                                if action["type"] == "promuovi":
+                                    if len(prev_sel) < n_titolari and action["nome"] not in prev_sel:
+                                        prev_sel.append(action["nome"])
+                                elif action["type"] == "retrocedi" and action["nome"] in prev_sel:
+                                    prev_sel.remove(action["nome"])
+                                elif action["type"] == "su" and action["nome"] in prev_sel:
+                                    idx_pos = prev_sel.index(action["nome"])
+                                    if idx_pos > 0:
+                                        prev_sel[idx_pos], prev_sel[idx_pos - 1] = prev_sel[idx_pos - 1], prev_sel[idx_pos]
+                                elif action["type"] == "giu" and action["nome"] in prev_sel:
+                                    idx_pos = prev_sel.index(action["nome"])
+                                    if idx_pos < len(prev_sel) - 1:
+                                        prev_sel[idx_pos], prev_sel[idx_pos + 1] = prev_sel[idx_pos + 1], prev_sel[idx_pos]
+                                st.session_state.formazioni_sa[sa]["titolari"][ruolo] = prev_sel
+                                st.rerun()
 
-                            # Mostra giocatori
-                            for _, row in subset.iterrows():
-                                is_tit = row["Nome"] in sel
-                                alpha = "1.0" if is_tit else "0.5"
-                                bordo = "#00d26a" if is_tit else "#2a2a4a"
-                                bg = "#1e1e3f" if is_tit else "#15152b"
-                                badge = "⭐" if is_tit else "🪑"
+                            # --- SEZIONE TITOLARI ---
+                            st.markdown(f"<div style='font-size:0.8em;color:#00d26a;font-weight:bold;margin-bottom:4px;'>⭐ TITOLARI ({len(prev_sel)}/{n_titolari})</div>", unsafe_allow_html=True)
 
-                                prop = idx.get(row["Nome"].lower(), "Svincolato")
-                                if prop != "Svincolato":
-                                    prop_badge = f'<span style="font-size:0.65em;color:#ff6b6b;">🔒 {prop}</span>'
-                                else:
-                                    prop_badge = f'<span style="font-size:0.65em;color:#00d26a;">🟢 Libero</span>'
+                            for pos, nome_g in enumerate(prev_sel):
+                                row_g = subset[subset["Nome"] == nome_g].iloc[0]
+                                prop = idx.get(nome_g.lower(), "Svincolato")
+                                prop_txt = f"🔒 {prop}" if prop != "Svincolato" else "🟢 Libero"
+                                prop_col = "#ff6b6b" if prop != "Svincolato" else "#00d26a"
 
+                                c1, c2 = st.columns([4, 1])
+                                with c1:
+                                    st.html(
+                                        f'<div style="background:#1e1e3f;border-left:3px solid {colori_ruolo[ruolo]};'
+                                        f'border-radius:6px;padding:6px 8px;margin-bottom:4px;">'
+                                        f'<div style="font-size:0.9em;font-weight:600;color:#fff;">⭐ {nome_g}</div>'
+                                        f'<div style="font-size:0.75em;color:#aaa;">FM {row_g["FantaMedia"]} | {int(row_g["Quotazione"])}cr</div>'
+                                        f'<div style="font-size:0.65em;color:{prop_col};">{prop_txt}</div></div>'
+                                    )
+                                with c2:
+                                    c_su, c_giu, c_giu2 = st.columns(3)
+                                    with c_su:
+                                        if st.button("▲", key=f"su_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Sposta su"):
+                                            st.session_state[action_key] = {"type": "su", "nome": nome_g}
+                                            st.rerun()
+                                    with c_giu:
+                                        if st.button("▼", key=f"giu_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Sposta giù"):
+                                            st.session_state[action_key] = {"type": "giu", "nome": nome_g}
+                                            st.rerun()
+                                    with c_giu2:
+                                        if st.button("🪑", key=f"retro_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Retrocedi in panchina"):
+                                            st.session_state[action_key] = {"type": "retrocedi", "nome": nome_g}
+                                            st.rerun()
+
+                            # Slot vuoti
+                            for _ in range(n_titolari - len(prev_sel)):
                                 st.html(
-                                    f'<div style="background:{bg};border-left:3px solid {bordo};'
-                                    f'border-radius:6px;padding:6px 8px;margin-bottom:4px;opacity:{alpha};">'
-                                    f'<div style="font-size:0.9em;font-weight:600;">{badge} {row["Nome"]}</div>'
-                                    f'<div style="font-size:0.75em;color:#aaa;">FM {row["FantaMedia"]} | {int(row["Quotazione"])}cr</div>'
-                                    f'{prop_badge}</div>'
+                                    f'<div style="background:#15152b;border:1px dashed #2a2a4a;'
+                                    f'border-radius:6px;padding:6px 8px;margin-bottom:4px;text-align:center;color:#444;">'
+                                    f'🪑 Slot libero</div>'
                                 )
+
+                            # --- SEZIONE PANCHINA ---
+                            st.markdown(f"<div style='font-size:0.8em;color:#888;font-weight:bold;margin-top:8px;margin-bottom:4px;'>🪑 PANCHINA</div>", unsafe_allow_html=True)
+
+                            panchina = [n for n in nomi_disponibili if n not in prev_sel]
+                            for nome_g in panchina:
+                                row_g = subset[subset["Nome"] == nome_g].iloc[0]
+                                prop = idx.get(nome_g.lower(), "Svincolato")
+                                prop_txt = f"🔒 {prop}" if prop != "Svincolato" else "🟢 Libero"
+                                prop_col = "#ff6b6b" if prop != "Svincolato" else "#00d26a"
+
+                                c1, c2 = st.columns([4, 1])
+                                with c1:
+                                    st.html(
+                                        f'<div style="background:#15152b;border-left:3px solid #2a2a4a;'
+                                        f'border-radius:6px;padding:6px 8px;margin-bottom:4px;opacity:0.7;">'
+                                        f'<div style="font-size:0.9em;font-weight:600;color:#ccc;">{nome_g}</div>'
+                                        f'<div style="font-size:0.75em;color:#666;">FM {row_g["FantaMedia"]} | {int(row_g["Quotazione"])}cr</div>'
+                                        f'<div style="font-size:0.65em;color:{prop_col};">{prop_txt}</div></div>'
+                                    )
+                                with c2:
+                                    if len(prev_sel) < n_titolari:
+                                        if st.button("⭐", key=f"prom_{sa.replace(' ', '_')}_{ruolo}_{nome_g.replace(' ', '_')}", help="Promuovi in titolare"):
+                                            st.session_state[action_key] = {"type": "promuovi", "nome": nome_g}
+                                            st.rerun()
+                                    else:
+                                        st.caption("Pieno")
         # ============================================================
         # TABELLA RISULTATI
         # ============================================================
