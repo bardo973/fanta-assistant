@@ -263,6 +263,7 @@ class StateManager:
             "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
             "quotazioni_2025_26": st.session_state.quotazioni_2025_26.copy() if not st.session_state.quotazioni_2025_26.empty else pd.DataFrame(),
             "wizard_completato": st.session_state.get("wizard_completato", False),
+            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
         }
         st.session_state._undo_stack.append(snap)
         if len(st.session_state._undo_stack) > MAX_UNDO:
@@ -301,6 +302,7 @@ class StateManager:
             "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
             "quotazioni_2025_26": st.session_state.quotazioni_2025_26,
             "wizard_completato": st.session_state.get("wizard_completato", False),
+            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
         }
         tmp = tempfile.NamedTemporaryFile(delete=False, dir=".")
         try:
@@ -354,6 +356,7 @@ class StateManager:
         st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
         st.session_state.quotazioni_2025_26 = data.get("quotazioni_2025_26", pd.DataFrame())
         st.session_state.wizard_completato = data.get("wizard_completato", False)
+        st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE})
         for sq in NOMI_SQUADRE:
             if sq not in st.session_state.squadre:
                 st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
@@ -1206,6 +1209,7 @@ with st.sidebar:
         "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if not st.session_state.quotazioni_2025_26.empty else [],
         "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
         "wizard_completato": st.session_state.get("wizard_completato", False),
+        "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
     }
     json_bytes = json.dumps(save_data, ensure_ascii=False, indent=2).encode('utf-8')
     st.download_button(
@@ -1248,6 +1252,7 @@ with st.sidebar:
                 st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
                 st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
                 st.session_state.wizard_completato = data.get("wizard_completato", False)
+                st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE})
                 for sq in NOMI_SQUADRE:
                     if sq not in st.session_state.squadre:
                         st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
@@ -3997,6 +4002,37 @@ if menu == "⚙️ Importa & Esporta":
 if menu == "🎯 Simulatore Rosa":
     st.header("🎯 Simulatore di Completamento Rosa")
     st.caption("Pianifica gli acquisti per reparto, inserisci i prezzi che pensi di pagare, e scopri se chiudi la rosa col budget.")
+    # --- EXPORT/IMPORT PIANO DEDICATO ---
+    c_exp1, c_exp2, c_exp3 = st.columns([1, 1, 2])
+    with c_exp1:
+        piano_data = st.session_state.get("simulatore_rosa", {})
+        piano_json = json.dumps(piano_data, ensure_ascii=False, indent=2).encode("utf-8")
+        st.download_button(
+            label="⬇️ Scarica Piano",
+            data=piano_json,
+            file_name=f"piano_rosa_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True,
+            key="sim_export_piano"
+        )
+    with c_exp2:
+        up_piano = st.file_uploader("⬆️ Carica Piano", type=["json"], key="sim_import_piano")
+        if up_piano is not None:
+            try:
+                piano_loaded = json.load(up_piano)
+                # Validazione base
+                if isinstance(piano_loaded, dict) and all(sq in piano_loaded for sq in NOMI_SQUADRE):
+                    st.session_state.simulatore_rosa = piano_loaded
+                    save_state()
+                    st.success("✅ Piano caricato!")
+                    st.rerun()
+                else:
+                    st.error("❌ Formato piano non valido")
+            except Exception as e:
+                st.error(f"Errore caricamento: {e}")
+    with c_exp3:
+        st.caption("💡 Il piano viene anche salvato automaticamente nel backup completo (JSON/Pickle). Puoi scaricarlo qui separatamente o ripristinarlo da file.")
+
 
     # --- INIZIALIZZAZIONE STATO SIMULATORE ---
     if "simulatore_rosa" not in st.session_state:
