@@ -274,6 +274,33 @@ class StateManager:
 
 def save_state():
     StateManager.save()
+    # Auto-save incrementale ogni 5 operazioni
+    if "_ops_count" not in st.session_state:
+        st.session_state._ops_count = 0
+    st.session_state._ops_count += 1
+    if st.session_state._ops_count % 5 == 0:
+        # Salva anche un backup con timestamp
+        try:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"fantamanager_auto_{ts}.pkl"
+            data = {
+                "squadre": st.session_state.squadre,
+                "storico_mercato": st.session_state.storico_mercato,
+                "watchlist": st.session_state.watchlist,
+                "prestiti": st.session_state.prestiti,
+                "contratti": st.session_state.contratti,
+                "giocatori_db": st.session_state.giocatori_db,
+                "stats_storiche": st.session_state.stats_storiche,
+                "stats_per_stagione": st.session_state.get("stats_per_stagione", {}),
+                "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
+                "quotazioni_2025_26": st.session_state.quotazioni_2025_26,
+                "wizard_completato": st.session_state.get("wizard_completato", False),
+            }
+            with open(backup_name, "wb") as f:
+                pickle.dump(data, f)
+            st.toast(f"💾 Auto-backup #{st.session_state._ops_count} salvato", icon="💾")
+        except Exception:
+            pass
 
 def load_state():
     return StateManager.load()
@@ -801,8 +828,10 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
 
 
 def _build_stats_html(nome, stats_per_stagione):
-    """Costruisce HTML con le statistiche storiche di un giocatore."""
+    """Costruisce HTML con le statistiche storiche di un giocatore + mini grafico FM."""
     rows = []
+    fm_points = []
+    stagioni_label = []
     for stagione, df in sorted(stats_per_stagione.items()):
         if df.empty or "Nome" not in df.columns:
             continue
@@ -823,9 +852,43 @@ def _build_stats_html(nome, stats_per_stagione):
             part = r.get("Partite", "—")
             rig = r.get("Rigori", "—")
             rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td></tr>')
+            try:
+                fm_val = float(fm)
+                if fm_val > 0:
+                    fm_points.append(fm_val)
+                    stagioni_label.append(stagione)
+            except (TypeError, ValueError):
+                pass
+
+    # Mini grafico SVG andamento FM
+    chart_svg = ""
+    if len(fm_points) >= 2:
+        w, h = 280, 80
+        pad = 10
+        max_fm = max(fm_points + [8.0])
+        min_fm = min(fm_points + [4.0])
+        rng = max_fm - min_fm if max_fm != min_fm else 1
+        n = len(fm_points)
+        pts = []
+        for i, val in enumerate(fm_points):
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
+            pts.append(f"{x:.1f},{y:.1f}")
+        polyline = " ".join(pts)
+        circles = ""
+        for i, val in enumerate(fm_points):
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
+            circles += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#00d26a"/><text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" fill="#ffd700" font-size="8">{val:.1f}</text>'
+        labels = ""
+        for i, lbl in enumerate(stagioni_label):
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            labels += f'<text x="{x:.1f}" y="{h-2:.1f}" text-anchor="middle" fill="#888" font-size="7">{lbl}</text>'
+        chart_svg = f'<div style="margin:10px 0;"><svg width="{w}" height="{h}" style="background:#0f0f24;border-radius:6px;"><polyline points="{polyline}" fill="none" stroke="#00d26a" stroke-width="2"/>{circles}{labels}</svg></div>'
+
     if not rows:
         return '<div style="padding:8px;color:#888;font-size:0.8em;text-align:center;">📭 Nessuno storico disponibile</div>'
-    return f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
+    return chart_svg + f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
 
 
 def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=None, show_titolarita=True):
@@ -1336,6 +1399,11 @@ if menu == "🔍 Scouting & Database":
                 solo_svinc = st.checkbox("Solo Svincolati", value=False, key="scout_svinc")
                 search = st.text_input("Cerca nome", key="scout_search")
             with f7:
+                sq_mancanti = st.selectbox("🎯 Solo ruoli che mi mancano", ["Nessuno"] + NOMI_SQUADRE, key="scout_mancanti")
+                if sq_mancanti != "Nessuno":
+                    riep_m = riepilogo_rosa(sq_mancanti)
+                    ruoli_mancanti = [r for r in ROSA_REQ if riep_m[r]["mancanti"] > 0]
+                    st.caption(f"Mancano: {', '.join(ruoli_mancanti) if ruoli_mancanti else 'Nessuno'}")
                 if "Variazione_%" in df.columns:
                     var_vals = pd.to_numeric(df["Variazione_%"], errors="coerce").dropna()
                     var_min, var_max = (round(float(var_vals.min()), 1), round(float(var_vals.max()), 1)) if len(var_vals) > 0 else (-100.0, 100.0)
@@ -1360,6 +1428,15 @@ if menu == "🔍 Scouting & Database":
             df_f = df_f[df_f["Squadra_SerieA"].isin(filtro_sa)]
         if solo_svinc:
             df_f = df_f[df_f["Proprietario"] == "Svincolato 🟢"]
+        if sq_mancanti != "Nessuno":
+            riep_m = riepilogo_rosa(sq_mancanti)
+            ruoli_mancanti = [r for r in ROSA_REQ if riep_m[r]["mancanti"] > 0]
+            if ruoli_mancanti:
+                df_f = df_f[df_f["Ruolo"].isin(ruoli_mancanti)]
+                st.info(f"🎯 Filtro attivo per **{sq_mancanti}**: mostro solo {', '.join(ruoli_mancanti)} (mancano {sum(riep_m[r]['mancanti'] for r in ruoli_mancanti)} giocatori)")
+            else:
+                st.success(f"✅ **{sq_mancanti}** ha la rosa completa!")
+                df_f = df_f.iloc[0:0]  # dataframe vuoto
         if search:
             df_f = df_f[df_f["Nome"].str.contains(search, case=False, na=False)]
         if "Variazione_%" in df_f.columns and df_f["Variazione_%"].notna().any():
@@ -1441,6 +1518,50 @@ if menu == "🔍 Scouting & Database":
                         )
                 else:
                     st.caption("Nessuno svincolato")
+
+        # ============================================================
+        # 🎲 RANDOM PICK
+        # ============================================================
+        st.markdown("---")
+        st.subheader("🎲 Estrazione Casuale")
+        st.caption("Lascia che il caso ti suggerisca un giocatore in base ai tuoi filtri attuali.")
+        c_rand1, c_rand2, c_rand3 = st.columns([2, 2, 1])
+        with c_rand1:
+            rand_ruolo = st.selectbox("Ruolo", ["Qualsiasi", "P", "D", "C", "A"], key="rand_ruolo")
+        with c_rand2:
+            rand_budget_sq = st.selectbox("Budget squadra", ["Nessuno"] + NOMI_SQUADRE, key="rand_budget")
+        with c_rand3:
+            st.write("")
+            st.write("")
+            if st.button("🎲 Estrai", type="primary", use_container_width=True):
+                pool = df_f.copy()
+                if rand_ruolo != "Qualsiasi":
+                    pool = pool[pool["Ruolo"] == rand_ruolo]
+                if rand_budget_sq != "Nessuno":
+                    cred_disp = st.session_state.squadre[rand_budget_sq]["crediti"]
+                    pool = pool[pool["Quotazione"] <= cred_disp]
+                if not pool.empty:
+                    estratto = pool.sample(1).iloc[0]
+                    st.session_state["rand_estratto"] = estratto.to_dict()
+                    st.rerun()
+                else:
+                    st.warning("Nessun giocatore matcha i filtri!")
+
+        if "rand_estratto" in st.session_state:
+            estr = st.session_state["rand_estratto"]
+            st.markdown("---")
+            st.markdown(f"### 🎰 Estratto: **{estr['Nome']}**")
+            c_e1, c_e2, c_e3 = st.columns(3)
+            with c_e1:
+                st.metric("Ruolo", estr['Ruolo'])
+            with c_e2:
+                st.metric("FantaMedia", estr['FantaMedia'])
+            with c_e3:
+                st.metric("Quotazione", f"{int(estr['Quotazione'])}cr")
+            st.caption(f"{estr.get('Squadra_SerieA', 'N/D')} | Fascia: {estr.get('Consiglio', 'N/D')} | IA: {estr.get('Indice_Affare', 'N/D')}")
+            if st.button("🗑️ Chiudi estrazione"):
+                del st.session_state["rand_estratto"]
+                st.rerun()
 
         # ============================================================
         # FORMAZIONI TITOLARI SERIE A
@@ -1673,6 +1794,111 @@ if menu == "🔨 Asta Live":
     st.header("🔨 Gestione Asta")
     st.caption("Gestisci l'asta in tempo reale: seleziona giocatore, raccogli offerte, assegna.")
 
+    # --- SIMULAZIONE ASTA AVVERSARIA ---
+    with st.expander("🔮 Simula Asta Avversaria", expanded=False):
+        st.caption("Inserisci il giocatore che stanno chiamando gli altri: scopri chi può permetterselo e a quanto.")
+        db_sim = st.session_state.giocatori_db
+        svinc_sim = get_svincolati(db_sim)
+        if not svinc_sim.empty:
+            g_sim = st.selectbox("Giocatore all'asta", svinc_sim["Nome"].values, key="sim_avv_g")
+            if g_sim:
+                info_sim = db_sim[db_sim["Nome"] == g_sim].iloc[0]
+                ruolo_sim = info_sim["Ruolo"]
+                quot_sim = int(info_sim["Quotazione"])
+                st.markdown(f"**{g_sim}** — {ruolo_sim} | Quotazione: {quot_sim}cr")
+                riep_sim = get_all_riepiloghi()
+                avv_data = []
+                for sq_avv in NOMI_SQUADRE:
+                    riep_avv = riep_sim[sq_avv]
+                    mancanti_avv = riep_avv[ruolo_sim]["mancanti"]
+                    off_max_avv = riep_avv[ruolo_sim]["offerta_max"]
+                    crediti_avv = riep_avv["crediti"]
+                    ha_gia = any(g["Nome"].lower() == g_sim.lower() for g in st.session_state.squadre[sq_avv]["rosa"])
+                    if not ha_gia and mancanti_avv > 0:
+                        pericolo = "🔴 ALTO" if off_max_avv >= quot_sim else ("🟠 MEDIO" if off_max_avv >= quot_sim * 0.7 else "🟢 BASSO")
+                        avv_data.append({
+                            "Squadra": sq_avv, "Crediti": crediti_avv,
+                            f"Mancano {ruolo_sim}": mancanti_avv, "Offerta Max": off_max_avv,
+                            "Pericolo": pericolo,
+                            "Può Prenderlo": "✅ SÌ" if off_max_avv >= quot_sim else "❌ NO"
+                        })
+                if avv_data:
+                    df_avv_sim = pd.DataFrame(avv_data).sort_values("Offerta Max", ascending=False)
+                    st.dataframe(df_avv_sim, use_container_width=True, hide_index=True)
+                    minacciose = df_avv_sim[df_avv_sim["Offerta Max"] >= quot_sim]
+                    if not minacciose.empty:
+                        st.error(f"⚠️ **{len(minacciose)} squadre** possono permettersi {g_sim} alla quotazione ({quot_sim}cr): {', '.join(minacciose['Squadra'].tolist())}")
+                    else:
+                        st.success(f"🛡️ Nessuna squadra può permettersi {g_sim} alla quotazione di listone.")
+                else:
+                    st.info("Nessuna squadra ha bisogno di questo ruolo.")
+        else:
+            st.info("Nessuno svincolato disponibile.")
+
+    # --- ASTA RAPIDA ---
+    with st.expander("📱 Modalità Asta Rapida", expanded=False):
+        st.caption("Scorri automaticamente i giocatori svincolati in sequenza. Utile per le prime tornate.")
+        db_rap = st.session_state.giocatori_db
+        svinc_rap = get_svincolati(db_rap)
+        if not svinc_rap.empty:
+            # Inizializza indice se non presente
+            if "asta_rapida_idx" not in st.session_state:
+                st.session_state.asta_rapida_idx = 0
+            if "asta_rapida_filtro_ruolo" not in st.session_state:
+                st.session_state.asta_rapida_filtro_ruolo = "Tutti"
+
+            filtro_rap = st.selectbox("Filtra per ruolo", ["Tutti", "P", "D", "C", "A"], key="rap_filtro")
+            if filtro_rap != st.session_state.asta_rapida_filtro_ruolo:
+                st.session_state.asta_rapida_filtro_ruolo = filtro_rap
+                st.session_state.asta_rapida_idx = 0
+                st.rerun()
+
+            if filtro_rap != "Tutti":
+                svinc_rap = svinc_rap[svinc_rap["Ruolo"] == filtro_rap]
+
+            if not svinc_rap.empty:
+                idx = st.session_state.asta_rapida_idx % len(svinc_rap)
+                g_rap = svinc_rap.iloc[idx]
+                nome_rap = g_rap["Nome"]
+
+                st.markdown(f"### 📌 {nome_rap}")
+                c_r1, c_r2, c_r3 = st.columns(3)
+                with c_r1:
+                    st.metric("Ruolo", g_rap["Ruolo"])
+                with c_r2:
+                    st.metric("FantaMedia", g_rap["FantaMedia"])
+                with c_r3:
+                    st.metric("Quotazione", f"{int(g_rap['Quotazione'])}cr")
+                st.caption(f"{g_rap.get('Squadra_SerieA', 'N/D')} | Fascia: {g_rap.get('Consiglio', 'N/D')} | {g_rap.get('Note', '')}")
+
+                # Prezzo consigliato
+                stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap)
+                st.info(f"💡 Prezzo consigliato: **{pc_rap}cr**")
+
+                # Bottoni navigazione
+                c_nav1, c_nav2, c_nav3 = st.columns(3)
+                with c_nav1:
+                    if st.button("⏮️ Precedente", use_container_width=True):
+                        st.session_state.asta_rapida_idx = max(0, idx - 1)
+                        st.rerun()
+                with c_nav2:
+                    if st.button("▶️ Prossimo", type="primary", use_container_width=True):
+                        st.session_state.asta_rapida_idx = idx + 1
+                        st.rerun()
+                with c_nav3:
+                    if st.button("🎯 Assegna da qui", use_container_width=True):
+                        st.session_state["asta_giocatore_corrente"] = nome_rap
+                        st.session_state.asta_rapida_idx = idx
+                        st.toast(f"🎯 {nome_rap} selezionato per l'asta! Scorri sopra per assegnarlo.")
+                        st.rerun()
+
+                st.progress((idx + 1) / len(svinc_rap), text=f"Giocatore {idx + 1} di {len(svinc_rap)}")
+            else:
+                st.info("Nessun giocatore svincolato per questo ruolo.")
+        else:
+            st.success("🎉 Tutti i giocatori sono stati assegnati!")
+
     # --- TIMER ASTA ---
     with st.expander("⏱️ Timer Asta", expanded=False):
         t1, t2, t3 = st.columns(3)
@@ -1776,7 +2002,7 @@ if menu == "🔨 Asta Live":
                     off_max = riep_sq[ruolo_g]["offerta_max"]
                     mancanti = riep_sq[ruolo_g]["mancanti"]
                     ha_gia = any(g["Nome"].lower() == g_asta.lower() for g in st.session_state.squadre[sq]["rosa"])
-                    if not ha_gia and mancanti > 0:
+                    if not ha_gia and mancanti_avv > 0:
                         # Formula smart: min(pc_ai*1.1, off_max*0.9, crediti_sq)
                         sug = min(int(pc_ai * 1.05), int(off_max * 0.95), st.session_state.squadre[sq]["crediti"])
                         offerte_smart[sq] = max(1, sug)
