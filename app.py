@@ -1658,274 +1658,310 @@ if menu == "🔍 Scouting & Database":
         # ============================================================
         # TOP CARD — I MIGLIORI SVINCOLATI
         # ============================================================
-        st.markdown("---")
-        st.subheader("🏆 Top Svincolati — Schede Giocatore")
-        svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
-        if not svinc_df.empty:
-            top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
-            cards = st.columns(4)
-            stats_ps = st.session_state.get("stats_per_stagione", {})
-            for i, (_, row) in enumerate(top_mixed.iterrows()):
-                with cards[i % 4]:
-                    st.html(render_card_giocatore_espandibile(row, stats_ps, stats_2627))
-        else:
-            st.info("Nessuno svincolato disponibile.")
-
-        # ============================================================
-        # BEST BUY PER RUOLO (con titolarità)
-        # ============================================================
-        st.markdown("---")
-        st.subheader("🏆 Best Buy — Top 3 Sottovalutati per Ruolo")
-        best_cols = st.columns(4)
-        ruoli_color = {"P": "🔵", "D": "🟢", "C": "🟡", "A": "🔴"}
-        for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
-            with best_cols[idx_r]:
-                df_r = df[(df["Ruolo"] == ruolo) & (df["Proprietario"] == "Svincolato 🟢")].sort_values("Indice_Affare", ascending=False).head(3)
-                st.markdown(f"**{ruoli_color[ruolo]} {ruolo}**")
-                if not df_r.empty:
-                    for _, row in df_r.iterrows():
-                        pc = row.get("Prezzo_Consigliato")
-                        pc_txt = f"💡{int(pc)}cr" if pd.notna(pc) else ""
-                        tit_bar = ""
-                        if row["Indice_Titolarita"] >= 80:
-                            tit_bar = f'<span style="color:#00d26a;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
-                        elif row["Indice_Titolarita"] >= 60:
-                            tit_bar = f'<span style="color:#eab308;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
-                        else:
-                            tit_bar = f'<span style="color:#ef4444;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
-                        st.html(
-                            f'<div style="background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;">'
-                            f'<b>{row["Nome"]}</b> ({row["Squadra_SerieA"]})<br/>'
-                            f'<span style="color:#888;font-size:0.85em;">FM {row["FantaMedia"]} | Q {int(row["Quotazione"])}cr | IA {row["Indice_Affare"]}</span> {pc_txt}<br/>'
-                            f'{tit_bar}'
-                            f'</div>'
-                        )
-                else:
-                    st.caption("Nessuno svincolato")
-
-        # ============================================================
-        # 🎲 RANDOM PICK
-        # ============================================================
-        st.markdown("---")
-        st.subheader("🎲 Estrazione Casuale")
-        st.caption("Lascia che il caso ti suggerisca un giocatore in base ai tuoi filtri attuali.")
-        c_rand1, c_rand2, c_rand3 = st.columns([2, 2, 1])
-        with c_rand1:
-            rand_ruolo = st.selectbox("Ruolo", ["Qualsiasi", "P", "D", "C", "A"], key="rand_ruolo")
-        with c_rand2:
-            rand_budget_sq = st.selectbox("Budget squadra", ["Nessuno"] + NOMI_SQUADRE, key="rand_budget")
-        with c_rand3:
-            st.write("")
-            st.write("")
-            if st.button("🎲 Estrai", type="primary", use_container_width=True):
-                pool = df_f.copy()
-                if rand_ruolo != "Qualsiasi":
-                    pool = pool[pool["Ruolo"] == rand_ruolo]
-                if rand_budget_sq != "Nessuno":
-                    cred_disp = st.session_state.squadre[rand_budget_sq]["crediti"]
-                    pool = pool[pool["Quotazione"] <= cred_disp]
-                if not pool.empty:
-                    estratto = pool.sample(1).iloc[0]
-                    st.session_state["rand_estratto"] = estratto.to_dict()
-                    st.rerun()
-                else:
-                    st.warning("Nessun giocatore matcha i filtri!")
-
-        if "rand_estratto" in st.session_state:
-            estr = st.session_state["rand_estratto"]
-            st.markdown("---")
-            st.markdown(f"### 🎰 Estratto: **{estr['Nome']}**")
-            c_e1, c_e2, c_e3 = st.columns(3)
-            with c_e1:
-                st.metric("Ruolo", estr['Ruolo'])
-            with c_e2:
-                st.metric("FantaMedia", estr['FantaMedia'])
-            with c_e3:
-                st.metric("Quotazione", f"{int(estr['Quotazione'])}cr")
-            st.caption(f"{estr.get('Squadra_SerieA', 'N/D')} | Fascia: {estr.get('Consiglio', 'N/D')} | IA: {estr.get('Indice_Affare', 'N/D')}")
-            if st.button("🗑️ Chiudi estrazione"):
-                del st.session_state["rand_estratto"]
-                st.rerun()
-
-        # ============================================================
-        st.markdown("---")
-        st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
-        display_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato",
-                                    "Quotazione_2025_26", "Variazione_%", "FantaMedia", "Indice_Affare",
-                                    "Indice_Titolarita", "Proprietario", "Consiglio", "Note"] if c in df_f.columns]
-        st.dataframe(df_f[display_cols].sort_values("Indice_Titolarita", ascending=False),
-                     use_container_width=True, hide_index=True)
-
-        # ============================================================
-        # CONFRONTO MULTI-GIOCATORI (fino a 4)
-        # ============================================================
-        st.markdown("---")
-        st.subheader("⚔️ Confronto Multi-Giocatore")
-        n_giocatori = st.segmented_control("Quanti confrontare?", [2, 3, 4], default=2, key="n_comp")
-        n_giocatori = n_giocatori or 2
-        nomi = df["Nome"].values.tolist()
-        selezionati = []
-        cols_comp = st.columns(n_giocatori)
-        for i in range(n_giocatori):
-            with cols_comp[i]:
-                default_idx = min(i, len(nomi)-1)
-                g = st.selectbox(f"Giocatore {i+1}", nomi, index=default_idx, key=f"comp{i}")
-                selezionati.append(g)
-
-        selezionati = list(dict.fromkeys(selezionati))  # rimuovi duplicati
-        if len(selezionati) >= 2:
-            rows = []
-            for nome_g in selezionati:
-                r = df[df["Nome"] == nome_g].iloc[0]
-                row = {
-                    "Giocatore": nome_g,
-                    "Ruolo": r["Ruolo"],
-                    "Squadra": r["Squadra_SerieA"],
-                    "Quotazione": f"{int(r['Quotazione'])}cr",
-                    "FantaMedia": r["FantaMedia"],
-                    "Indice Affare": r["Indice_Affare"],
-                    "Titolarità": r["Indice_Titolarita"],
-                    "Proprietario": r["Proprietario"],
-                }
-                if "Variazione_%" in df.columns:
-                    row["Variazione %"] = f"{r['Variazione_%']}%"
-                rows.append(row)
-            df_comp = pd.DataFrame(rows)
-            st.dataframe(df_comp.set_index("Giocatore").T, use_container_width=True)
-
-            # Grafico radar-like con barre
-            chart_rows = []
-            for nome_g in selezionati:
-                r = df[df["Nome"] == nome_g].iloc[0]
-                chart_rows.append({"Giocatore": nome_g, "Metrica": "FantaMedia", "Valore": r["FantaMedia"]})
-                chart_rows.append({"Giocatore": nome_g, "Metrica": "Titolarità/10", "Valore": r["Indice_Titolarita"]/10})
-                chart_rows.append({"Giocatore": nome_g, "Metrica": "Affare×50", "Valore": r["Indice_Affare"]*50})
-            chart_df = pd.DataFrame(chart_rows)
-            pivot = chart_df.pivot(index="Metrica", columns="Giocatore", values="Valore")
-            st.bar_chart(pivot, use_container_width=True)
-
-            # Vincitore per indice affare
-            best = max(rows, key=lambda x: x["Indice Affare"])
-            st.success(f"🏆 Miglior indice affare: **{best['Giocatore']}** ({best['Indice Affare']})")
-
-        # ============================================================
-        # CHI PUO PERMETTERSELO
-        # ============================================================
-        st.markdown("---")
-        st.subheader("💰 Chi può Permetterselo?")
-        g_target = st.selectbox("Giocatore da analizzare", df["Nome"].values, key="g_target")
-        if g_target:
-            info_t = df[df["Nome"] == g_target].iloc[0]
-            ruolo_t = info_t["Ruolo"]
-            quot_t = int(info_t["Quotazione"])
-            st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr | Titolarità: {info_t['Indice_Titolarita']}/100")
-            avv_data = []
-            riepiloghi = get_all_riepiloghi()
-            for sq_avv in NOMI_SQUADRE:
-                riep_avv = riepiloghi[sq_avv]
-                mancanti_avv = riep_avv[ruolo_t]["mancanti"]
-                off_max_avv = riep_avv[ruolo_t]["offerta_max"]
-                crediti_avv = riep_avv["crediti"]
-                ha_giocatore = any(g["Nome"].lower() == g_target.lower() for g in st.session_state.squadre[sq_avv]["rosa"])
-                avv_data.append({
-                    "Squadra": sq_avv, "Crediti": crediti_avv,
-                    f"Mancano {ruolo_t}": mancanti_avv, "Offerta Max": off_max_avv,
-                    "Può Permetterselo": "✅ SÌ" if off_max_avv >= quot_t and not ha_giocatore else ("❌ NO" if not ha_giocatore else "🔄 GIÀ IN ROSA"),
-                    "Distanza": off_max_avv - quot_t if not ha_giocatore else None
-                })
-            df_avv_target = pd.DataFrame(avv_data).sort_values("Offerta Max", ascending=False)
-            st.dataframe(df_avv_target, use_container_width=True, hide_index=True)
-            possono = df_avv_target[df_avv_target["Può Permetterselo"] == "✅ SÌ"]
-            if not possono.empty:
-                st.info(f"📢 **{len(possono)} squadre** possono permettersi {g_target} alla quotazione di listone ({quot_t}cr)")
+        with st.expander("🏆 Top Picks — Schede & Best Buy", expanded=True):
+            st.subheader("🏆 Top Svincolati — Schede Giocatore")
+            svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
+            if not svinc_df.empty:
+                top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
+                cards = st.columns(4)
+                stats_ps = st.session_state.get("stats_per_stagione", {})
+                for i, (_, row) in enumerate(top_mixed.iterrows()):
+                    with cards[i % 4]:
+                        st.html(render_card_giocatore_espandibile(row, stats_ps, stats_2627))
             else:
-                st.success(f"🛡️ Nessuna squadra può permettersi {g_target} alla quotazione di listone.")
+                st.info("Nessuno svincolato disponibile.")
 
-        # ============================================================
-        # EDITOR PREZZI + WATCHLIST
-        # ============================================================
-        st.markdown("---")
-        st.subheader("✏️ Modifica Prezzi Consigliati")
-        editor_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Consiglio", "Note"] if c in df.columns]
-        df_edit = df[editor_cols].copy()
-        df_edited = st.data_editor(
-            df_edit,
-            column_config={
-                "Prezzo_Consigliato": st.column_config.NumberColumn("Prezzo Consigliato", min_value=0, max_value=500, step=1, format="%d cr"),
-                "Nome": st.column_config.TextColumn("Nome", disabled=True),
-                "Ruolo": st.column_config.TextColumn("Ruolo", disabled=True),
-                "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
-                "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
-                "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
-                "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
-                "Note": st.column_config.TextColumn("Note", disabled=True),
-            },
-            use_container_width=True, num_rows="fixed", key="editor_prezzi"
-        )
-        if st.button("💾 Salva Prezzi Consigliati", type="primary"):
-            if "Prezzo_Consigliato" in df_edited.columns:
-                st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
-                st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
-                    df_edited[["Nome", "Prezzo_Consigliato"]], on="Nome", how="left"
-                )
+            # ============================================================
+            # BEST BUY PER RUOLO (con titolarità)
+            # ============================================================
+            st.markdown("---")
+            st.subheader("🏆 Best Buy — Top 3 Sottovalutati per Ruolo")
+            best_cols = st.columns(4)
+            ruoli_color = {"P": "🔵", "D": "🟢", "C": "🟡", "A": "🔴"}
+            for idx_r, ruolo in enumerate(["P", "D", "C", "A"]):
+                with best_cols[idx_r]:
+                    df_r = df[(df["Ruolo"] == ruolo) & (df["Proprietario"] == "Svincolato 🟢")].sort_values("Indice_Affare", ascending=False).head(3)
+                    st.markdown(f"**{ruoli_color[ruolo]} {ruolo}**")
+                    if not df_r.empty:
+                        for _, row in df_r.iterrows():
+                            pc = row.get("Prezzo_Consigliato")
+                            pc_txt = f"💡{int(pc)}cr" if pd.notna(pc) else ""
+                            tit_bar = ""
+                            if row["Indice_Titolarita"] >= 80:
+                                tit_bar = f'<span style="color:#00d26a;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
+                            elif row["Indice_Titolarita"] >= 60:
+                                tit_bar = f'<span style="color:#eab308;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
+                            else:
+                                tit_bar = f'<span style="color:#ef4444;font-size:0.75em;">● Tit. {row["Indice_Titolarita"]}</span>'
+                            st.html(
+                                f'<div style="background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;">'
+                                f'<b>{row["Nome"]}</b> ({row["Squadra_SerieA"]})<br/>'
+                                f'<span style="color:#888;font-size:0.85em;">FM {row["FantaMedia"]} | Q {int(row["Quotazione"])}cr | IA {row["Indice_Affare"]}</span> {pc_txt}<br/>'
+                                f'{tit_bar}'
+                                f'</div>'
+                            )
+                    else:
+                        st.caption("Nessuno svincolato")
+
+            # ============================================================
+            # 🎲 RANDOM PICK
+            # ============================================================
+        with st.expander("🎲 Estrazione Casuale", expanded=False):
+            st.subheader("🎲 Estrazione Casuale")
+            st.caption("Lascia che il caso ti suggerisca un giocatore in base ai tuoi filtri attuali.")
+            c_rand1, c_rand2, c_rand3 = st.columns([2, 2, 1])
+            with c_rand1:
+                rand_ruolo = st.selectbox("Ruolo", ["Qualsiasi", "P", "D", "C", "A"], key="rand_ruolo")
+            with c_rand2:
+                rand_budget_sq = st.selectbox("Budget squadra", ["Nessuno"] + NOMI_SQUADRE, key="rand_budget")
+            with c_rand3:
+                st.write("")
+                st.write("")
+                if st.button("🎲 Estrai", type="primary", use_container_width=True):
+                    pool = df_f.copy()
+                    if rand_ruolo != "Qualsiasi":
+                        pool = pool[pool["Ruolo"] == rand_ruolo]
+                    if rand_budget_sq != "Nessuno":
+                        cred_disp = st.session_state.squadre[rand_budget_sq]["crediti"]
+                        pool = pool[pool["Quotazione"] <= cred_disp]
+                    if not pool.empty:
+                        estratto = pool.sample(1).iloc[0]
+                        st.session_state["rand_estratto"] = estratto.to_dict()
+                        st.rerun()
+                    else:
+                        st.warning("Nessun giocatore matcha i filtri!")
+
+            if "rand_estratto" in st.session_state:
+                estr = st.session_state["rand_estratto"]
+                st.markdown("---")
+                st.markdown(f"### 🎰 Estratto: **{estr['Nome']}**")
+                c_e1, c_e2, c_e3 = st.columns(3)
+                with c_e1:
+                    st.metric("Ruolo", estr['Ruolo'])
+                with c_e2:
+                    st.metric("FantaMedia", estr['FantaMedia'])
+                with c_e3:
+                    st.metric("Quotazione", f"{int(estr['Quotazione'])}cr")
+                st.caption(f"{estr.get('Squadra_SerieA', 'N/D')} | Fascia: {estr.get('Consiglio', 'N/D')} | IA: {estr.get('Indice_Affare', 'N/D')}")
+                if st.button("🗑️ Chiudi estrazione"):
+                    del st.session_state["rand_estratto"]
+                    st.rerun()
+
+            # ============================================================
+        with st.expander("📋 Risultati Tabella", expanded=True):
+            st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
+            display_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato",
+                                        "Quotazione_2025_26", "Variazione_%", "FantaMedia", "Indice_Affare",
+                                        "Indice_Titolarita", "Proprietario", "Consiglio", "Note"] if c in df_f.columns]
+            st.dataframe(df_f[display_cols].sort_values("Indice_Titolarita", ascending=False),
+                         use_container_width=True, hide_index=True)
+
+            # ============================================================
+            # CONFRONTO MULTI-GIOCATORI (fino a 4)
+            # ============================================================
+        with st.expander("⚔️ Confronto Multi-Giocatore", expanded=False):
+            st.subheader("⚔️ Confronto Multi-Giocatore")
+            n_giocatori = st.segmented_control("Quanti confrontare?", [2, 3, 4], default=2, key="n_comp")
+            n_giocatori = n_giocatori or 2
+            nomi = df["Nome"].values.tolist()
+            selezionati = []
+            cols_comp = st.columns(n_giocatori)
+            for i in range(n_giocatori):
+                with cols_comp[i]:
+                    default_idx = min(i, len(nomi)-1)
+                    g = st.selectbox(f"Giocatore {i+1}", nomi, index=default_idx, key=f"comp{i}")
+                    selezionati.append(g)
+
+            selezionati = list(dict.fromkeys(selezionati))  # rimuovi duplicati
+            if len(selezionati) >= 2:
+                rows = []
+                for nome_g in selezionati:
+                    r = df[df["Nome"] == nome_g].iloc[0]
+                    row = {
+                        "Giocatore": nome_g,
+                        "Ruolo": r["Ruolo"],
+                        "Squadra": r["Squadra_SerieA"],
+                        "Quotazione": f"{int(r['Quotazione'])}cr",
+                        "FantaMedia": r["FantaMedia"],
+                        "Indice Affare": r["Indice_Affare"],
+                        "Titolarità": r["Indice_Titolarita"],
+                        "Proprietario": r["Proprietario"],
+                    }
+                    if "Variazione_%" in df.columns:
+                        row["Variazione %"] = f"{r['Variazione_%']}%"
+                    rows.append(row)
+                df_comp = pd.DataFrame(rows)
+                st.dataframe(df_comp.set_index("Giocatore").T, use_container_width=True)
+
+                # Grafico radar-like con barre
+                chart_rows = []
+                for nome_g in selezionati:
+                    r = df[df["Nome"] == nome_g].iloc[0]
+                    chart_rows.append({"Giocatore": nome_g, "Metrica": "FantaMedia", "Valore": r["FantaMedia"]})
+                    chart_rows.append({"Giocatore": nome_g, "Metrica": "Titolarità/10", "Valore": r["Indice_Titolarita"]/10})
+                    chart_rows.append({"Giocatore": nome_g, "Metrica": "Affare×50", "Valore": r["Indice_Affare"]*50})
+                chart_df = pd.DataFrame(chart_rows)
+                pivot = chart_df.pivot(index="Metrica", columns="Giocatore", values="Valore")
+                st.bar_chart(pivot, use_container_width=True)
+
+                # Vincitore per indice affare
+                best = max(rows, key=lambda x: x["Indice Affare"])
+                st.success(f"🏆 Miglior indice affare: **{best['Giocatore']}** ({best['Indice Affare']})")
+
+            # ============================================================
+            # CHI PUO PERMETTERSELO
+            # ============================================================
+        with st.expander("💰 Chi può Permetterselo? — Analisi Avversari", expanded=False):
+            st.subheader("💰 Chi può Permetterselo?")
+            g_target = st.selectbox("Giocatore da analizzare", df["Nome"].values, key="g_target")
+            if g_target:
+                info_t = df[df["Nome"] == g_target].iloc[0]
+                ruolo_t = info_t["Ruolo"]
+                quot_t = int(info_t["Quotazione"])
+                st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr | Titolarità: {info_t['Indice_Titolarita']}/100")
+                avv_data = []
+                riepiloghi = get_all_riepiloghi()
+                for sq_avv in NOMI_SQUADRE:
+                    riep_avv = riepiloghi[sq_avv]
+                    mancanti_avv = riep_avv[ruolo_t]["mancanti"]
+                    off_max_avv = riep_avv[ruolo_t]["offerta_max"]
+                    crediti_avv = riep_avv["crediti"]
+                    ha_giocatore = any(g["Nome"].lower() == g_target.lower() for g in st.session_state.squadre[sq_avv]["rosa"])
+                    avv_data.append({
+                        "Squadra": sq_avv, "Crediti": crediti_avv,
+                        f"Mancano {ruolo_t}": mancanti_avv, "Offerta Max": off_max_avv,
+                        "Può Permetterselo": "✅ SÌ" if off_max_avv >= quot_t and not ha_giocatore else ("❌ NO" if not ha_giocatore else "🔄 GIÀ IN ROSA"),
+                        "Distanza": off_max_avv - quot_t if not ha_giocatore else None
+                    })
+                df_avv_target = pd.DataFrame(avv_data).sort_values("Offerta Max", ascending=False)
+                st.dataframe(df_avv_target, use_container_width=True, hide_index=True)
+                possono = df_avv_target[df_avv_target["Può Permetterselo"] == "✅ SÌ"]
+                if not possono.empty:
+                    st.info(f"📢 **{len(possono)} squadre** possono permettersi {g_target} alla quotazione di listone ({quot_t}cr)")
+                else:
+                    st.success(f"🛡️ Nessuna squadra può permettersi {g_target} alla quotazione di listone.")
+
+            # ============================================================
+            # EDITOR PREZZI + WATCHLIST
+            # ============================================================
+        with st.expander("🛠️ Tools Editing — Prezzi, AI & Fasce", expanded=False):
+            st.subheader("✏️ Modifica Prezzi Consigliati")
+            editor_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Consiglio", "Note"] if c in df.columns]
+            df_edit = df[editor_cols].copy()
+            df_edited = st.data_editor(
+                df_edit,
+                column_config={
+                    "Prezzo_Consigliato": st.column_config.NumberColumn("Prezzo Consigliato", min_value=0, max_value=500, step=1, format="%d cr"),
+                    "Nome": st.column_config.TextColumn("Nome", disabled=True),
+                    "Ruolo": st.column_config.TextColumn("Ruolo", disabled=True),
+                    "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
+                    "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
+                    "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
+                    "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
+                    "Note": st.column_config.TextColumn("Note", disabled=True),
+                },
+                use_container_width=True, num_rows="fixed", key="editor_prezzi"
+            )
+            if st.button("💾 Salva Prezzi Consigliati", type="primary"):
+                if "Prezzo_Consigliato" in df_edited.columns:
+                    st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
+                    st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
+                        df_edited[["Nome", "Prezzo_Consigliato"]], on="Nome", how="left"
+                    )
+                    save_state()
+                    st.success("✅ Prezzi consigliati salvati!")
+                    st.rerun()
+
+            st.markdown("---")
+            st.subheader("🧠 Calcola Prezzi Consigliati AI")
+            if st.button("🚀 Calcola Tutti i Prezzi AI", type="primary"):
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                count = 0
+                for idx, row in st.session_state.giocatori_db.iterrows():
+                    if pd.isna(row.get("Prezzo_Consigliato")):
+                        pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df)
+                        st.session_state.giocatori_db.at[idx, "Prezzo_Consigliato"] = pc_ai
+                        count += 1
                 save_state()
-                st.success("✅ Prezzi consigliati salvati!")
+                st.success(f"✅ Calcolati {count} prezzi consigliati!")
                 st.rerun()
 
-        st.markdown("---")
-        st.subheader("🧠 Calcola Prezzi Consigliati AI")
-        if st.button("🚀 Calcola Tutti i Prezzi AI", type="primary"):
-            stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-            count = 0
-            for idx, row in st.session_state.giocatori_db.iterrows():
-                if pd.isna(row.get("Prezzo_Consigliato")):
-                    pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df)
-                    st.session_state.giocatori_db.at[idx, "Prezzo_Consigliato"] = pc_ai
-                    count += 1
-            save_state()
-            st.success(f"✅ Calcolati {count} prezzi consigliati!")
-            st.rerun()
-
-        st.markdown("---")
-        st.subheader("🎯 Ricalcola Fasce da Storico")
-        st.caption("Sovrascrive le fasce attuali analizzando le statistiche caricate nelle ultime stagioni.")
-        if st.button("🚀 Applica Classificazione Automatica", type="primary"):
-            applica_fasce_automatiche()
-            st.rerun()
-
-        st.markdown("---")
-        st.subheader("⭐ Watchlist")
-        g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
-        if st.button("Aggiungi"):
-            if g_sel not in st.session_state.watchlist:
-                st.session_state.watchlist.append(g_sel)
-                save_state()
-                st.success(f"{g_sel} aggiunto!")
+            st.markdown("---")
+            st.subheader("🎯 Ricalcola Fasce da Storico")
+            st.caption("Sovrascrive le fasce attuali analizzando le statistiche caricate nelle ultime stagioni.")
+            if st.button("🚀 Applica Classificazione Automatica", type="primary"):
+                applica_fasce_automatiche()
                 st.rerun()
-        if st.session_state.watchlist:
-            df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
-            stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-            df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
-            if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
-                df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
-            wl_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Quotazione_2025_26", "Variazione_%",
-                       "Prezzo_Consigliato", "Prezzo_AI", "FantaMedia", "Indice_Affare", "Indice_Titolarita", "Proprietario"]
-            wl_cols = [c for c in wl_cols if c in df_wl.columns]
-            stats_ps_wl = st.session_state.get("stats_per_stagione", {})
-            stats_2627_wl = stats_ps_wl.get("2026-27") if "2026-27" in stats_ps_wl else None
-            idx_wl = get_player_index()
-            for _, row_wl in df_wl.iterrows():
-                rdict = row_wl.to_dict()
-                rdict["Proprietario"] = idx_wl.get(str(rdict.get("Nome", "")).lower(), "Svincolato 🟢")
-                if pd.isna(rdict.get("Indice_Affare")):
-                    rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia", 6.0)) / max(float(rdict.get("Quotazione", 1)), 1), 2)
-                if pd.isna(rdict.get("Indice_Titolarita")):
-                    rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_wl)
-                st.html(render_card_giocatore_espandibile(rdict, stats_ps_wl, stats_2627_wl))
-            if st.button("Svuota Watchlist"):
-                st.session_state.watchlist = []
-                save_state()
-                st.rerun()
+
+        with st.expander("⭐ Watchlist", expanded=True):
+            st.subheader("⭐ Watchlist")
+            g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
+            c1_wl, c2_wl = st.columns([1, 1])
+            with c1_wl:
+                if st.button("Aggiungi", use_container_width=True):
+                    if g_sel not in st.session_state.watchlist:
+                        st.session_state.watchlist.append(g_sel)
+                        save_state()
+                        st.success(f"{g_sel} aggiunto!")
+                        st.rerun()
+            with c2_wl:
+                if st.button("🗑️ Svuota Watchlist", use_container_width=True):
+                    st.session_state.watchlist = []
+                    save_state()
+                    st.rerun()
+
+            if st.session_state.watchlist:
+                df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
+                if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
+                    df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
+
+                # Metriche riassuntive
+                tot_wl = len(df_wl)
+                conti_wl = {"P": 0, "D": 0, "C": 0, "A": 0}
+                budget_wl = 0
+                for _, r in df_wl.iterrows():
+                    ru = r.get("Ruolo", "C")
+                    if ru in conti_wl:
+                        conti_wl[ru] += 1
+                    budget_wl += int(r.get("Quotazione", 0))
+                m1, m2, m3, m4, m5 = st.columns(5)
+                with m1:
+                    st.metric("Totale Watchlist", tot_wl)
+                with m2:
+                    st.metric("🧤 Portieri", conti_wl["P"])
+                with m3:
+                    st.metric("🛡️ Difensori", conti_wl["D"])
+                with m4:
+                    st.metric("⚙️ Centrocampisti", conti_wl["C"])
+                with m5:
+                    st.metric("⚔️ Attaccanti", conti_wl["A"])
+                st.caption(f"💰 Budget totale quotazioni: **{budget_wl}cr** | Prezzo AI medio: **{int(df_wl['Prezzo_AI'].mean())}cr**")
+
+                stats_ps_wl = st.session_state.get("stats_per_stagione", {})
+                stats_2627_wl = stats_ps_wl.get("2026-27") if "2026-27" in stats_ps_wl else None
+                idx_wl = get_player_index()
+
+                # Card per ruolo
+                ruoli_wl = ["P", "D", "C", "A"]
+                ruoli_nomi_wl = {"P": "🧤 Portieri", "D": "🛡️ Difensori", "C": "⚙️ Centrocampisti", "A": "⚔️ Attaccanti"}
+                cols_wl = st.columns(4)
+                for idx_r, ruolo in enumerate(ruoli_wl):
+                    with cols_wl[idx_r]:
+                        st.markdown(f"**{ruoli_nomi_wl[ruolo]}**")
+                        df_r_wl = df_wl[df_wl["Ruolo"] == ruolo].sort_values("Indice_Titolarita", ascending=False)
+                        if not df_r_wl.empty:
+                            for _, row_wl in df_r_wl.iterrows():
+                                rdict = row_wl.to_dict()
+                                rdict["Proprietario"] = idx_wl.get(str(rdict.get("Nome", "")).lower(), "Svincolato 🟢")
+                                if pd.isna(rdict.get("Indice_Affare")):
+                                    rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia", 6.0)) / max(float(rdict.get("Quotazione", 1)), 1), 2)
+                                if pd.isna(rdict.get("Indice_Titolarita")):
+                                    rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_wl)
+                                st.html(render_card_giocatore_espandibile(rdict, stats_ps_wl, stats_2627_wl))
+                        else:
+                            st.caption("Nessuno")
 
 # ============================================================
 # 2. ASTA LIVE
