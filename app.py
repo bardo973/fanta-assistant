@@ -1329,10 +1329,34 @@ if menu == "🏠 Dashboard":
             heat_data.append({"Squadra": sq, "Ruolo": ruolo, "Completamento %": pct, "Posseduti": f"{poss}/{req}"})
     df_heat = pd.DataFrame(heat_data)
     pivot_heat = df_heat.pivot(index="Squadra", columns="Ruolo", values="Completamento %")
-    st.dataframe(
-        pivot_heat.style.background_gradient(cmap="RdYlGn", vmin=0, vmax=100).format("{:.1f}%"),
-        use_container_width=True
-    )
+
+    # Tabella HTML con colori inline (no matplotlib required)
+    def _heat_color(pct):
+        if pct >= 100:
+            return "#14532d"  # verde scuro
+        elif pct >= 75:
+            return "#166534"
+        elif pct >= 50:
+            return "#ca8a04"  # giallo
+        elif pct >= 25:
+            return "#9a3412"  # arancione
+        else:
+            return "#7f1d1d"  # rosso scuro
+
+    html_table = '<table style="width:100%;border-collapse:collapse;font-size:0.9em;"><thead><tr style="background:#1a1a2e;"><th style="padding:8px;text-align:left;color:#888;border-bottom:2px solid #2a2a4a;">Squadra</th>'
+    for ruolo in ["P", "D", "C", "A"]:
+        html_table += f'<th style="padding:8px;text-align:center;color:#888;border-bottom:2px solid #2a2a4a;">{ruolo}</th>'
+    html_table += '</tr></thead><tbody>'
+    for sq in NOMI_SQUADRE:
+        html_table += f'<tr><td style="padding:8px;color:#fff;font-weight:600;border-bottom:1px solid #2a2a4a;">{sq}</td>'
+        for ruolo in ["P", "D", "C", "A"]:
+            val = pivot_heat.loc[sq, ruolo] if sq in pivot_heat.index and ruolo in pivot_heat.columns else 0
+            bg = _heat_color(val)
+            txt = "#fff" if val < 50 else "#fff"
+            html_table += f'<td style="padding:8px;text-align:center;border-bottom:1px solid #2a2a4a;background:{bg};color:{txt};font-weight:bold;border-radius:4px;">{val:.0f}%</td>'
+        html_table += '</tr>'
+    html_table += '</tbody></table>'
+    st.html(html_table)
 
     st.markdown("---")
     st.subheader("💰 Classifica Crediti")
