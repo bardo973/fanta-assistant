@@ -110,522 +110,85 @@ st.markdown("""
 # LISTONE DEFAULT
 # ============================================================
 LISTONE_DEFAULT = [
-    {"Nome":"Malen","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":34,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Martinez L.","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":35,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Thuram","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":29,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Hojlund","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":28,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ramos G.","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":27,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kolo Muani","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":26,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kean","Ruolo":"A","Squadra_SerieA":"Fiorentina","Quotazione":25,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Douvikas","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":20,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Yildiz","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":23,"FantaMedia":8.1,"Consiglio":"top","Note":"Bomber implacabile da primo slot assoluto. Spendi il budget necessario.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Paz N.","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":30,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Calhanoglu","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":27,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"McTominay","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":28,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Orsolini","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":26,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pulisic","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":25,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rabiot","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":22,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Bruyne","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":15,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Baturina","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":19,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mora","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":19,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Da Cunha","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":18,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zaniolo","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":18,"FantaMedia":7.3,"Consiglio":"top","Note":"Top di centrocampo. Rigorista, trequartista o centrocampista con vizio costante del gol.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dimarco","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":32,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Wesley","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":17,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Molina N.","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":18,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bremer","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":15,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Akanji","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":16,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mancini","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":15,"FantaMedia":6.7,"Consiglio":"top","Note":"Top di reparto. Bonus pesanti da trequartista aggiunto o garanzia da modificatore.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Svilar","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":18,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Martinez Jo.","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":17,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vicario","Ruolo":"P","Squadra_SerieA":"Juventus","Quotazione":16,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Butez","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":16,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Meret","Ruolo":"P","Squadra_SerieA":"Napoli","Quotazione":11,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Carnesecchi","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":16,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Maignan","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":15,"FantaMedia":5.7,"Consiglio":"top","Note":"Top player assoluto del reparto. Porta da modificatore e da clean sheet.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Scamacca","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":19,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Davis K.","Ruolo":"A","Squadra_SerieA":"Udinese","Quotazione":19,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Esposito F.P.","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":16,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Berardi","Ruolo":"A","Squadra_SerieA":"Sassuolo","Quotazione":18,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Krstovic","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":18,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Ketelaere","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":17,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dybala","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":14,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Laurientè","Ruolo":"A","Squadra_SerieA":"Sassuolo","Quotazione":15,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Simeone","Ruolo":"A","Squadra_SerieA":"Torino","Quotazione":15,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Castro S.","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":14,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Raspadori","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":13,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Leao","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":18,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Santos A.","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":14,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dovbyk","Ruolo":"A","Squadra_SerieA":"Bologna","Quotazione":16,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pellegrino M.","Ruolo":"A","Squadra_SerieA":"Fiorentina","Quotazione":15,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Secondo slot di lusso. Attaccante titolare da doppia cifra garantita.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zaccagni","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":16,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Atta","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":17,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Barella","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":17,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vlasic","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":14,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"McKennie","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":17,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Frattesi","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":7,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Conceicao","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Taylor K.","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":13,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mastantuono","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Alajbegovic","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Moreira","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ederson D.S.","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Jones C.","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zambo Anguissa","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":11,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Modric","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ekkelenkamp","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zielinski","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rowe","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":11,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Diouf","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":8,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Konè M.","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Samardzic","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gudmundsson A.","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":13,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Politano","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Thorstvedt","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vergara","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":8,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Perrone","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Saelemaekers","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Thuram K.","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Casadei","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rodriguez Je.","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":12,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Baldanzi","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":11,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pellegrini Lo.","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":10,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Semitop di reparto. Centrocampista offensivo di inserimento o regista da bonus leggeri.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rrahmani","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":14,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pavlovic","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":14,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kalulu","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":13,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Solet","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":13,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"N'Dicka","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":13,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bastoni","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":14,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ostigard","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":11,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Di Lorenzo","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":12,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Spence","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":12,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bisseck","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":11,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ramon","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":10,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vasquez","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":9,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gila","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":12,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Stones","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":12,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Chalobah T.","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":9,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Scalvini","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":10,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Hermoso","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":10,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cambiaso","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":9,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dodò","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":10,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Semidifensore top. Titolare fisso di ottima spinta o ottimo voto costante.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Gea","Ruolo":"P","Squadra_SerieA":"Fiorentina","Quotazione":13,"FantaMedia":5.6,"Consiglio":"consigliato","Note":"Ottimo portiere titolare, ottimo rapporto qualità/prezzo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Skorupski","Ruolo":"P","Squadra_SerieA":"Bologna","Quotazione":10,"FantaMedia":5.6,"Consiglio":"consigliato","Note":"Ottimo portiere titolare, ottimo rapporto qualità/prezzo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Colombo","Ruolo":"A","Squadra_SerieA":"Genoa","Quotazione":11,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pinamonti","Ruolo":"A","Squadra_SerieA":"Sassuolo","Quotazione":13,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Diao","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":11,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Adams A.","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":12,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Soulè","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":12,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tourè E.","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":11,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Esposito Se.","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":13,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bowie","Ruolo":"A","Squadra_SerieA":"Sassuolo","Quotazione":10,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kevin Carlos","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":13,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Romero D.","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":10,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"David","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":9,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Piccoli","Ruolo":"A","Squadra_SerieA":"Bologna","Quotazione":8,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dia","Ruolo":"A","Squadra_SerieA":"Lazio","Quotazione":10,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ratkov","Ruolo":"A","Squadra_SerieA":"Lazio","Quotazione":10,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Nkunku","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":13,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Titolare da terzo/quarto slot per ruotare i tuoi titolari.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bernabè","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Locatelli","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bernardeschi","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gaetano","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cristante","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cancellieri","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Schmid","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Elmas","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Colpani","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ndour","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Calò","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cissè A.","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pasalic","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fazzini","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mandragora","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ferguson","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Volpato","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Isaksen","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fagioli","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lobotka","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Chukwueze","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cambiaghi","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sucic P.","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Liberali","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Konè I.","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":9,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Frendrup","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"El Aynaoui","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fitz-Jim","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Loftus-Cheek","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Odgaard","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":8,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Unai Gomez","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pessina","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sow","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Douglas Luiz","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Musah","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Oristanio","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":7,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Buon titolare di riempimento, garantisce voto ma pochi bonus.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dragusin","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Couto","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Spinazzola","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Carlos Augusto","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Miranda J.","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Valeri","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gabbia","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Jimenez A.","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bartesaghi","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Romagnoli","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Delprato","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Norton-Cuffy","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Badiashile","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Valle","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mina","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kristensen T.","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tiago Gabriel","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Marusic","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vojvoda","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zappacosta","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Idzes","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sutalo J.","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zortea","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lucumì","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bernasconi","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Valdepenas","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Koulierakis","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bellanova","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Viery","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Doekhi","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kaiki","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Celik","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Buongiorno","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Obert","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Heggem","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mangas","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Obrador","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Coco","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ahanor","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Marcandalli","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pavard","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Provstgaard","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rodriguez Ju.","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Troilo","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ismajli","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bella-Kotchap","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Comuzzo","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gallo","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Monterisi","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Estupinan","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Beukema","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kamara H.","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tavares N.","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":6,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Winter","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Hainaut","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Joao Mario","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kossounou","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Helland","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Hien","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":8,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tomori","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":7,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Titolare di rendimento utile a completare il reparto.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mandas","Ruolo":"P","Squadra_SerieA":"Lazio","Quotazione":9,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Falcone","Ruolo":"P","Squadra_SerieA":"Lecce","Quotazione":8,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Okoye","Ruolo":"P","Squadra_SerieA":"Udinese","Quotazione":9,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Caprile","Ruolo":"P","Squadra_SerieA":"Cagliari","Quotazione":9,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bijlow","Ruolo":"P","Squadra_SerieA":"Genoa","Quotazione":8,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Muric","Ruolo":"P","Squadra_SerieA":"Sassuolo","Quotazione":7,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Stankovic F.","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":6,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Palmisani","Ruolo":"P","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Thiam","Ruolo":"P","Squadra_SerieA":"Monza","Quotazione":5,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Di Gregorio","Ruolo":"P","Squadra_SerieA":"Juventus","Quotazione":9,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Daffara","Ruolo":"P","Squadra_SerieA":"Parma","Quotazione":7,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Milinkovic-Savic V.","Ruolo":"P","Squadra_SerieA":"Napoli","Quotazione":5,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Perin","Ruolo":"P","Squadra_SerieA":"Juventus","Quotazione":6,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Provedel","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":2,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Desplanches","Ruolo":"P","Squadra_SerieA":"Frosinone","Quotazione":2,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Portiere low-cost per alternanze o leghe numerose.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Adams C.","Ruolo":"A","Squadra_SerieA":"Torino","Quotazione":9,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cutrone","Ruolo":"A","Squadra_SerieA":"Monza","Quotazione":9,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Osmajic","Ruolo":"A","Squadra_SerieA":"Genoa","Quotazione":8,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ghedjemis","Ruolo":"A","Squadra_SerieA":"Frosinone","Quotazione":9,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Yeboah J.","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":8,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Boga","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Geubbels","Ruolo":"A","Squadra_SerieA":"Lecce","Quotazione":9,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Raimondo","Ruolo":"A","Squadra_SerieA":"Frosinone","Quotazione":7,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Maldini","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Camarda","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rrahmani Al.","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":8,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bonny","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":7,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zapata D.","Ruolo":"A","Squadra_SerieA":"Torino","Quotazione":7,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mota","Ruolo":"A","Squadra_SerieA":"Monza","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Neres","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Noslin","Ruolo":"A","Squadra_SerieA":"Lazio","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vitinha O.","Ruolo":"A","Squadra_SerieA":"Genoa","Quotazione":8,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa dal potenziale interessante o terzo slot low-cost.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kvernadze","Ruolo":"A","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"N'Dri","Ruolo":"A","Squadra_SerieA":"Lecce","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mendy P.","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Milik","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Stulic","Ruolo":"A","Squadra_SerieA":"Lecce","Quotazione":7,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Adorante","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lang","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Elphege","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gimenez","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mutandwa","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sulemana K.","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":6,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Frigan","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":5,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Giovane","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Robinson J.","Ruolo":"A","Squadra_SerieA":"Monza","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ekhator","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lucca","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Borrelli","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Havel","Ruolo":"A","Squadra_SerieA":"Genoa","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kulenovic","Ruolo":"A","Squadra_SerieA":"Torino","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gueye","Ruolo":"A","Squadra_SerieA":"Udinese","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Morata","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":4,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Varela G.","Ruolo":"A","Squadra_SerieA":"Monza","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kuhn","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":3,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Scommessa d'attacco, da prendere a pochissimi crediti come scommessa.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Karlstrom","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Oulai","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zalewski","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zhegrova","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cacciamani","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Milla","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Romano","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Basic","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pierotti","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ellertsson","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Caqueret","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Coulibaly L.","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pisilli","Ruolo":"C","Squadra_SerieA":"Roma","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Akinsanmiro","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Nicolussi Caviglia","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rovella","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Adzic","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tourè I.","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Winks","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Keita M.","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Matic","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Perez K.","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Piotrowski","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bakola","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Busio","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Moro N.","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Njie","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Adopo","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pobega","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":6,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dele-Bashiru","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Koopmeiners","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Jashari","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ngom","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fini","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Amondarain","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Berisha M.","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gineitis","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zerbin","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cataldi","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cichella","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Luis Henrique","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Brescianini","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Diallo O.","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dominguez B.","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Miller L.","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sorensen O.","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fadera","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Meichtry","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sohm","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Traorè Hj.","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Almqvist","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Amorim","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Koutsoupias","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Addai","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fofana Y.","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gandelman","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Grillitsch","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mkhitaryan","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ilkhan","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ricci S.","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gilmour","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"El Azzouzi O.","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Felici","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":5,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Giovane talento o scommessa da bonus a costi contenuti.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Roon","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fabbian","Ruolo":"C","Squadra_SerieA":"Fiorentina","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Deiola","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gelli F.","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Messias","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Masini","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Prati","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Colombo L.","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Miretti","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Stankovic A.","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sulemana I.","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Maleh","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Chakvetadze","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ciurria","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Folorunsho","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":4,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Aboukhlal","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Boloca","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Hasa","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lipani","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ordonez C.","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Duncan","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Venturino","Ruolo":"C","Squadra_SerieA":"Genoa","Quotazione":2,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Helgason","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":3,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Scommessa da leghe numerose o scommessa low cost da ultimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pedraza","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rensch","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Holm","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kempf","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Olivera","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zè Pedro","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bracaglia","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fortini","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gaspar K.","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kelly L.","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Leysen F.","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pedersen","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Veiga D.","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Birindelli","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Calvani","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Comert","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Correia T.","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kabasele","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lucchesi","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Siebert","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Delli Carri","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Favasuli","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Palma","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Haps","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Oyono A.","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Parisi","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vitik","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bertola","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Doig","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gatti","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ghilardi","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Halhal","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mitaj","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Smolcic I.","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Valenti","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Walukiewicz","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zanoli","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Britschgi","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Floriani Mussolini","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ranieri L.","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Schingtienne","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Carboni A.","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kouadio","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kofler","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kolasinac","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Martin","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Arizala","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pongracic","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Terzic","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cittadini","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Marin R.","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zappa","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":4,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Candè","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sverko","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Franjic","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pellegrini Lu.","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Moreno M.","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":5,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa intrigante per gli ultimi slot o titolare di provincia a basso costo.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Akpoguma","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Alhassane","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Casale","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Aurelio","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Biraghi","Ruolo":"D","Squadra_SerieA":"Torino","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ebosse","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lazzari","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Otoa","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sabelli","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Van Der Brempt","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Diawara S.","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Jean","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sagrado","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Terracciano F.","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Idrissi R.","Ruolo":"D","Squadra_SerieA":"Cagliari","Quotazione":3,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Puczka","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":2,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Scommessa low-cost a sorpresa o giovane in rampa di lancio.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lontani","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vaz","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bayo V.","Ruolo":"A","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Trepy","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Azon","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Martis","Ruolo":"A","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lauberbach","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lisman","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gorter","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ilic","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Przyborek","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Anjorin","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Zarraga","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Belahyane","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cremaschi","Ruolo":"C","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kone B.","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Kaba","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Comotto","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Dagasso","Ruolo":"C","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"El Azzouzi A.","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Fofana Sa.","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Forson O.","Ruolo":"C","Squadra_SerieA":"Monza","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Iannoni","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Laerke","Ruolo":"C","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lahdo","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Liteta","Ruolo":"C","Squadra_SerieA":"Cagliari","Quotazione":1,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Abankwah","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ndiaye","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Odenthal","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ndaba","Ruolo":"D","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bakoune","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cabal","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Cinquegrano","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Silvestri","Ruolo":"D","Squadra_SerieA":"Bologna","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Carboni F.","Ruolo":"D","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Marianucci","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mazzocchi","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mlacic","Ruolo":"D","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Rugani","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Antov","Ruolo":"D","Squadra_SerieA":"Monza","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Matturro","Ruolo":"D","Squadra_SerieA":"Genoa","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Missori","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Oyono J.","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Ziolkowski","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Amey","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Corrado","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Goldaniga","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gomes","Ruolo":"D","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Omar Fayed","Ruolo":"D","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Patric","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pieragnolo","Ruolo":"D","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Riserva fissa o giovanissimo, scommessa estrema da ultimissimo slot.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Mascardi","Ruolo":"P","Squadra_SerieA":"Torino","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Corvi","Ruolo":"P","Squadra_SerieA":"Parma","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Bleve","Ruolo":"P","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Christensen O.","Ruolo":"P","Squadra_SerieA":"Fiorentina","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Contini","Ruolo":"P","Squadra_SerieA":"Napoli","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"De Marzi","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Di Gennaro","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Gollini","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Grandi","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Happonen","Ruolo":"P","Squadra_SerieA":"Bologna","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lezzerini","Ruolo":"P","Squadra_SerieA":"Fiorentina","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Lolic","Ruolo":"P","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Montipò","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Motta","Ruolo":"P","Squadra_SerieA":"Lazio","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Padelli","Ruolo":"P","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Paleari","Ruolo":"P","Squadra_SerieA":"Torino","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Penev","Ruolo":"P","Squadra_SerieA":"Lecce","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pessina Mas.","Ruolo":"P","Squadra_SerieA":"Bologna","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Piana","Ruolo":"P","Squadra_SerieA":"Udinese","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pinsoglio","Ruolo":"P","Squadra_SerieA":"Juventus","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pisseri","Ruolo":"P","Squadra_SerieA":"Frosinone","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pizzignacco","Ruolo":"P","Squadra_SerieA":"Monza","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Pozzi","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Radunovic","Ruolo":"P","Squadra_SerieA":"Cagliari","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Renzetti","Ruolo":"P","Squadra_SerieA":"Lazio","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Russo A.","Ruolo":"P","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Satalino","Ruolo":"P","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sherri","Ruolo":"P","Squadra_SerieA":"Cagliari","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Siviero","Ruolo":"P","Squadra_SerieA":"Torino","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sommariva","Ruolo":"P","Squadra_SerieA":"Genoa","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Sportiello","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Stolz","Ruolo":"P","Squadra_SerieA":"Genoa","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Strajnar","Ruolo":"P","Squadra_SerieA":"Monza","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Terracciano","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Tornqvist","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Torriani","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Turati","Ruolo":"P","Squadra_SerieA":"Sassuolo","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vigorito","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
-    {"Nome":"Vismara","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":1,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Terzo portiere, acquistabile solo come copertura a 1 credito.", "Quotazione_2025_26":None, "Prezzo_Consigliato":None},
+    {"Nome":"Svilar","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":38,"FantaMedia":6.0,"Consiglio":"top","Note":"18 clean sheet, fantamedia 6, media voto 6.35", "Quotazione_2025_26":35, "Prezzo_Consigliato":None},
+    {"Nome":"Carnesecchi","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":34,"FantaMedia":6.1,"Consiglio":"top","Note":"13 clean sheet, media voto 6.5, con Sarri può migliorare", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
+    {"Nome":"Maignan","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":34,"FantaMedia":5.9,"Consiglio":"top","Note":"13 clean sheet, 2 rigori parati, affidabile", "Quotazione_2025_26":29, "Prezzo_Consigliato":None},
+    {"Nome":"Butez","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":32,"FantaMedia":5.8,"Consiglio":"top","Note":"19 clean sheet, miglior difesa del campionato", "Quotazione_2025_26":32, "Prezzo_Consigliato":None},
+    {"Nome":"Martinez","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":29,"FantaMedia":5.7,"Consiglio":"consigliato","Note":"Nuovo titolare, ex Genoa, fiducia Chivu", "Quotazione_2025_26":23, "Prezzo_Consigliato":None},
+    {"Nome":"Meret","Ruolo":"P","Squadra_SerieA":"Napoli","Quotazione":30,"FantaMedia":5.8,"Consiglio":"consigliato","Note":"Titolare con Allegri, sottovalutato, ottimo rapporto qualità-prezzo", "Quotazione_2025_26":31, "Prezzo_Consigliato":None},
+    {"Nome":"De Gea","Ruolo":"P","Squadra_SerieA":"Fiorentina","Quotazione":24,"FantaMedia":5.6,"Consiglio":"consigliato","Note":"Stagione del riscatto, hype sceso, low risk", "Quotazione_2025_26":26, "Prezzo_Consigliato":None},
+    {"Nome":"Vicario","Ruolo":"P","Squadra_SerieA":"Juventus","Quotazione":28,"FantaMedia":5.7,"Consiglio":"consigliato","Note":"Nuovo titolare, ex Empoli, top assoluto in Serie A", "Quotazione_2025_26":15, "Prezzo_Consigliato":None},
+    {"Nome":"Mandas","Ruolo":"P","Squadra_SerieA":"Lazio","Quotazione":22,"FantaMedia":5.5,"Consiglio":"consigliato","Note":"Titolare con Gattuso, portiere da modificatore", "Quotazione_2025_26":12, "Prezzo_Consigliato":None},
+    {"Nome":"Falcone","Ruolo":"P","Squadra_SerieA":"Lecce","Quotazione":17,"FantaMedia":5.5,"Consiglio":"scommessa","Note":"Media voto 6.41, low cost, garanzia voti alti", "Quotazione_2025_26":5, "Prezzo_Consigliato":None},
+    {"Nome":"Stankovic","Ruolo":"P","Squadra_SerieA":"Venezia","Quotazione":13,"FantaMedia":5.3,"Consiglio":"scommessa","Note":"Torna in Serie A, potenziale sorpresa", "Quotazione_2025_26":6, "Prezzo_Consigliato":None},
+    {"Nome":"Corvi","Ruolo":"P","Squadra_SerieA":"Parma","Quotazione":12,"FantaMedia":5.4,"Consiglio":"scommessa","Note":"Nuovo titolare, aveva fatto vedere buone cose", "Quotazione_2025_26":4, "Prezzo_Consigliato":None},
+    {"Nome":"Caprile","Ruolo":"P","Squadra_SerieA":"Cagliari","Quotazione":10,"FantaMedia":5.3,"Consiglio":"scommessa","Note":"Buon portiere da modificatore, low cost", "Quotazione_2025_26":3, "Prezzo_Consigliato":None},
+    {"Nome":"Dimarco","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":45,"FantaMedia":7.2,"Consiglio":"top","Note":"Top assoluto, vale un +3 a giornata, irraggiungibile", "Quotazione_2025_26":39, "Prezzo_Consigliato":None},
+    {"Nome":"Bremer","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":38,"FantaMedia":6.9,"Consiglio":"top","Note":"4 gol, 3 assist, fantamedia alta, primo slot", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
+    {"Nome":"Bisseck","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":35,"FantaMedia":6.8,"Consiglio":"top","Note":"Voti alti e bonus, può diventare top", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
+    {"Nome":"Mancini","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":32,"FantaMedia":6.7,"Consiglio":"top","Note":"4 gol, leader difesa Gasperini, solido", "Quotazione_2025_26":27, "Prezzo_Consigliato":None},
+    {"Nome":"Wesley","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":28,"FantaMedia":6.6,"Consiglio":"top","Note":"5 gol, potenziale stagione alla Gosens", "Quotazione_2025_26":25, "Prezzo_Consigliato":None},
+    {"Nome":"Pavlovic","Ruolo":"D","Squadra_SerieA":"Milan","Quotazione":33,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"5 gol, media 6.24, centrale prolifico", "Quotazione_2025_26":33, "Prezzo_Consigliato":None},
+    {"Nome":"Ostigard","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":28,"FantaMedia":6.4,"Consiglio":"consigliato","Note":"5 gol, centrale prolifico, solido", "Quotazione_2025_26":26, "Prezzo_Consigliato":None},
+    {"Nome":"Cambiaso","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":29,"FantaMedia":6.6,"Consiglio":"consigliato","Note":"3 gol, 4 assist, titolare a sinistra", "Quotazione_2025_26":23, "Prezzo_Consigliato":None},
+    {"Nome":"Spinazzola","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":27,"FantaMedia":6.3,"Consiglio":"consigliato","Note":"Sottovalutato, bonus garantiti, media buona", "Quotazione_2025_26":26, "Prezzo_Consigliato":None},
+    {"Nome":"Zappacosta","Ruolo":"D","Squadra_SerieA":"Atalanta","Quotazione":32,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"Gran gamba, qualità offensiva, bonus sicuri", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
+    {"Nome":"Di Lorenzo","Ruolo":"D","Squadra_SerieA":"Napoli","Quotazione":26,"FantaMedia":6.4,"Consiglio":"consigliato","Note":"Sempre buona chiamata, 6-7 bonus potenziali", "Quotazione_2025_26":24, "Prezzo_Consigliato":None},
+    {"Nome":"Kempf","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":20,"FantaMedia":6.2,"Consiglio":"consigliato","Note":"Certezza, voti e bonus, solido", "Quotazione_2025_26":14, "Prezzo_Consigliato":None},
+    {"Nome":"Stones","Ruolo":"D","Squadra_SerieA":"Inter","Quotazione":30,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"Ex City, rotazioni Chivu, minutaggio garantito", "Quotazione_2025_26":21, "Prezzo_Consigliato":None},
+    {"Nome":"Rensch","Ruolo":"D","Squadra_SerieA":"Roma","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"1 gol, 4 assist in 19 partite, può esplodere", "Quotazione_2025_26":11, "Prezzo_Consigliato":None},
+    {"Nome":"Doekhi","Ruolo":"D","Squadra_SerieA":"Lazio","Quotazione":22,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"7 gol in Europa, sostituto Gila, centrale prolifico", "Quotazione_2025_26":12, "Prezzo_Consigliato":None},
+    {"Nome":"Jimenez","Ruolo":"D","Squadra_SerieA":"Fiorentina","Quotazione":21,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Torna in Serie A, jolly tattico, può giocare ovunque", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
+    {"Nome":"Kaiki","Ruolo":"D","Squadra_SerieA":"Como","Quotazione":14,"FantaMedia":5.9,"Consiglio":"scommessa","Note":"Nuovo titolare sinistra, terzino di spinta", "Quotazione_2025_26":4, "Prezzo_Consigliato":None},
+    {"Nome":"Çelik","Ruolo":"D","Squadra_SerieA":"Juventus","Quotazione":19,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Duttile, Spalletti può schierarlo in varie occasioni", "Quotazione_2025_26":10, "Prezzo_Consigliato":None},
+    {"Nome":"Pulisic","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":57,"FantaMedia":7.8,"Consiglio":"top","Note":"Cambio ruolo, più appetibile, potenziale doppia-doppia", "Quotazione_2025_26":53, "Prezzo_Consigliato":None},
+    {"Nome":"Orsolini","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":53,"FantaMedia":7.6,"Consiglio":"top","Note":"Cambio ruolo, bonus garantiti, doppia cifra potenziale", "Quotazione_2025_26":46, "Prezzo_Consigliato":None},
+    {"Nome":"McTominay","Ruolo":"C","Squadra_SerieA":"Napoli","Quotazione":50,"FantaMedia":7.4,"Consiglio":"top","Note":"Doppia cifra, sposta gli equilibri, top", "Quotazione_2025_26":42, "Prezzo_Consigliato":None},
+    {"Nome":"Nico Paz","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":48,"FantaMedia":7.3,"Consiglio":"top","Note":"Doppia cifra, top assoluto, crescita esponenziale", "Quotazione_2025_26":35, "Prezzo_Consigliato":None},
+    {"Nome":"Calhanoglu","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":43,"FantaMedia":7.1,"Consiglio":"top","Note":"9 gol, media voto >6.5, migliore del reparto", "Quotazione_2025_26":40, "Prezzo_Consigliato":None},
+    {"Nome":"Rabiot","Ruolo":"C","Squadra_SerieA":"Milan","Quotazione":42,"FantaMedia":7.0,"Consiglio":"top","Note":"6 gol, 4 assist, con Allegri era il migliore", "Quotazione_2025_26":38, "Prezzo_Consigliato":None},
+    {"Nome":"Vlasic","Ruolo":"C","Squadra_SerieA":"Torino","Quotazione":52,"FantaMedia":7.4,"Consiglio":"consigliato","Note":"8 gol, 3 assist, rigorista, garanzia", "Quotazione_2025_26":39, "Prezzo_Consigliato":None},
+    {"Nome":"Frattesi","Ruolo":"C","Squadra_SerieA":"Lazio","Quotazione":48,"FantaMedia":7.5,"Consiglio":"consigliato","Note":"Potenziale top, alla Milinkovic-Savic, può esplodere", "Quotazione_2025_26":52, "Prezzo_Consigliato":None},
+    {"Nome":"Zaniolo","Ruolo":"C","Squadra_SerieA":"Udinese","Quotazione":48,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"5 gol, 6 assist, attaccante aggiunto", "Quotazione_2025_26":52, "Prezzo_Consigliato":None},
+    {"Nome":"Modric","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":43,"FantaMedia":7.1,"Consiglio":"consigliato","Note":"Rendimento garantito, media >6.5, esperienza", "Quotazione_2025_26":42, "Prezzo_Consigliato":None},
+    {"Nome":"Koné","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":40,"FantaMedia":6.9,"Consiglio":"consigliato","Note":"Media 6.26, mai sotto sufficienza, solido", "Quotazione_2025_26":43, "Prezzo_Consigliato":None},
+    {"Nome":"De Bruyne","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":46,"FantaMedia":7.2,"Consiglio":"consigliato","Note":"Se sta bene fa la differenza, calcia rigori", "Quotazione_2025_26":48, "Prezzo_Consigliato":None},
+    {"Nome":"Barella","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":44,"FantaMedia":7.0,"Consiglio":"consigliato","Note":"Sempre Barella, secondo slot ideale, affidabile", "Quotazione_2025_26":41, "Prezzo_Consigliato":None},
+    {"Nome":"Bernardeschi","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":38,"FantaMedia":6.8,"Consiglio":"consigliato","Note":"Da prendere con Rowe, coppia ideale", "Quotazione_2025_26":36, "Prezzo_Consigliato":None},
+    {"Nome":"Rowe","Ruolo":"C","Squadra_SerieA":"Bologna","Quotazione":36,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"3 gol, 3 assist, può crescere", "Quotazione_2025_26":41, "Prezzo_Consigliato":None},
+    {"Nome":"Thorstvedt","Ruolo":"C","Squadra_SerieA":"Sassuolo","Quotazione":30,"FantaMedia":6.5,"Consiglio":"consigliato","Note":"5-6 gol potenziali, buon rapporto", "Quotazione_2025_26":26, "Prezzo_Consigliato":None},
+    {"Nome":"Perrone","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":35,"FantaMedia":6.7,"Consiglio":"consigliato","Note":"3 gol, 4 assist, voti alti, sottovalutato", "Quotazione_2025_26":36, "Prezzo_Consigliato":None},
+    {"Nome":"Alajbegovic","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":33,"FantaMedia":6.6,"Consiglio":"scommessa","Note":"Talentino trequarti, attenzione hype, può fare bene", "Quotazione_2025_26":16, "Prezzo_Consigliato":None},
+    {"Nome":"Douglas Luiz","Ruolo":"C","Squadra_SerieA":"Juventus","Quotazione":22,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Intenzionato a restare, può tornare ai livelli di 2 anni fa", "Quotazione_2025_26":18, "Prezzo_Consigliato":None},
+    {"Nome":"Gaetano","Ruolo":"C","Squadra_SerieA":"Atalanta","Quotazione":19,"FantaMedia":6.2,"Consiglio":"scommessa","Note":"Sarri lo vuole, grande intuizione", "Quotazione_2025_26":12, "Prezzo_Consigliato":None},
+    {"Nome":"Stankovic A.","Ruolo":"C","Squadra_SerieA":"Inter","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Fiducia Chivu, sostituto Calhanoglu", "Quotazione_2025_26":10, "Prezzo_Consigliato":None},
+    {"Nome":"Calò","Ruolo":"C","Squadra_SerieA":"Frosinone","Quotazione":22,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"10 gol, 14 assist in Serie B, grande salto", "Quotazione_2025_26":14, "Prezzo_Consigliato":None},
+    {"Nome":"Milla","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":20,"FantaMedia":6.4,"Consiglio":"scommessa","Note":"Solo Yamal più assist in Liga, possibile crack", "Quotazione_2025_26":10, "Prezzo_Consigliato":None},
+    {"Nome":"Liberali","Ruolo":"C","Squadra_SerieA":"Como","Quotazione":18,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"Giovane dal grande potenziale, spazio con Champions", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
+    {"Nome":"Lautaro","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":88,"FantaMedia":8.5,"Consiglio":"top","Note":"Capocannoniere 17 gol, 6 assist, primo slot assoluto", "Quotazione_2025_26":90, "Prezzo_Consigliato":None},
+    {"Nome":"Malen","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":84,"FantaMedia":8.2,"Consiglio":"top","Note":"Vice-cannoniere 14 gol, sposta gli equilibri", "Quotazione_2025_26":72, "Prezzo_Consigliato":None},
+    {"Nome":"Thuram","Ruolo":"A","Squadra_SerieA":"Inter","Quotazione":74,"FantaMedia":7.9,"Consiglio":"top","Note":"13 gol, 6 assist, primo slot nonostante annata deludente", "Quotazione_2025_26":67, "Prezzo_Consigliato":None},
+    {"Nome":"Hojlund","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":78,"FantaMedia":8.0,"Consiglio":"top","Note":"Tornato in Serie A, obiettivo 15 gol, Allegri punta forte", "Quotazione_2025_26":72, "Prezzo_Consigliato":None},
+    {"Nome":"Goncalo Ramos","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":78,"FantaMedia":8.0,"Consiglio":"top","Note":"Colpo da 70M, titolare Amorim, può superare doppia cifra", "Quotazione_2025_26":68, "Prezzo_Consigliato":None},
+    {"Nome":"Kolo Muani","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":76,"FantaMedia":7.9,"Consiglio":"top","Note":"Tornato alla Juve, Spalletti lo vuole, garanzia", "Quotazione_2025_26":69, "Prezzo_Consigliato":None},
+    {"Nome":"Leao","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":72,"FantaMedia":7.8,"Consiglio":"top","Note":"Prima fascia, può migliorare, talento puro", "Quotazione_2025_26":65, "Prezzo_Consigliato":None},
+    {"Nome":"Kean","Ruolo":"A","Squadra_SerieA":"Fiorentina","Quotazione":65,"FantaMedia":7.5,"Consiglio":"consigliato","Note":"Doppia cifra garantita, solido", "Quotazione_2025_26":48, "Prezzo_Consigliato":None},
+    {"Nome":"Yildiz","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":70,"FantaMedia":7.7,"Consiglio":"consigliato","Note":"10 gol, 6 assist, centro progetto, può esplodere", "Quotazione_2025_26":58, "Prezzo_Consigliato":None},
+    {"Nome":"Douvikas","Ruolo":"A","Squadra_SerieA":"Como","Quotazione":65,"FantaMedia":7.8,"Consiglio":"consigliato","Note":"14 gol, sorpresa 2024-25, doppia cifra sicura", "Quotazione_2025_26":64, "Prezzo_Consigliato":None},
+    {"Nome":"Dybala","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":58,"FantaMedia":7.4,"Consiglio":"consigliato","Note":"Sempre utile, momento della differenza, clutch", "Quotazione_2025_26":50, "Prezzo_Consigliato":None},
+    {"Nome":"Davis","Ruolo":"A","Squadra_SerieA":"Udinese","Quotazione":61,"FantaMedia":7.5,"Consiglio":"consigliato","Note":"10 gol, rigorista, garanzia bonus", "Quotazione_2025_26":53, "Prezzo_Consigliato":None},
+    {"Nome":"Scamacca","Ruolo":"A","Squadra_SerieA":"Atalanta","Quotazione":55,"FantaMedia":7.3,"Consiglio":"consigliato","Note":"Attenzione infortuni, ma potenziale top", "Quotazione_2025_26":44, "Prezzo_Consigliato":None},
+    {"Nome":"Simeone","Ruolo":"A","Squadra_SerieA":"Napoli","Quotazione":50,"FantaMedia":7.2,"Consiglio":"consigliato","Note":"11 gol, conferma, affidabile", "Quotazione_2025_26":41, "Prezzo_Consigliato":None},
+    {"Nome":"Dovbyk","Ruolo":"A","Squadra_SerieA":"Bologna","Quotazione":48,"FantaMedia":7.1,"Consiglio":"consigliato","Note":"Doppia cifra a Bologna, solido", "Quotazione_2025_26":54, "Prezzo_Consigliato":None},
+    {"Nome":"Colombo","Ruolo":"A","Squadra_SerieA":"Roma","Quotazione":35,"FantaMedia":6.8,"Consiglio":"consigliato","Note":"7 gol, obiettivo doppia cifra, può crescere", "Quotazione_2025_26":35, "Prezzo_Consigliato":None},
+    {"Nome":"Yeboah","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":24,"FantaMedia":6.5,"Consiglio":"scommessa","Note":"Doppia cifra in Serie B, convocato al Mondiale", "Quotazione_2025_26":12, "Prezzo_Consigliato":None},
+    {"Nome":"Bowie","Ruolo":"A","Squadra_SerieA":"Sassuolo","Quotazione":25,"FantaMedia":6.4,"Consiglio":"scommessa","Note":"Ex Verona, goal in Serie A li sa fare", "Quotazione_2025_26":14, "Prezzo_Consigliato":None},
+    {"Nome":"Alajbegovic K.","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":33,"FantaMedia":6.7,"Consiglio":"scommessa","Note":"Colpo di mercato, trequarti, attenzione hype", "Quotazione_2025_26":17, "Prezzo_Consigliato":None},
+    {"Nome":"Rrahmani","Ruolo":"A","Squadra_SerieA":"Venezia","Quotazione":22,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"15 gol in Rep. Ceca, nuovo attaccante titolare", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
+    {"Nome":"Ekhator","Ruolo":"A","Squadra_SerieA":"Juventus","Quotazione":20,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Low cost, potenziale, parte dietro nelle gerarchie", "Quotazione_2025_26":7, "Prezzo_Consigliato":None},
+    {"Nome":"Mendy","Ruolo":"A","Squadra_SerieA":"Cagliari","Quotazione":15,"FantaMedia":6.1,"Consiglio":"scommessa","Note":"2 gol in 8 partite, 2007, può esplodere", "Quotazione_2025_26":9, "Prezzo_Consigliato":None},
+    {"Nome":"Camarda","Ruolo":"A","Squadra_SerieA":"Milan","Quotazione":12,"FantaMedia":6.0,"Consiglio":"scommessa","Note":"Vice Ramos, a 1 credito ci sta", "Quotazione_2025_26":4, "Prezzo_Consigliato":None},
+    {"Nome":"Ratkov","Ruolo":"A","Squadra_SerieA":"Lazio","Quotazione":20,"FantaMedia":6.3,"Consiglio":"scommessa","Note":"Gattuso lo rilancia, puntatina senza esagerare", "Quotazione_2025_26":8, "Prezzo_Consigliato":None},
 ]
 
 for g in LISTONE_DEFAULT:
@@ -1306,48 +869,6 @@ def applica_fasce_automatiche():
     )
 
 
-
-def _get_inline_stats(nome, stats_2627):
-    """Restituisce HTML con badge stats dalla stagione 2026/27."""
-    if stats_2627 is None or stats_2627.empty or "Nome" not in stats_2627.columns:
-        return ""
-    match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
-    if match.empty:
-        close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
-        if close:
-            match = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
-    if match.empty:
-        return ""
-    r = match.iloc[0]
-    badges = []
-    icons = {"Gol": "⚽", "Assist": "🅰️", "Partite": "🏃", "Rigori": "🎯", "Ammonizioni": "🟨", "Espulsioni": "🟥"}
-    for col, icon in icons.items():
-        if col in r and pd.notna(r[col]):
-            val = int(r[col])
-            if val > 0:
-                badges.append(f'<span style="background:#1a1a2e;color:#ddd;padding:2px 6px;border-radius:8px;font-size:0.7em;margin-right:4px;">{icon} {val}</span>')
-    return " ".join(badges)
-
-
-def _get_fm_trend_badge(nome, row_fm, stats_2627):
-    """Restituisce badge trend se FM 2026/27 diverge dal listone."""
-    if stats_2627 is None or stats_2627.empty or "Nome" not in stats_2627.columns:
-        return ""
-    match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
-    if match.empty:
-        close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
-        if close:
-            match = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
-    if match.empty or "FantaMedia" not in match.columns or pd.isna(match.iloc[0]["FantaMedia"]):
-        return ""
-    fm_2627 = float(match.iloc[0]["FantaMedia"])
-    delta = fm_2627 - row_fm
-    if delta >= 0.5:
-        return f'<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:bold;border:1px solid #00d26a;">📈 +{delta:.1f}</span>'
-    elif delta <= -0.5:
-        return f'<span style="background:#ff6b6b20;color:#ff6b6b;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:bold;border:1px solid #ff6b6b;">📉 {delta:.1f}</span>'
-    return f'<span style="background:#2a2a4a;color:#888;padding:2px 8px;border-radius:12px;font-size:0.7em;">➡️ {delta:+.1f}</span>'
-
 def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     """Restituisce HTML per una card giocatore accattivante."""
     nome = row["Nome"]
@@ -1386,44 +907,7 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     # Effetto hover: ingrandimento + illuminazione
     hover_js = "onmouseover=\"this.style.transform='scale(1.04)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';\" onmouseout=\"this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';\""
 
-    # Stats inline dalla stagione 2026/27
-    inline_stats = _get_inline_stats(nome, stats_2627)
-    trend_badge = _get_fm_trend_badge(nome, fm, stats_2627)
-
-    # FM display con eventuale badge 2026/27
-    fm_display = f'{fm}'
-    if stats_2627 is not None and not stats_2627.empty and "Nome" in stats_2627.columns:
-        match_fm = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
-        if match_fm.empty:
-            close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
-            if close:
-                match_fm = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
-        if not match_fm.empty and "FantaMedia" in match_fm.columns and pd.notna(match_fm.iloc[0]["FantaMedia"]):
-            fm_2627_val = float(match_fm.iloc[0]["FantaMedia"])
-            fm_display = f'{fm_2627_val:.1f} <span style="font-size:0.6em;color:#00d26a;">📊</span>'
-
-    html = f'''<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}>
-        <div style="display:flex;justify-content:space-between;align-items:start;">
-            <div>
-                <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
-                <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm_display}</div>
-                <div style="font-size:0.75em;color:#888;">FM</div>
-                {trend_badge}
-            </div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-            <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
-            <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
-            {pc_span}
-            <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
-        </div>
-        {barra_tit}
-        <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">{inline_stats}</div>
-        <div style="margin-top:8px;">{badge_prop}</div>
-    </div>'''
+    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
     return html
 
 
@@ -1431,8 +915,6 @@ def _build_stats_html(nome, stats_per_stagione):
     """Costruisce HTML con le statistiche storiche di un giocatore + mini grafico FM."""
     rows = []
     fm_points = []
-    gol_points = []
-    ast_points = []
     stagioni_label = []
     for stagione, df in sorted(stats_per_stagione.items()):
         if df.empty or "Nome" not in df.columns:
@@ -1453,9 +935,7 @@ def _build_stats_html(nome, stats_per_stagione):
             ast = r.get("Assist", "—")
             part = r.get("Partite", "—")
             rig = r.get("Rigori", "—")
-            amm = r.get("Ammonizioni", "—")
-            esp = r.get("Espulsioni", "—")
-            rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td><td style="padding:4px 8px;color:#eab308;font-size:0.8em;">{amm}</td><td style="padding:4px 8px;color:#ef4444;font-size:0.8em;">{esp}</td></tr>')
+            rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td></tr>')
             try:
                 fm_val = float(fm)
                 if fm_val > 0:
@@ -1463,64 +943,37 @@ def _build_stats_html(nome, stats_per_stagione):
                     stagioni_label.append(stagione)
             except (TypeError, ValueError):
                 pass
-            try:
-                g_val = float(gol)
-                gol_points.append(g_val)
-            except (TypeError, ValueError):
-                gol_points.append(0)
-            try:
-                a_val = float(ast)
-                ast_points.append(a_val)
-            except (TypeError, ValueError):
-                ast_points.append(0)
 
-    # Mini grafico SVG andamento FM + Gol + Assist
+    # Mini grafico SVG andamento FM
     chart_svg = ""
     if len(fm_points) >= 2:
-        w, h = 320, 100
-        pad_x, pad_y = 25, 15
+        w, h = 280, 80
+        pad = 10
         max_fm = max(fm_points + [8.0])
         min_fm = min(fm_points + [4.0])
         rng = max_fm - min_fm if max_fm != min_fm else 1
         n = len(fm_points)
         pts = []
-        pts_gol = []
-        pts_ast = []
         for i, val in enumerate(fm_points):
-            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
-            y = h - pad_y - ((val - min_fm) / rng) * (h - 2 * pad_y)
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
             pts.append(f"{x:.1f},{y:.1f}")
-            # Gol scala 0-30
-            y_g = h - pad_y - (gol_points[i] / 30) * (h - 2 * pad_y) if gol_points else h - pad_y
-            pts_gol.append(f"{x:.1f},{max(pad_y, min(h-pad_y, y_g)):.1f}")
-            # Assist scala 0-20
-            y_a = h - pad_y - (ast_points[i] / 20) * (h - 2 * pad_y) if ast_points else h - pad_y
-            pts_ast.append(f"{x:.1f},{max(pad_y, min(h-pad_y, y_a)):.1f}")
         polyline = " ".join(pts)
-        poly_gol = " ".join(pts_gol)
-        poly_ast = " ".join(pts_ast)
         circles = ""
         for i, val in enumerate(fm_points):
-            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
-            y = h - pad_y - ((val - min_fm) / rng) * (h - 2 * pad_y)
-            circles += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#00d26a"/><text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" fill="#ffd700" font-size="8" font-weight="bold">{val:.1f}</text>'
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
+            circles += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#00d26a"/><text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" fill="#ffd700" font-size="8">{val:.1f}</text>'
         labels = ""
         for i, lbl in enumerate(stagioni_label):
-            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
+            x = pad + (i / (n - 1)) * (w - 2 * pad)
             labels += f'<text x="{x:.1f}" y="{h-2:.1f}" text-anchor="middle" fill="#888" font-size="7">{lbl}</text>'
-        legend = f'<text x="{w-5}" y="12" text-anchor="end" fill="#00d26a" font-size="8" font-weight="bold">● FM</text><text x="{w-5}" y="24" text-anchor="end" fill="#3b82f6" font-size="8" font-weight="bold">● Gol</text><text x="{w-5}" y="36" text-anchor="end" fill="#eab308" font-size="8" font-weight="bold">● Assist</text>'
-        chart_svg = f'''<div style="margin:10px 0;">
-            <svg width="{w}" height="{h}" style="background:#0f0f24;border-radius:6px;">
-                <polyline points="{polyline}" fill="none" stroke="#00d26a" stroke-width="2.5"/>
-                <polyline points="{poly_gol}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,2"/>
-                <polyline points="{poly_ast}" fill="none" stroke="#eab308" stroke-width="1.5" stroke-dasharray="2,2"/>
-                {circles}{labels}{legend}
-            </svg>
-        </div>'''
+        chart_svg = f'<div style="margin:10px 0;"><svg width="{w}" height="{h}" style="background:#0f0f24;border-radius:6px;"><polyline points="{polyline}" fill="none" stroke="#00d26a" stroke-width="2"/>{circles}{labels}</svg></div>'
 
     if not rows:
         return '<div style="padding:8px;color:#888;font-size:0.8em;text-align:center;">📭 Nessuno storico disponibile</div>'
-    return chart_svg + '<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th><th style="padding:4px 8px;color:#eab308;font-size:0.7em;text-align:left;">🟨</th><th style="padding:4px 8px;color:#ef4444;font-size:0.7em;text-align:left;">🟥</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table>'
+    return chart_svg + f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
+
 
 def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=None, show_titolarita=True):
     """Card giocatore con hover + click per espandere statistiche."""
@@ -1574,31 +1027,7 @@ def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=N
             fm_2627 = float(match.iloc[0]["FantaMedia"])
             fm_extra = f' <span style="color:#00d26a;font-size:0.85em;">(📊 2026/27: {fm_2627})</span>'
 
-    # Stats inline dalla stagione 2026/27
-    inline_stats = _get_inline_stats(nome, stats_2627)
-    trend_badge = _get_fm_trend_badge(nome, fm, stats_2627)
-
-    card_inner = f'''<div style="display:flex;justify-content:space-between;align-items:start;">
-        <div>
-            <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
-            <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
-        </div>
-        <div style="text-align:right;">
-            <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}{fm_extra}</div>
-            <div style="font-size:0.75em;color:#888;">FM</div>
-            {trend_badge}
-        </div>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
-        <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
-        {pc_span}
-        <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
-    </div>
-    {barra_tit}
-    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">{inline_stats}</div>
-    <div style="margin-top:8px;">{badge_prop}</div>
-    {note_html}'''
+    card_inner = f'''<div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}{fm_extra}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div>{note_html}'''
 
     html = f'''<details style="margin-bottom:10px;"><summary style="list-style:none;cursor:pointer;"><div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';">{card_inner}</div></summary><div style="background:#15152b;border-radius:0 0 12px 12px;padding:12px;border-left:4px solid {colore};border-top:1px solid #2a2a4a;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 Statistiche Storiche</div>{stats_html}</div></details>'''
     return html
@@ -3525,63 +2954,33 @@ if menu == "📋 Rose & Contratti":
 
     with tab_consigli:
         st.subheader("💡 Consigli Fantacalcio 2026/27")
-        st.caption("I consigli sono generati automaticamente dalla colonna 'Consiglio' del listone.")
-
-        db_consigli = st.session_state.giocatori_db.copy()
-        if db_consigli.empty or "Consiglio" not in db_consigli.columns:
-            st.warning("⚠️ Nessun listone con colonna 'Consiglio' disponibile. Importa un listone valido.")
-        else:
-            # Arricchisci con dati proprietà
-            idx_prop = get_player_index()
-            db_consigli["Proprietario"] = db_consigli["Nome"].apply(lambda x: idx_prop.get(x.lower(), None))
-            db_consigli["Stato"] = db_consigli["Proprietario"].apply(lambda x: "🔒 Assegnato" if x else "🟢 Libero")
-
-            # Arricchisci con FM 2026/27 se disponibile
-            if "stats_per_stagione" in st.session_state and "2026-27" in st.session_state.stats_per_stagione:
-                s2627 = st.session_state.stats_per_stagione["2026-27"]
-                if not s2627.empty and "Nome" in s2627.columns and "FantaMedia" in s2627.columns:
-                    s2627_f = s2627[["Nome", "FantaMedia"]].copy()
-                    s2627_f["Nome_lower"] = s2627_f["Nome"].str.lower().str.strip()
-                    db_consigli["Nome_lower"] = db_consigli["Nome"].str.lower().str.strip()
-                    db_consigli = db_consigli.merge(s2627_f[["Nome_lower", "FantaMedia"]], on="Nome_lower", how="left", suffixes=("", "_2627"))
-                    db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia_2627"].fillna(db_consigli["FantaMedia"])
-                    db_consigli["FM_Badge"] = db_consigli.apply(lambda r: f"{r['FantaMedia_Display']:.1f} 📊" if pd.notna(r.get('FantaMedia_2627')) else f"{r['FantaMedia']:.1f} 📋", axis=1)
-                    db_consigli = db_consigli.drop(columns=["Nome_lower", "FantaMedia_2627"], errors="ignore")
-                else:
-                    db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia"]
-                    db_consigli["FM_Badge"] = db_consigli["FantaMedia"].apply(lambda x: f"{x:.1f} 📋")
-            else:
-                db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia"]
-                db_consigli["FM_Badge"] = db_consigli["FantaMedia"].apply(lambda x: f"{x:.1f} 📋")
-
-            ruoli_map = {"Portieri": "P", "Difensori": "D", "Centrocampisti": "C", "Attaccanti": "A"}
-            colori_fascia = {"top": "⭐", "consigliato": "👍", "scommessa": "🎲"}
-            nomi_fascia = {"top": "Top", "consigliato": "Consigliati", "scommessa": "Scommesse"}
-
-            for ruolo_nome, ruolo_cod in ruoli_map.items():
-                with st.expander(ruolo_nome):
-                    df_ruolo = db_consigli[db_consigli["Ruolo"] == ruolo_cod].copy()
-                    if df_ruolo.empty:
-                        st.caption("Nessun giocatore trovato per questo ruolo.")
-                        continue
-
-                    for fascia in ["top", "consigliato", "scommessa"]:
-                        df_fascia = df_ruolo[df_ruolo["Consiglio"] == fascia].sort_values("FantaMedia_Display", ascending=False)
-                        if df_fascia.empty:
-                            continue
-
-                        st.markdown(f"**{colori_fascia[fascia]} {nomi_fascia[fascia]}:**")
-                        righe = []
-                        for _, row in df_fascia.iterrows():
-                            nome = row["Nome"]
-                            sa = row.get("Squadra_SerieA", "N/D")
-                            quot = int(row.get("Quotazione", 0))
-                            fm = row.get("FM_Badge", "N/D")
-                            pc = row.get("Prezzo_Consigliato")
-                            pc_txt = f" | 💡{int(pc)}cr" if pd.notna(pc) else ""
-                            stato = row.get("Stato", "")
-                            righe.append(f"**{nome}** ({sa}) — FM {fm} | Q {quot}cr{pc_txt} {stato}")
-                        st.markdown(" • ".join(righe))
+        consigli = {
+            "Portieri": {
+                "top": ["Svilar (Roma) - 18 clean sheet, FM 6.0", "Carnesecchi (Atalanta) - 13 CS, media 6.5", "Maignan (Milan) - 13 CS, 2 rigori parati", "Butez (Como) - 19 CS, miglior difesa"],
+                "consigliati": ["Martinez (Inter) - nuovo titolare, fiducia Chivu", "Meret (Napoli) - sottovalutato con Allegri", "De Gea (Fiorentina) - stagione del riscatto", "Vicario (Juve) - ex Empoli, top in Serie A", "Mandas (Lazio) - portiere da modificatore"],
+                "scommesse": ["Falcone (Lecce) - media voto 6.41, low cost", "Stankovic (Venezia) - torna in A", "Corvi (Parma) - nuovo titolare", "Caprile (Cagliari) - modificatore"]
+            },
+            "Difensori": {
+                "top": ["Dimarco (Inter) - top assoluto, +3 a giornata", "Bremer (Juve) - 4 gol, 3 assist, FM 6.9", "Bisseck (Inter) - voti alti e bonus", "Mancini (Roma) - 4 gol, leader difesa Gasperini", "Wesley (Roma) - 5 gol, potenziale alla Gosens"],
+                "consigliati": ["Pavlovic (Milan) - 5 gol, media 6.24", "Ostigard (Napoli) - 5 gol, centrale prolifico", "Cambiaso (Juve) - 3 gol, 4 assist", "Spinazzola (Roma) - sottovalutato, bonus garantiti", "Zappacosta (Atalanta) - gran gamba", "Di Lorenzo (Napoli) - 6-7 bonus potenziali", "Kempf (Como) - certezza voti e bonus"],
+                "scommesse": ["Rensch (Roma) - 1 gol, 4 assist in 19 partite", "Doekhi (Lazio) - 7 gol in Europa, sostituto Gila", "Jimenez (Fiorentina) - jolly tattico", "Kaiki (Como) - terzino di spinta", "Çelik (Juve) - duttile, Spalletti lo schiera"]
+            },
+            "Centrocampisti": {
+                "top": ["Pulisic (Milan) - cambio ruolo, doppia-doppia potenziale", "Orsolini (Bologna) - cambio ruolo, bonus garantiti", "McTominay (Napoli) - doppia cifra, sposta equilibri", "Nico Paz (Inter) - doppia cifra, top assoluto", "Calhanoglu (Inter) - 9 gol, media >6.5", "Rabiot (Milan) - 6 gol, 4 assist"],
+                "consigliati": ["Vlasic (Torino) - 8 gol, rigorista", "Frattesi (Lazio) - alla Milinkovic-Savic", "Zaniolo (Udinese) - 5 gol, 6 assist", "Modric (Inter) - rendimento garantito", "Koné (Juve) - mai sotto sufficienza", "De Bruyne (Juve) - calcia rigori", "Barella (Inter) - secondo slot ideale", "Bernardeschi (Bologna) - da prendere con Rowe", "Rowe (Bologna) - 3 gol, 3 assist", "Thorstvedt (Sassuolo) - 5-6 gol potenziali"],
+                "scommesse": ["Alajbegovic (Juve) - talentino trequarti", "Douglas Luiz (Juve) - può tornare ai livelli di 2 anni fa", "Gaetano (Atalanta) - Sarri lo vuole", "Stankovic A. (Inter) - fiducia Chivu", "Calò (Frosinone) - 10 gol, 14 assist in B", "Milla (Como) - solo Yamal più assist in Liga", "Liberali (Como) - giovane, spazio con Champions"]
+            },
+            "Attaccanti": {
+                "top": ["Lautaro (Inter) - capocannoniere 17 gol", "Malen (Roma) - vice-cannoniere 14 gol", "Thuram (Inter) - 13 gol, primo slot", "Hojlund (Napoli) - obiettivo 15 gol, Allegri punta forte", "Goncalo Ramos (Milan) - colpo 70M, titolare Amorim", "Kolo Muani (Juve) - Spalletti lo vuole", "Leao (Milan) - prima fascia, talento puro"],
+                "consigliati": ["Kean (Fiorentina) - doppia cifra garantita", "Yildiz (Juve) - 10 gol, centro progetto", "Douvikas (Como) - 14 gol, sorpresa 2024-25", "Dybala (Roma) - sempre utile, clutch", "Davis (Udinese) - 10 gol, rigorista", "Scamacca (Atalanta) - attenzione infortuni", "Simeone (Napoli) - 11 gol, conferma", "Dovbyk (Bologna) - doppia cifra", "Colombo (Roma) - 7 gol, obiettivo doppia cifra"],
+                "scommesse": ["Yeboah (Venezia) - doppia cifra in Serie B, convocato Mondiale", "Bowie (Sassuolo) - ex Verona, goal li sa fare", "Alajbegovic K. (Juve) - colpo di mercato", "Rrahmani (Venezia) - 15 gol in Rep. Ceca", "Ekhator (Juve) - low cost, potenziale", "Mendy (Cagliari) - 2 gol in 8 partite, 2007", "Camarda (Milan) - vice Ramos, a 1cr ci sta", "Ratkov (Lazio) - Gattuso lo rilancia"]
+            }
+        }
+        for ruolo, dati in consigli.items():
+            with st.expander(ruolo):
+                st.markdown("**⭐ Top:** " + " • ".join(dati["top"]))
+                st.markdown("**👍 Consigliati:** " + " • ".join(dati["consigliati"]))
+                st.markdown("**🎲 Scommesse:** " + " • ".join(dati["scommesse"]))
 
     with tab_formazione:
         st.subheader("🎮 Simula Formazione")
@@ -3633,109 +3032,33 @@ if menu == "📈 Statistiche Storiche":
                     df_s = pd.read_excel(up_stats)
                 df_s.columns = [str(c).strip() for c in df_s.columns]
 
-                # ============================================================
-                # MAPPING AUTOMATICO COLONNE (esteso)
-                # ============================================================
                 col_map = {}
                 for col in df_s.columns:
                     cl = str(col).lower().strip()
-                    if any(k in cl for k in ['nome','giocatore','calciatore','name','player','cognome','calciatori']):
+                    if any(k in cl for k in ['nome','giocatore','calciatore','name','player','cognome']):
                         col_map[col] = 'Nome'
-                    elif any(k in cl for k in ['stagione','anno','season','year','camp']):
+                    elif any(k in cl for k in ['stagione','anno','season','year']):
                         col_map[col] = 'Stagione'
-                    elif any(k in cl for k in ['gol fatti','gol segnati','reti','goal scored','gs']):
+                    elif any(k in cl for k in ['gol','goal','reti']):
                         col_map[col] = 'Gol'
-                    elif any(k in cl for k in ['assist','assists','passaggi decisivi','decisivi']):
+                    elif 'assist' in cl:
                         col_map[col] = 'Assist'
-                    elif any(k in cl for k in ['fantamedia','fanta media','fm','media fanta','media voto','mv']):
+                    elif any(k in cl for k in ['fm','fantamedia','fanta media','media']):
                         col_map[col] = 'FantaMedia'
-                    elif any(k in cl for k in ['partite','presenze','pg','match','played','gare']):
+                    elif any(k in cl for k in ['partite','presenze','pg','match','played']):
                         col_map[col] = 'Partite'
-                    elif any(k in cl for k in ['rigori','rigore','penalty','penalties','rp']):
+                    elif 'rigor' in cl:
                         col_map[col] = 'Rigori'
-                    elif any(k in cl for k in ['ammonizioni','amm','yellow','gialli','cartellini gialli','cg']):
+                    elif any(k in cl for k in ['amm','yellow','gialli']):
                         col_map[col] = 'Ammonizioni'
-                    elif any(k in cl for k in ['espulsioni','esp','red','rossi','cartellini rossi','cr']):
+                    elif any(k in cl for k in ['esp','red','rossi']):
                         col_map[col] = 'Espulsioni'
-                    elif any(k in cl for k in ['gol subiti','gs','goal conceded']):
-                        col_map[col] = 'Gol_Subiti'
-                    elif any(k in cl for k in ['clean sheet','inv','porta inviolata','inviolata']):
-                        col_map[col] = 'Clean_Sheet'
                 df_s = df_s.rename(columns=col_map)
-
-                # ============================================================
-                # MAPPING MANUALE (se l'automatico ha saltato qualcosa)
-                # ============================================================
-                with st.expander("🔧 Mappa Colonne Manualmente (se necessario)", expanded=False):
-                    st.caption(f"Colonne rilevate nel file: {', '.join(df_s.columns)}")
-                    cols_list = [""] + list(df_s.columns)
-
-                    c_m1, c_m2, c_m3 = st.columns(3)
-                    with c_m1:
-                        manual_nome = st.selectbox("→ Nome Giocatore", cols_list, key=f"man_nome_{stagione_sel}")
-                        manual_fm = st.selectbox("→ FantaMedia", cols_list, key=f"man_fm_{stagione_sel}")
-                        manual_gol = st.selectbox("→ Gol", cols_list, key=f"man_gol_{stagione_sel}")
-                    with c_m2:
-                        manual_ass = st.selectbox("→ Assist", cols_list, key=f"man_ass_{stagione_sel}")
-                        manual_part = st.selectbox("→ Partite", cols_list, key=f"man_part_{stagione_sel}")
-                        manual_rig = st.selectbox("→ Rigori", cols_list, key=f"man_rig_{stagione_sel}")
-                    with c_m3:
-                        manual_amm = st.selectbox("→ Ammonizioni", cols_list, key=f"man_amm_{stagione_sel}")
-                        manual_esp = st.selectbox("→ Espulsioni", cols_list, key=f"man_esp_{stagione_sel}")
-
-                    if st.button("🔄 Applica Mapping Manuale", key=f"btn_man_{stagione_sel}"):
-                        manual_map = {}
-                        if manual_nome: manual_map[manual_nome] = 'Nome'
-                        if manual_fm: manual_map[manual_fm] = 'FantaMedia'
-                        if manual_gol: manual_map[manual_gol] = 'Gol'
-                        if manual_ass: manual_map[manual_ass] = 'Assist'
-                        if manual_part: manual_map[manual_part] = 'Partite'
-                        if manual_rig: manual_map[manual_rig] = 'Rigori'
-                        if manual_amm: manual_map[manual_amm] = 'Ammonizioni'
-                        if manual_esp: manual_map[manual_esp] = 'Espulsioni'
-                        df_s = df_s.rename(columns=manual_map)
-                        st.success("✅ Mapping manuale applicato!")
-                        st.rerun()
 
                 if 'Nome' not in df_s.columns:
                     st.error(f"❌ Colonna 'Nome' non trovata. Colonne rilevate: {list(df_s.columns)}")
-                    st.info("💡 Usa il mapping manuale sopra per selezionare la colonna del nome")
+                    st.info("💡 Assicurati che il file contenga una colonna con il nome del giocatore")
                     st.stop()
-
-                # ============================================================
-                # RIMUOVI COLONNE DUPLICATE (se il rename ha creato duplicati)
-                # ============================================================
-                df_s = df_s.loc[:, ~df_s.columns.duplicated()]
-
-                # ============================================================
-                # CONVERSIONE FORZATA NUMERI (robusta)
-                # ============================================================
-                numeric_cols = ['FantaMedia', 'Gol', 'Assist', 'Partite', 'Rigori', 'Ammonizioni', 'Espulsioni', 'Gol_Subiti', 'Clean_Sheet']
-                for col in numeric_cols:
-                    if col in df_s.columns:
-                        try:
-                            # Se per qualche motivo è ancora un DataFrame, prendi la prima colonna
-                            s = df_s[col]
-                            if isinstance(s, pd.DataFrame):
-                                s = s.iloc[:, 0]
-                            df_s[col] = pd.to_numeric(s, errors='coerce')
-                        except Exception as conv_err:
-                            st.warning(f"⚠️ Impossibile convertire colonna '{col}': {conv_err}")
-
-                # ============================================================
-                # ANTEPRIMA COLONNE RILEVATE
-                # ============================================================
-                st.subheader("📋 Colonne Rilevate")
-                rilevate = {c: ('✅' if c in df_s.columns else '❌') for c in ['Nome','FantaMedia','Gol','Assist','Partite','Rigori','Ammonizioni','Espulsioni']}
-                cols_rilev = st.columns(len(rilevate))
-                for idx_c, (col_name, status) in enumerate(rilevate.items()):
-                    with cols_rilev[idx_c]:
-                        color = '#00d26a' if status == '✅' else '#ef4444'
-                        st.markdown(f"<div style='text-align:center;padding:6px;border-radius:6px;background:#1a1a2e;'><div style='font-size:0.75em;color:#888;'>{col_name}</div><div style='font-size:1.2em;color:{color};'>{status}</div></div>", unsafe_allow_html=True)
-
-                with st.expander("👁️ Anteprima prime 5 righe"):
-                    preview_cols = [c for c in ['Nome','FantaMedia','Gol','Assist','Partite','Rigori','Ammonizioni','Espulsioni'] if c in df_s.columns]
-                    st.dataframe(df_s[preview_cols].head(5), use_container_width=True)
 
                 df_s["Stagione"] = stagione_sel
                 st.session_state.stats_per_stagione[stagione_sel] = df_s
