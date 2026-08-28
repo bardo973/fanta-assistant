@@ -2573,7 +2573,7 @@ if menu == "🛒 Mercato":
                 else:
                     default_price = pc_ai
 
-                prezzo = st.number_input("Prezzo da pagare all'asta", min_value=1, max_value=max(1,cred), value=default_price, key="acq_p")
+                prezzo = st.number_input("Prezzo da pagare all'asta", min_value=1, max_value=max(1,cred), value=min(default_price, max(1, cred)), key="acq_p")
 
                 riep_sq = riepilogo_rosa(sq)
                 ruolo_sel = info["Ruolo"]
