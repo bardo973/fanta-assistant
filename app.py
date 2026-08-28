@@ -3633,33 +3633,97 @@ if menu == "📈 Statistiche Storiche":
                     df_s = pd.read_excel(up_stats)
                 df_s.columns = [str(c).strip() for c in df_s.columns]
 
+                # ============================================================
+                # MAPPING AUTOMATICO COLONNE (esteso)
+                # ============================================================
                 col_map = {}
                 for col in df_s.columns:
                     cl = str(col).lower().strip()
-                    if any(k in cl for k in ['nome','giocatore','calciatore','name','player','cognome']):
+                    if any(k in cl for k in ['nome','giocatore','calciatore','name','player','cognome','calciatori']):
                         col_map[col] = 'Nome'
-                    elif any(k in cl for k in ['stagione','anno','season','year']):
+                    elif any(k in cl for k in ['stagione','anno','season','year','camp']):
                         col_map[col] = 'Stagione'
-                    elif any(k in cl for k in ['gol','goal','reti']):
+                    elif any(k in cl for k in ['gol fatti','gol segnati','reti','goal scored','gs']):
                         col_map[col] = 'Gol'
-                    elif 'assist' in cl:
+                    elif any(k in cl for k in ['assist','assists','passaggi decisivi','decisivi']):
                         col_map[col] = 'Assist'
-                    elif any(k in cl for k in ['fm','fantamedia','fanta media','media']):
+                    elif any(k in cl for k in ['fantamedia','fanta media','fm','media fanta','media voto','mv']):
                         col_map[col] = 'FantaMedia'
-                    elif any(k in cl for k in ['partite','presenze','pg','match','played']):
+                    elif any(k in cl for k in ['partite','presenze','pg','match','played','gare']):
                         col_map[col] = 'Partite'
-                    elif 'rigor' in cl:
+                    elif any(k in cl for k in ['rigori','rigore','penalty','penalties','rp']):
                         col_map[col] = 'Rigori'
-                    elif any(k in cl for k in ['amm','yellow','gialli']):
+                    elif any(k in cl for k in ['ammonizioni','amm','yellow','gialli','cartellini gialli','cg']):
                         col_map[col] = 'Ammonizioni'
-                    elif any(k in cl for k in ['esp','red','rossi']):
+                    elif any(k in cl for k in ['espulsioni','esp','red','rossi','cartellini rossi','cr']):
                         col_map[col] = 'Espulsioni'
+                    elif any(k in cl for k in ['gol subiti','gs','goal conceded']):
+                        col_map[col] = 'Gol_Subiti'
+                    elif any(k in cl for k in ['clean sheet','inv','porta inviolata','inviolata']):
+                        col_map[col] = 'Clean_Sheet'
                 df_s = df_s.rename(columns=col_map)
+
+                # ============================================================
+                # MAPPING MANUALE (se l'automatico ha saltato qualcosa)
+                # ============================================================
+                with st.expander("🔧 Mappa Colonne Manualmente (se necessario)", expanded=False):
+                    st.caption(f"Colonne rilevate nel file: {', '.join(df_s.columns)}")
+                    cols_list = [""] + list(df_s.columns)
+
+                    c_m1, c_m2, c_m3 = st.columns(3)
+                    with c_m1:
+                        manual_nome = st.selectbox("→ Nome Giocatore", cols_list, key=f"man_nome_{stagione_sel}")
+                        manual_fm = st.selectbox("→ FantaMedia", cols_list, key=f"man_fm_{stagione_sel}")
+                        manual_gol = st.selectbox("→ Gol", cols_list, key=f"man_gol_{stagione_sel}")
+                    with c_m2:
+                        manual_ass = st.selectbox("→ Assist", cols_list, key=f"man_ass_{stagione_sel}")
+                        manual_part = st.selectbox("→ Partite", cols_list, key=f"man_part_{stagione_sel}")
+                        manual_rig = st.selectbox("→ Rigori", cols_list, key=f"man_rig_{stagione_sel}")
+                    with c_m3:
+                        manual_amm = st.selectbox("→ Ammonizioni", cols_list, key=f"man_amm_{stagione_sel}")
+                        manual_esp = st.selectbox("→ Espulsioni", cols_list, key=f"man_esp_{stagione_sel}")
+
+                    if st.button("🔄 Applica Mapping Manuale", key=f"btn_man_{stagione_sel}"):
+                        manual_map = {}
+                        if manual_nome: manual_map[manual_nome] = 'Nome'
+                        if manual_fm: manual_map[manual_fm] = 'FantaMedia'
+                        if manual_gol: manual_map[manual_gol] = 'Gol'
+                        if manual_ass: manual_map[manual_ass] = 'Assist'
+                        if manual_part: manual_map[manual_part] = 'Partite'
+                        if manual_rig: manual_map[manual_rig] = 'Rigori'
+                        if manual_amm: manual_map[manual_amm] = 'Ammonizioni'
+                        if manual_esp: manual_map[manual_esp] = 'Espulsioni'
+                        df_s = df_s.rename(columns=manual_map)
+                        st.success("✅ Mapping manuale applicato!")
+                        st.rerun()
 
                 if 'Nome' not in df_s.columns:
                     st.error(f"❌ Colonna 'Nome' non trovata. Colonne rilevate: {list(df_s.columns)}")
-                    st.info("💡 Assicurati che il file contenga una colonna con il nome del giocatore")
+                    st.info("💡 Usa il mapping manuale sopra per selezionare la colonna del nome")
                     st.stop()
+
+                # ============================================================
+                # CONVERSIONE FORZATA NUMERI
+                # ============================================================
+                numeric_cols = ['FantaMedia', 'Gol', 'Assist', 'Partite', 'Rigori', 'Ammonizioni', 'Espulsioni', 'Gol_Subiti', 'Clean_Sheet']
+                for col in numeric_cols:
+                    if col in df_s.columns:
+                        df_s[col] = pd.to_numeric(df_s[col], errors='coerce')
+
+                # ============================================================
+                # ANTEPRIMA COLONNE RILEVATE
+                # ============================================================
+                st.subheader("📋 Colonne Rilevate")
+                rilevate = {c: ('✅' if c in df_s.columns else '❌') for c in ['Nome','FantaMedia','Gol','Assist','Partite','Rigori','Ammonizioni','Espulsioni']}
+                cols_rilev = st.columns(len(rilevate))
+                for idx_c, (col_name, status) in enumerate(rilevate.items()):
+                    with cols_rilev[idx_c]:
+                        color = '#00d26a' if status == '✅' else '#ef4444'
+                        st.markdown(f"<div style='text-align:center;padding:6px;border-radius:6px;background:#1a1a2e;'><div style='font-size:0.75em;color:#888;'>{col_name}</div><div style='font-size:1.2em;color:{color};'>{status}</div></div>", unsafe_allow_html=True)
+
+                with st.expander("👁️ Anteprima prime 5 righe"):
+                    preview_cols = [c for c in ['Nome','FantaMedia','Gol','Assist','Partite','Rigori','Ammonizioni','Espulsioni'] if c in df_s.columns]
+                    st.dataframe(df_s[preview_cols].head(5), use_container_width=True)
 
                 df_s["Stagione"] = stagione_sel
                 st.session_state.stats_per_stagione[stagione_sel] = df_s
