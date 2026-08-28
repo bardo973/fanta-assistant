@@ -1635,7 +1635,6 @@ if menu == "🏠 Dashboard":
                     f"<div style='text-align:center;margin-top:6px;line-height:1.6;'>{' | '.join(leg_parts)}</div>",
                     unsafe_allow_html=True
                 )
-    st.html(html_table)
 
     st.markdown("---")
     st.subheader("🎯 Budget Libero per Top (>40cr)")
