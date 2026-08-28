@@ -1499,49 +1499,172 @@ if menu == "🏠 Dashboard":
             st.line_chart(daily.set_index("Data_dt"))
 
     st.markdown("---")
-    st.subheader("🌡️ Heatmap Composizione Rose")
-    heat_data = []
-    for sq in NOMI_SQUADRE:
-        rosa = st.session_state.squadre[sq]["rosa"]
-        conti = {"P": 0, "D": 0, "C": 0, "A": 0}
-        for g in rosa:
-            r = g.get("Ruolo", "C")
-            if r in conti:
-                conti[r] += 1
-        for ruolo in ["P", "D", "C", "A"]:
-            req = ROSA_REQ[ruolo]
-            poss = conti[ruolo]
-            pct = min(100, round((poss / req) * 100, 1))
-            heat_data.append({"Squadra": sq, "Ruolo": ruolo, "Completamento %": pct, "Posseduti": f"{poss}/{req}"})
-    df_heat = pd.DataFrame(heat_data)
-    pivot_heat = df_heat.pivot(index="Squadra", columns="Ruolo", values="Completamento %")
+    st.subheader("📈 Metriche Chiave")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in NOMI_SQUADRE)
+        st.metric("Giocatori Assegnati", tot_giocatori)
+    with c2:
+        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in NOMI_SQUADRE)
+        st.metric("Crediti Liberi", tot_crediti)
+    with c3:
+        squadre_complete = sum(1 for sq in NOMI_SQUADRE if len(st.session_state.squadre[sq]["rosa"]) >= 25)
+        st.metric("Rose Completate", f"{squadre_complete}/10")
+    with c4:
+        db = st.session_state.giocatori_db
+        in_rosa = set(get_player_index().keys())
+        svinc = db[~db["Nome"].str.lower().isin(in_rosa)] if not db.empty else pd.DataFrame()
+        st.metric("Svincolati", len(svinc))
+    with c5:
+        st.metric("Contratti in Scadenza", tot_scadenze)
 
-    # Tabella HTML con colori inline (no matplotlib required)
-    def _heat_color(pct):
-        if pct >= 100:
-            return "#14532d"  # verde scuro
-        elif pct >= 75:
-            return "#166534"
-        elif pct >= 50:
-            return "#ca8a04"  # giallo
-        elif pct >= 25:
-            return "#9a3412"  # arancione
+    st.markdown("---")
+    st.subheader("🏆 Top 5 Affari Liberi per Ruolo")
+    if not svinc.empty:
+        svinc["FantaMedia_Originale"] = svinc["FantaMedia"]
+        svinc["FantaMedia"] = svinc["Nome"].apply(lambda n: _get_fm_2627(n) if _get_fm_2627(n) is not None else svinc.loc[svinc["Nome"]==n, "FantaMedia"].values[0])
+        svinc["Indice_Affare"] = round(svinc["FantaMedia"] / svinc["Quotazione"].replace(0,1), 2)
+        ruolo_sel = st.select_slider(
+            "Seleziona ruolo",
+            options=["P", "D", "C", "A"],
+            value="P",
+            format_func=lambda x: {"P": "🧤 Portieri", "D": "🛡️ Difensori", "C": "⚙️ Centrocampisti", "A": "⚔️ Attaccanti"}[x],
+            key="dash_top5_ruolo"
+        )
+        svinc_r = svinc[svinc["Ruolo"] == ruolo_sel]
+        if not svinc_r.empty:
+            top5 = svinc_r.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]].copy()
+            def _badge_fm(row):
+                fm_2627 = _get_fm_2627(row["Nome"])
+                if fm_2627 is not None:
+                    return f"{row['FantaMedia']} 📊"
+                return f"{row['FantaMedia']} 📋"
+            top5["FantaMedia"] = top5.apply(_badge_fm, axis=1)
+            st.dataframe(top5, use_container_width=True, hide_index=True)
+            st.caption("📊 = FantaMedia da statistiche 2026/27 | 📋 = FantaMedia da listone")
         else:
-            return "#7f1d1d"  # rosso scuro
+            st.info(f"Nessuno svincolato nel ruolo {ruolo_sel}.")
+    else:
+        st.info("Nessuno svincolato.")
 
-    html_table = '<table style="width:100%;border-collapse:collapse;font-size:0.9em;"><thead><tr style="background:#1a1a2e;"><th style="padding:8px;text-align:left;color:#888;border-bottom:2px solid #2a2a4a;">Squadra</th>'
-    for ruolo in ["P", "D", "C", "A"]:
-        html_table += f'<th style="padding:8px;text-align:center;color:#888;border-bottom:2px solid #2a2a4a;">{ruolo}</th>'
-    html_table += '</tr></thead><tbody>'
+    st.markdown("---")
+    st.subheader("🔔 Alert Contratti in Scadenza")
+    scad_rows = []
     for sq in NOMI_SQUADRE:
-        html_table += f'<tr><td style="padding:8px;color:#fff;font-weight:600;border-bottom:1px solid #2a2a4a;">{sq}</td>'
-        for ruolo in ["P", "D", "C", "A"]:
-            val = pivot_heat.loc[sq, ruolo] if sq in pivot_heat.index and ruolo in pivot_heat.columns else 0
-            bg = _heat_color(val)
-            txt = "#fff" if val < 50 else "#fff"
-            html_table += f'<td style="padding:8px;text-align:center;border-bottom:1px solid #2a2a4a;background:{bg};color:{txt};font-weight:bold;border-radius:4px;">{val:.0f}%</td>'
-        html_table += '</tr>'
-    html_table += '</tbody></table>'
+        for g in st.session_state.squadre[sq]["rosa"]:
+            sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
+            if sa <= ANNO_CORRENTE + 1:
+                scad_rows.append({
+                    "Squadra": sq, "Giocatore": g["Nome"], "Ruolo": g["Ruolo"],
+                    "Scadenza": sa,
+                    "Stato": "🔴 SCADE QUEST'ANNO" if sa == ANNO_CORRENTE else "🟠 SCADE IL PROSSIMO"
+                })
+    if scad_rows:
+        st.error(f"⚠️ ATTENZIONE: {len(scad_rows)} contratti in scadenza! Controlla la tabella sotto.")
+        df_scad = pd.DataFrame(scad_rows).sort_values("Scadenza")
+        st.dataframe(df_scad, use_container_width=True, hide_index=True)
+    else:
+        st.success("✅ Nessun contratto in scadenza imminente.")
+
+    if st.session_state.storico_mercato:
+        st.markdown("---")
+        st.subheader("📈 Andamento Mercato")
+        hist = pd.DataFrame(st.session_state.storico_mercato)
+        if not hist.empty and "Data" in hist.columns:
+            hist["Data_dt"] = pd.to_datetime(hist["Data"])
+            hist = hist.sort_values("Data_dt")
+            daily = hist.groupby(hist["Data_dt"].dt.date).size().reset_index(name="Operazioni")
+            st.line_chart(daily.set_index("Data_dt"))
+
+    # ============================================================
+    # 💰 BILANCIO PLUS — Donut charts budget per reparto
+    # ============================================================
+    st.markdown("---")
+    st.subheader("💰 Bilancio Plus — Distribuzione Budget per Reparto")
+    st.caption("Donut chart del budget investito per reparto. Il buco centrale mostra i crediti totali spesi.")
+
+    colori_ruolo_pie = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444", "Libero": "#2a2a4a"}
+    ruoli_nome = {"P": "🧤", "D": "🛡️", "C": "⚙️", "A": "⚔️"}
+
+    for row_idx in range(2):
+        cols_bil = st.columns(5)
+        for col_idx in range(5):
+            sq_idx = row_idx * 5 + col_idx
+            if sq_idx >= len(NOMI_SQUADRE):
+                break
+            sq = NOMI_SQUADRE[sq_idx]
+            with cols_bil[col_idx]:
+                rosa_b = st.session_state.squadre[sq]["rosa"]
+                budget_r = {"P": 0, "D": 0, "C": 0, "A": 0}
+                for g in rosa_b:
+                    r = g.get("Ruolo", "C")
+                    if r in budget_r:
+                        budget_r[r] += g.get("Costo_Acquisto", 0)
+                crediti_rim = st.session_state.squadre[sq]["crediti"]
+                tot_speso = sum(budget_r.values())
+
+                pie_data = {k: v for k, v in budget_r.items() if v > 0}
+                if crediti_rim > 0:
+                    pie_data["Libero"] = crediti_rim
+
+                import math
+                size = 150
+                total = sum(pie_data.values())
+                svg_pie = [f'<svg width="{size}" height="{size}" viewBox="0 0 {size} {size}" style="display:block;margin:auto;">']
+                cx, cy = size // 2, size // 2
+                r = size // 2 - 10
+                start_angle = 0
+
+                for ruolo, val in pie_data.items():
+                    if total == 0:
+                        break
+                    angle = (val / total) * 360
+                    start_rad = math.radians(start_angle - 90)
+                    end_rad = math.radians(start_angle + angle - 90)
+                    x1 = cx + r * math.cos(start_rad)
+                    y1 = cy + r * math.sin(start_rad)
+                    x2 = cx + r * math.cos(end_rad)
+                    y2 = cy + r * math.sin(end_rad)
+                    large_arc = 1 if angle > 180 else 0
+                    svg_pie.append(
+                        f'<path d="M {cx} {cy} L {x1:.1f} {y1:.1f} A {r} {r} 0 {large_arc} 1 {x2:.1f} {y2:.1f} Z" '
+                        f'fill="{colori_ruolo_pie.get(ruolo, "#888")}" stroke="#0b0f19" stroke-width="2.5"/>'
+                    )
+                    mid_rad = math.radians(start_angle + angle / 2 - 90)
+                    lx = cx + (r * 0.62) * math.cos(mid_rad)
+                    ly = cy + (r * 0.62) * math.sin(mid_rad)
+                    if angle > 20:
+                        svg_pie.append(
+                            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dominant-baseline="middle" '
+                            f'fill="#fff" font-size="9" font-weight="bold" font-family="Segoe UI">{val}</text>'
+                        )
+                    start_angle += angle
+
+                svg_pie.append(f'<circle cx="{cx}" cy="{cy}" r="{int(r * 0.42)}" fill="#12122e" stroke="#2a2a4a" stroke-width="1"/>')
+                svg_pie.append(f'<text x="{cx}" y="{cy - 3}" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold" font-family="Segoe UI">{tot_speso}</text>')
+                svg_pie.append(f'<text x="{cx}" y="{cy + 10}" text-anchor="middle" fill="#888" font-size="8" font-family="Segoe UI">spesi</text>')
+                svg_pie.append('</svg>')
+
+                st.markdown(
+                    f"<div style='text-align:center;font-weight:bold;color:#00d26a;margin-bottom:6px;font-size:1.05em;'>{sq}</div>",
+                    unsafe_allow_html=True
+                )
+                st.markdown("".join(svg_pie), unsafe_allow_html=True)
+
+                leg_parts = []
+                for r in ["P", "D", "C", "A"]:
+                    if budget_r[r] > 0:
+                        leg_parts.append(
+                            f"<span style='font-size:0.8em;'><span style='color:{colori_ruolo_pie[r]}'>●</span> {ruoli_nome[r]} {budget_r[r]}cr</span>"
+                        )
+                if crediti_rim > 0:
+                    leg_parts.append(
+                        f"<span style='font-size:0.8em;'><span style='color:{colori_ruolo_pie['Libero']}'>●</span> 💰 {crediti_rim}cr</span>"
+                    )
+                st.markdown(
+                    f"<div style='text-align:center;margin-top:6px;line-height:1.6;'>{' | '.join(leg_parts)}</div>",
+                    unsafe_allow_html=True
+                )
     st.html(html_table)
 
     st.markdown("---")
@@ -2690,6 +2813,122 @@ if menu == "🤝 Scambi & Prestiti":
 
     tipo = st.radio("Tipo operazione", ["Scambio Definitivo", "Prestito 6 mesi", "Prestito 1 anno"], horizontal=True)
 
+    # --- PREVIEW IMPATTO SCAMBIO ---
+    if g1 or g2 or d1 > 0 or d2 > 0:
+        st.markdown("---")
+        st.subheader("🔮 Anteprima Scambio")
+        oggetti1_preview = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] in g1]
+        oggetti2_preview = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] in g2]
+
+        if oggetti1_preview or oggetti2_preview:
+            c_prev1, c_prev2 = st.columns(2)
+            stats_ps_sc = st.session_state.get("stats_per_stagione", {})
+            stats_2627_sc = stats_ps_sc.get("2026-27") if "2026-27" in stats_ps_sc else None
+            with c_prev1:
+                st.markdown(f"<div style='text-align:center;color:#00d26a;font-weight:bold;'>{sq1} CEDE</div>", unsafe_allow_html=True)
+                for g in oggetti1_preview:
+                    rdict = dict(g)
+                    rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia",6.0)) / max(float(rdict.get("Quotazione",1)),1), 2)
+                    rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_sc)
+                    st.markdown(render_flip_card(rdict, stats_ps_sc, stats_2627_sc), unsafe_allow_html=True)
+                if d1 > 0:
+                    st.markdown(f"<div style='text-align:center;color:#ffd700;'>💰 +{d1}cr</div>", unsafe_allow_html=True)
+            with c_prev2:
+                st.markdown(f"<div style='text-align:center;color:#3b82f6;font-weight:bold;'>{sq2} CEDE</div>", unsafe_allow_html=True)
+                for g in oggetti2_preview:
+                    rdict = dict(g)
+                    rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia",6.0)) / max(float(rdict.get("Quotazione",1)),1), 2)
+                    rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_sc)
+                    st.markdown(render_flip_card(rdict, stats_ps_sc, stats_2627_sc), unsafe_allow_html=True)
+                if d2 > 0:
+                    st.markdown(f"<div style='text-align:center;color:#ffd700;'>💰 +{d2}cr</div>", unsafe_allow_html=True)
+
+        def valore_scambio(gi_list):
+            if not gi_list: return 0
+            tot = 0
+            for g in gi_list:
+                fm = _get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0)
+                q = g.get("Quotazione", 10)
+                tit = calcola_indice_titolarita(g, stats_2627_sc)
+                tot += fm * q * (tit / 100)
+            return tot
+
+        v1 = valore_scambio(oggetti2_preview) + d2
+        v2 = valore_scambio(oggetti1_preview) + d1
+        if max(v1, v2) > 0:
+            fairness = int((min(v1, v2) / max(v1, v2)) * 100)
+        else:
+            fairness = 100 if not oggetti1_preview and not oggetti2_preview else 50
+
+        col_f1, col_f2 = st.columns([1, 2])
+        with col_f1:
+            st.markdown("#### ⚖️ Equità Scambio")
+            colore_f = "#00d26a" if fairness >= 80 else "#eab308" if fairness >= 50 else "#ef4444"
+            st.markdown(f"<div style='font-size:3em;font-weight:bold;color:{colore_f};text-align:center;'>{fairness}%</div>", unsafe_allow_html=True)
+            if fairness >= 80:
+                st.success("Scambio bilanciato")
+            elif fairness >= 50:
+                st.warning("Scambio accettabile")
+            else:
+                st.error("Scambio sbilanciato!")
+        with col_f2:
+            def fm_media_rosa(sq_name):
+                rosa = st.session_state.squadre[sq_name]["rosa"]
+                if not rosa: return 0
+                return round(sum(_get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0) for g in rosa) / len(rosa), 2)
+            fm_pre_1 = fm_media_rosa(sq1)
+            fm_pre_2 = fm_media_rosa(sq2)
+            rosa_post_1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g["Nome"] not in g1] + oggetti2_preview
+            rosa_post_2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g["Nome"] not in g2] + oggetti1_preview
+            def fm_media_lista(lst):
+                if not lst: return 0
+                return round(sum(_get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0) for g in lst) / len(lst), 2)
+            fm_post_1 = fm_media_lista(rosa_post_1)
+            fm_post_2 = fm_media_lista(rosa_post_2)
+            impact_data = {
+                "Squadra": [sq1, sq2],
+                "FM Pre": [fm_pre_1, fm_pre_2],
+                "FM Post": [fm_post_1, fm_post_2],
+                "Δ FM": [round(fm_post_1 - fm_pre_1, 2), round(fm_post_2 - fm_pre_2, 2)],
+                "Crediti Post": [st.session_state.squadre[sq1]["crediti"] - d1 + d2, st.session_state.squadre[sq2]["crediti"] - d2 + d1]
+            }
+            st.dataframe(pd.DataFrame(impact_data), use_container_width=True, hide_index=True)
+
+        with st.expander("🎮 Simula Formazioni Post-Scambio"):
+            mod1 = st.selectbox(f"Modulo {sq1}", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], key="sim_post_1")
+            mod2 = st.selectbox(f"Modulo {sq2}", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], key="sim_post_2")
+            def _sim_temp(sq_name, rosa_temp, modulo_temp):
+                if not rosa_temp: return 0, []
+                enriched = []
+                for g in rosa_temp:
+                    g_copy = dict(g)
+                    fm_2627 = _get_fm_2627(g["Nome"])
+                    g_copy["FantaMedia_Usata"] = fm_2627 if fm_2627 is not None else g.get("FantaMedia", 0)
+                    enriched.append(g_copy)
+                df_t = pd.DataFrame(enriched)
+                try:
+                    d, c, a = map(int, modulo_temp.split("-"))
+                except:
+                    return 0, []
+                p = 1
+                tit = []
+                for ruolo, n in [("P", p), ("D", d), ("C", c), ("A", a)]:
+                    subset = df_t[df_t["Ruolo"] == ruolo].sort_values("FantaMedia_Usata", ascending=False)
+                    for _, row in subset.head(n).iterrows():
+                        tit.append(row.to_dict())
+                return round(sum(g.get("FantaMedia_Usata", 0) for g in tit), 2), tit
+            c_sim1, c_sim2 = st.columns(2)
+            with c_sim1:
+                fm_t1, tit1 = _sim_temp(sq1, rosa_post_1, mod1)
+                st.metric(f"FM Titolare {sq1}", fm_t1, f"{round(fm_t1 - simula_formazione(sq1, mod1)[0], 2):+.2f}")
+                for g in tit1:
+                    st.markdown(f"• **{g['Nome']}** ({g['Ruolo']}) — FM {g['FantaMedia_Usata']}")
+            with c_sim2:
+                fm_t2, tit2 = _sim_temp(sq2, rosa_post_2, mod2)
+                st.metric(f"FM Titolare {sq2}", fm_t2, f"{round(fm_t2 - simula_formazione(sq2, mod2)[0], 2):+.2f}")
+                for g in tit2:
+                    st.markdown(f"• **{g['Nome']}** ({g['Ruolo']}) — FM {g['FantaMedia_Usata']}")
+
     if st.button("Finalizza", type="primary"):
         if not g1 and not g2 and d1 == 0 and d2 == 0:
             st.warning("Seleziona qualcosa.")
@@ -2808,8 +3047,8 @@ if menu == "🤝 Scambi & Prestiti":
 if menu == "📋 Rose & Contratti":
     st.header("📋 Riepilogo Rose, Crediti & Contratti")
 
-    tab_singole, tab_matrice, tab_contratti, tab_consigli, tab_formazione = st.tabs(
-        ["🛡️ Squadre", "📊 Matrice", "📄 Contratti", "💡 Consigli 2026/27", "🎮 Simula Formazione"]
+    tab_singole, tab_matrice, tab_contratti, tab_consigli, tab_formazione, tab_confronto = st.tabs(
+        ["🛡️ Squadre", "📊 Matrice", "📄 Contratti", "💡 Consigli 2026/27", "🎮 Simula Formazione", "⚔️ Confronto"]
     )
 
     with tab_singole:
@@ -2845,6 +3084,9 @@ if menu == "📋 Rose & Contratti":
                                 index=0,
                                 key=f"ord_ruoli_{sq}"
                             )
+
+                    # --- TOGGLE VISTA ---
+                    vista = st.segmented_control("Vista", ["Tabella", "Card 3D"], default="Tabella", key=f"vista_{sq}")
 
                     # Applica ordinamento
                     if ordine == "Ruolo → FantaMedia ↓":
@@ -2975,7 +3217,26 @@ if menu == "📋 Rose & Contratti":
                     other_cols = [c for c in display.columns if c not in first_cols and c not in ["Scadenza_Anno", "Scadenza_Mese"]]
                     display = display[first_cols + other_cols]
 
-                    st.write(display.to_html(escape=False, index=False), unsafe_allow_html=True)
+                    if vista != "Card 3D":
+                        st.write(display.to_html(escape=False, index=False), unsafe_allow_html=True)
+                    else:
+                        stats_ps_rosa = st.session_state.get("stats_per_stagione", {})
+                        stats_2627_rosa = stats_ps_rosa.get("2026-27") if "2026-27" in stats_ps_rosa else None
+                        idx_rosa = get_player_index()
+                        for ruolo_card in ["P", "D", "C", "A"]:
+                            df_r_card = display[display["Ruolo"] == ruolo_card]
+                            if not df_r_card.empty:
+                                st.markdown(f"**{'🧤' if ruolo_card=='P' else '🛡️' if ruolo_card=='D' else '⚙️' if ruolo_card=='C' else '⚔️'} {ruolo_card}**")
+                                card_cols = st.columns(min(4, len(df_r_card)))
+                                for idx_c, (_, row_c) in enumerate(df_r_card.iterrows()):
+                                    rdict = row_c.to_dict()
+                                    rdict["Proprietario"] = idx_rosa.get(str(rdict.get("Nome","")).lower(), sq)
+                                    if pd.isna(rdict.get("Indice_Affare")):
+                                        rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia",6.0)) / max(float(rdict.get("Quotazione",1)),1), 2)
+                                    if pd.isna(rdict.get("Indice_Titolarita")):
+                                        rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_rosa)
+                                    with card_cols[idx_c % len(card_cols)]:
+                                        st.markdown(render_flip_card(rdict, stats_ps_rosa, stats_2627_rosa), unsafe_allow_html=True)
 
                     in_scadenza = display[display["Stato_Contratto"].str.contains("🟠|🔴")]
                     if not in_scadenza.empty:
@@ -3142,6 +3403,129 @@ if menu == "📋 Rose & Contratti":
                 for g in panchina:
                     orig = g.get("FM_Origine", "")
                     st.markdown(f"**{g['Nome']}** ({g['Ruolo']}) — FM {g.get('FantaMedia_Usata', 0)} <span style='color:#888;font-size:0.8em;'>{orig}</span>", unsafe_allow_html=True)
+
+    with tab_confronto:
+        st.subheader("⚔️ Confronto Head-to-Head")
+        c1, c2 = st.columns(2)
+        with c1:
+            sq_a = st.selectbox("Squadra A", NOMI_SQUADRE, index=0, key="h2h_a")
+        with c2:
+            sq_b = st.selectbox("Squadra B", [s for s in NOMI_SQUADRE if s != sq_a], index=0, key="h2h_b")
+
+        def stats_squadra(sq_name):
+            rosa = st.session_state.squadre[sq_name]["rosa"]
+            if not rosa:
+                return {"fm_media": 0, "costo_tot": 0, "tit_media": 0, "budget": st.session_state.squadre[sq_name]["crediti"], "completamento": 0}
+            conti = {"P": 0, "D": 0, "C": 0, "A": 0}
+            for g in rosa:
+                r = g.get("Ruolo", "C")
+                if r in conti: conti[r] += 1
+            compl = sum(min(1.0, conti[r] / ROSA_REQ[r]) for r in ROSA_REQ) / 4 * 100
+            fm_vals = []
+            for g in rosa:
+                fm_2627 = _get_fm_2627(g["Nome"])
+                fm_vals.append(fm_2627 if fm_2627 is not None else g.get("FantaMedia", 6.0))
+            tit_vals = [calcola_indice_titolarita(g, st.session_state.get("stats_per_stagione", {}).get("2026-27")) for g in rosa]
+            return {
+                "fm_media": round(sum(fm_vals)/len(fm_vals), 2),
+                "costo_tot": sum(g.get("Costo_Acquisto", 0) for g in rosa),
+                "tit_media": round(sum(tit_vals)/len(tit_vals), 1),
+                "budget": st.session_state.squadre[sq_name]["crediti"],
+                "completamento": round(compl, 1)
+            }
+
+        s_a = stats_squadra(sq_a)
+        s_b = stats_squadra(sq_b)
+
+        m1, m2, m3, m4, m5 = st.columns(5)
+        with m1:
+            delta_fm = s_a["fm_media"] - s_b["fm_media"]
+            st.metric("FantaMedia", s_a["fm_media"], f"{delta_fm:+.2f}" if delta_fm != 0 else None)
+        with m2:
+            delta_tit = s_a["tit_media"] - s_b["tit_media"]
+            st.metric("Titolarità", s_a["tit_media"], f"{delta_tit:+.1f}" if delta_tit != 0 else None)
+        with m3:
+            delta_costo = s_a["costo_tot"] - s_b["costo_tot"]
+            st.metric("Costo Rosa", s_a["costo_tot"], f"{delta_costo:+.0f}cr" if delta_costo != 0 else None)
+        with m4:
+            delta_budget = s_a["budget"] - s_b["budget"]
+            st.metric("Crediti", s_a["budget"], f"{delta_budget:+.0f}cr" if delta_budget != 0 else None)
+        with m5:
+            delta_compl = s_a["completamento"] - s_b["completamento"]
+            st.metric("Completamento", f"{s_a['completamento']:.0f}%", f"{delta_compl:+.1f}%" if delta_compl != 0 else None)
+
+        import math
+        metrics_h2h = ["FantaMedia", "Titolarità", "Budget", "Completamento", "Costo/10"]
+        def norm_h2h(val, mini, maxi):
+            if maxi == mini: return 50
+            return 10 + 80 * (val - mini) / (maxi - mini)
+        vals_a = [
+            norm_h2h(s_a["fm_media"], 4, 9),
+            norm_h2h(s_a["tit_media"], 0, 100),
+            norm_h2h(s_a["budget"], 0, 500),
+            norm_h2h(s_a["completamento"], 0, 100),
+            norm_h2h(s_a["costo_tot"], 0, 500)
+        ]
+        vals_b = [
+            norm_h2h(s_b["fm_media"], 4, 9),
+            norm_h2h(s_b["tit_media"], 0, 100),
+            norm_h2h(s_b["budget"], 0, 500),
+            norm_h2h(s_b["completamento"], 0, 100),
+            norm_h2h(s_b["costo_tot"], 0, 500)
+        ]
+        n = len(metrics_h2h)
+        angle_step = 2 * math.pi / n
+        size = 360
+        cx, cy = size // 2, size // 2
+        radius = 130
+        svg_h2h = [f'<svg width="{size}" height="{size}" style="background:#0f0f24;border-radius:16px;display:block;margin:auto;">']
+        for level in [20, 40, 60, 80, 100]:
+            pts = []
+            for i in range(n):
+                a = i * angle_step - math.pi / 2
+                r = radius * (level / 100)
+                x = cx + r * math.cos(a)
+                y = cy + r * math.sin(a)
+                pts.append(f"{x:.1f},{y:.1f}")
+            svg_h2h.append(f'<polygon points="{" ".join(pts)}" fill="none" stroke="#2a2a4a" stroke-width="1"/>')
+        for i in range(n):
+            a = i * angle_step - math.pi / 2
+            x2 = cx + radius * math.cos(a)
+            y2 = cy + radius * math.sin(a)
+            svg_h2h.append(f'<line x1="{cx}" y1="{cy}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#2a2a4a" stroke-width="1"/>')
+            lx = cx + (radius + 28) * math.cos(a)
+            ly = cy + (radius + 28) * math.sin(a)
+            svg_h2h.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" fill="#888" font-size="12" font-family="Segoe UI">{metrics_h2h[i]}</text>')
+        for vals, col, nome_sq in [(vals_a, "#00d26a", sq_a), (vals_b, "#3b82f6", sq_b)]:
+            pts = []
+            for i, v in enumerate(vals):
+                a = i * angle_step - math.pi / 2
+                r = radius * (v / 100)
+                x = cx + r * math.cos(a)
+                y = cy + r * math.sin(a)
+                pts.append(f"{x:.1f},{y:.1f}")
+                svg_h2h.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{col}" stroke="#0f0f24" stroke-width="2"/>')
+            svg_h2h.append(f'<polygon points="{" ".join(pts)}" fill="{col}" fill-opacity="0.2" stroke="{col}" stroke-width="2.5" stroke-linejoin="round"/>')
+        svg_h2h.append(f'<rect x="{size-160}" y="16" width="12" height="12" fill="#00d26a" rx="2"/><text x="{size-140}" y="26" fill="#ddd" font-size="12">{sq_a}</text>')
+        svg_h2h.append(f'<rect x="{size-160}" y="36" width="12" height="12" fill="#3b82f6" rx="2"/><text x="{size-140}" y="46" fill="#ddd" font-size="12">{sq_b}</text>')
+        svg_h2h.append('</svg>')
+        st.markdown("".join(svg_h2h), unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.subheader("📊 Differenza per Reparto")
+        diff_rows = []
+        for ruolo in ["P", "D", "C", "A"]:
+            rosa_a = [g for g in st.session_state.squadre[sq_a]["rosa"] if g.get("Ruolo") == ruolo]
+            rosa_b = [g for g in st.session_state.squadre[sq_b]["rosa"] if g.get("Ruolo") == ruolo]
+            fm_a = round(sum(_get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0) for g in rosa_a) / max(len(rosa_a), 1), 2)
+            fm_b = round(sum(_get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0) for g in rosa_b) / max(len(rosa_b), 1), 2)
+            diff_rows.append({
+                "Ruolo": ruolo,
+                f"{sq_a} #": len(rosa_a), f"{sq_a} FM": fm_a,
+                f"{sq_b} #": len(rosa_b), f"{sq_b} FM": fm_b,
+                "Δ FM": round(fm_a - fm_b, 2)
+            })
+        st.dataframe(pd.DataFrame(diff_rows), use_container_width=True, hide_index=True)
 
 # ============================================================
 # 6. STATISTICHE STORICHE
