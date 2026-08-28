@@ -1911,7 +1911,17 @@ if menu == "🔍 Scouting & Database":
             wl_cols = ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Quotazione_2025_26", "Variazione_%",
                        "Prezzo_Consigliato", "Prezzo_AI", "FantaMedia", "Indice_Affare", "Indice_Titolarita", "Proprietario"]
             wl_cols = [c for c in wl_cols if c in df_wl.columns]
-            st.dataframe(df_wl[wl_cols], use_container_width=True)
+            stats_ps_wl = st.session_state.get("stats_per_stagione", {})
+            stats_2627_wl = stats_ps_wl.get("2026-27") if "2026-27" in stats_ps_wl else None
+            idx_wl = get_player_index()
+            for _, row_wl in df_wl.iterrows():
+                rdict = row_wl.to_dict()
+                rdict["Proprietario"] = idx_wl.get(str(rdict.get("Nome", "")).lower(), "Svincolato 🟢")
+                if pd.isna(rdict.get("Indice_Affare")):
+                    rdict["Indice_Affare"] = round(float(rdict.get("FantaMedia", 6.0)) / max(float(rdict.get("Quotazione", 1)), 1), 2)
+                if pd.isna(rdict.get("Indice_Titolarita")):
+                    rdict["Indice_Titolarita"] = calcola_indice_titolarita(rdict, stats_2627_wl)
+                st.html(render_card_giocatore_espandibile(rdict, stats_ps_wl, stats_2627_wl))
             if st.button("Svuota Watchlist"):
                 st.session_state.watchlist = []
                 save_state()
@@ -1935,7 +1945,13 @@ if menu == "🔨 Asta Live":
                 info_sim = db_sim[db_sim["Nome"] == g_sim].iloc[0]
                 ruolo_sim = info_sim["Ruolo"]
                 quot_sim = int(info_sim["Quotazione"])
-                st.markdown(f"**{g_sim}** — {ruolo_sim} | Quotazione: {quot_sim}cr")
+                stats_ps_sim = st.session_state.get("stats_per_stagione", {})
+                stats_2627_sim = stats_ps_sim.get("2026-27") if "2026-27" in stats_ps_sim else None
+                rdict_sim = info_sim.to_dict()
+                rdict_sim["Proprietario"] = "Svincolato 🟢"
+                rdict_sim["Indice_Affare"] = round(float(rdict_sim.get("FantaMedia", 6.0)) / max(float(rdict_sim.get("Quotazione", 1)), 1), 2)
+                rdict_sim["Indice_Titolarita"] = calcola_indice_titolarita(rdict_sim, stats_2627_sim)
+                st.html(render_card_giocatore_espandibile(rdict_sim, stats_ps_sim, stats_2627_sim))
                 riep_sim = get_all_riepiloghi()
                 avv_data = []
                 for sq_avv in NOMI_SQUADRE:
@@ -1991,15 +2007,13 @@ if menu == "🔨 Asta Live":
                 g_rap = svinc_rap.iloc[idx]
                 nome_rap = g_rap["Nome"]
 
-                st.markdown(f"### 📌 {nome_rap}")
-                c_r1, c_r2, c_r3 = st.columns(3)
-                with c_r1:
-                    st.metric("Ruolo", g_rap["Ruolo"])
-                with c_r2:
-                    st.metric("FantaMedia", g_rap["FantaMedia"])
-                with c_r3:
-                    st.metric("Quotazione", f"{int(g_rap['Quotazione'])}cr")
-                st.caption(f"{g_rap.get('Squadra_SerieA', 'N/D')} | Fascia: {g_rap.get('Consiglio', 'N/D')} | {g_rap.get('Note', '')}")
+                stats_ps_rap = st.session_state.get("stats_per_stagione", {})
+                stats_2627_rap = stats_ps_rap.get("2026-27") if "2026-27" in stats_ps_rap else None
+                rdict_rap = g_rap.to_dict()
+                rdict_rap["Proprietario"] = "Svincolato 🟢"
+                rdict_rap["Indice_Affare"] = round(float(rdict_rap.get("FantaMedia", 6.0)) / max(float(rdict_rap.get("Quotazione", 1)), 1), 2)
+                rdict_rap["Indice_Titolarita"] = calcola_indice_titolarita(rdict_rap, stats_2627_rap)
+                st.html(render_card_giocatore_espandibile(rdict_rap, stats_ps_rap, stats_2627_rap))
 
                 # Prezzo consigliato
                 stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
@@ -2104,8 +2118,13 @@ if menu == "🔨 Asta Live":
                         unsafe_allow_html=True
                     )
 
-                st.markdown(f"### {g_asta} — {info['Ruolo']} | {info['Squadra_SerieA']}")
-                st.caption(f"FantaMedia: {info['FantaMedia']} | Fascia: {info.get('Consiglio','')} | {info.get('Note','')}")
+                stats_ps_ast = st.session_state.get("stats_per_stagione", {})
+                stats_2627_ast = stats_ps_ast.get("2026-27") if "2026-27" in stats_ps_ast else None
+                rdict_ast = info.to_dict()
+                rdict_ast["Proprietario"] = "Svincolato 🟢"
+                rdict_ast["Indice_Affare"] = round(float(rdict_ast.get("FantaMedia", 6.0)) / max(float(rdict_ast.get("Quotazione", 1)), 1), 2)
+                rdict_ast["Indice_Titolarita"] = calcola_indice_titolarita(rdict_ast, stats_2627_ast)
+                st.html(render_card_giocatore_espandibile(rdict_ast, stats_ps_ast, stats_2627_ast))
 
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                 pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
