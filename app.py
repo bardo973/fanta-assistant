@@ -3703,12 +3703,24 @@ if menu == "📈 Statistiche Storiche":
                     st.stop()
 
                 # ============================================================
-                # CONVERSIONE FORZATA NUMERI
+                # RIMUOVI COLONNE DUPLICATE (se il rename ha creato duplicati)
+                # ============================================================
+                df_s = df_s.loc[:, ~df_s.columns.duplicated()]
+
+                # ============================================================
+                # CONVERSIONE FORZATA NUMERI (robusta)
                 # ============================================================
                 numeric_cols = ['FantaMedia', 'Gol', 'Assist', 'Partite', 'Rigori', 'Ammonizioni', 'Espulsioni', 'Gol_Subiti', 'Clean_Sheet']
                 for col in numeric_cols:
                     if col in df_s.columns:
-                        df_s[col] = pd.to_numeric(df_s[col], errors='coerce')
+                        try:
+                            # Se per qualche motivo è ancora un DataFrame, prendi la prima colonna
+                            s = df_s[col]
+                            if isinstance(s, pd.DataFrame):
+                                s = s.iloc[:, 0]
+                            df_s[col] = pd.to_numeric(s, errors='coerce')
+                        except Exception as conv_err:
+                            st.warning(f"⚠️ Impossibile convertire colonna '{col}': {conv_err}")
 
                 # ============================================================
                 # ANTEPRIMA COLONNE RILEVATE
