@@ -2458,35 +2458,55 @@ if menu == "🔨 Asta Live":
                     if offerte_valide:
                         vincitore = max(offerte_valide, key=offerte_valide.get)
                         prezzo_vincita = offerte_valide[vincitore]
+                        st.session_state["_asta_vincitore"] = vincitore
+                        st.session_state["_asta_prezzo"] = prezzo_vincita
                         st.success(f"🏆 Miglior offerente: **{vincitore}** con **{prezzo_vincita}cr**")
-
-                        if st.button("✅ Assegna Giocatore", type="primary", use_container_width=True):
-                            if st.session_state.squadre[vincitore]["crediti"] >= prezzo_vincita:
-                                StateManager.snapshot()
-                                st.session_state.squadre[vincitore]["crediti"] -= prezzo_vincita
-                                scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
-                                st.session_state.squadre[vincitore]["rosa"].append({
-                                    "Nome": g_asta, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
-                                    "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
-                                    "Costo_Acquisto": prezzo_vincita, "Scadenza_Anno": scad_acq
-                                })
-                                st.session_state.contratti[g_asta] = {"squadra": vincitore, "scadenza_anno": scad_acq}
-                                st.session_state.storico_mercato.insert(0, {
-                                    "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    "Operazione": "ASTA",
-                                    "Dettagli": f"{vincitore} aggiudica {g_asta} ({info['Ruolo']}) per {prezzo_vincita}cr — Contratto fino al {scad_acq}"
-                                })
-                                if "asta_giocatore_corrente" in st.session_state:
-                                    del st.session_state["asta_giocatore_corrente"]
-                                invalidate_cache()
-                                save_state()
-                                st.balloons()
-                                st.success(f"🎉 {g_asta} assegnato a {vincitore} per {prezzo_vincita}cr!")
-                                st.rerun()
-                            else:
-                                st.error("Crediti insufficienti!")
                     else:
                         st.info("Nessuna offerta valida inserita.")
+                        st.session_state.pop("_asta_vincitore", None)
+                        st.session_state.pop("_asta_prezzo", None)
+
+                # --- ASSEGNAZIONE FUORI DAL FORM ---
+                if st.session_state.get("_asta_vincitore") and g_asta:
+                    vincitore = st.session_state["_asta_vincitore"]
+                    prezzo_vincita = st.session_state["_asta_prezzo"]
+                    st.markdown(
+                        f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;margin:12px 0;'>"
+                        f"<span style='color:#aaa;'>Pronto per assegnare</span><br/>"
+                        f"<span style='font-size:1.3em;font-weight:bold;color:#fff;'>{g_asta}</span> "
+                        f"<span style='color:#888;'>→</span> "
+                        f"<span style='font-size:1.3em;font-weight:bold;color:#00d26a;'>{vincitore}</span> "
+                        f"<span style='color:#ffd700;font-weight:bold;'>@{prezzo_vincita}cr</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                    if st.button("✅ Conferma Assegnazione", type="primary", use_container_width=True):
+                        if st.session_state.squadre[vincitore]["crediti"] >= prezzo_vincita:
+                            StateManager.snapshot()
+                            st.session_state.squadre[vincitore]["crediti"] -= prezzo_vincita
+                            scad_acq = ANNO_CORRENTE + CONTRATTO_ANNI
+                            st.session_state.squadre[vincitore]["rosa"].append({
+                                "Nome": g_asta, "Ruolo": info["Ruolo"], "Squadra_SerieA": info["Squadra_SerieA"],
+                                "Quotazione": int(info["Quotazione"]), "FantaMedia": float(info["FantaMedia"]),
+                                "Costo_Acquisto": prezzo_vincita, "Scadenza_Anno": scad_acq
+                            })
+                            st.session_state.contratti[g_asta] = {"squadra": vincitore, "scadenza_anno": scad_acq}
+                            st.session_state.storico_mercato.insert(0, {
+                                "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                "Operazione": "ASTA",
+                                "Dettagli": f"{vincitore} aggiudica {g_asta} ({info['Ruolo']}) per {prezzo_vincita}cr — Contratto fino al {scad_acq}"
+                            })
+                            if "asta_giocatore_corrente" in st.session_state:
+                                del st.session_state["asta_giocatore_corrente"]
+                            st.session_state.pop("_asta_vincitore", None)
+                            st.session_state.pop("_asta_prezzo", None)
+                            invalidate_cache()
+                            save_state()
+                            st.balloons()
+                            st.success(f"🎉 {g_asta} assegnato a {vincitore} per {prezzo_vincita}cr!")
+                            st.rerun()
+                        else:
+                            st.error("Crediti insufficienti!")
 
 # ============================================================
 # 3. MERCATO (Acquisti/Vendite/Rinnovi)
