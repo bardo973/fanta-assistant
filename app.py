@@ -1265,6 +1265,9 @@ if menu == "🏠 Dashboard":
     st.markdown("---")
     st.subheader("🏆 Top 5 Affari Liberi per Ruolo")
     if not svinc.empty:
+        # Arricchisci con FantaMedia 2026/27 se disponibili
+        svinc["FantaMedia_Originale"] = svinc["FantaMedia"]
+        svinc["FantaMedia"] = svinc["Nome"].apply(lambda n: _get_fm_2627(n) if _get_fm_2627(n) is not None else svinc.loc[svinc["Nome"]==n, "FantaMedia"].values[0])
         svinc["Indice_Affare"] = round(svinc["FantaMedia"] / svinc["Quotazione"].replace(0,1), 2)
         ruolo_sel = st.select_slider(
             "Seleziona ruolo",
@@ -1275,8 +1278,16 @@ if menu == "🏠 Dashboard":
         )
         svinc_r = svinc[svinc["Ruolo"] == ruolo_sel]
         if not svinc_r.empty:
-            top5 = svinc_r.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]]
+            top5 = svinc_r.nlargest(5, "Indice_Affare")[["Nome","Ruolo","Squadra_SerieA","Quotazione","FantaMedia","Indice_Affare","Consiglio"]].copy()
+            # Aggiungi indicatore se la FM viene dalle stats 2026/27
+            def _badge_fm(row):
+                fm_2627 = _get_fm_2627(row["Nome"])
+                if fm_2627 is not None:
+                    return f"{row['FantaMedia']} 📊"
+                return f"{row['FantaMedia']} 📋"
+            top5["FantaMedia"] = top5.apply(_badge_fm, axis=1)
             st.dataframe(top5, use_container_width=True, hide_index=True)
+            st.caption("📊 = FantaMedia da statistiche 2026/27 | 📋 = FantaMedia da listone")
         else:
             st.info(f"Nessuno svincolato nel ruolo {ruolo_sel}.")
     else:
