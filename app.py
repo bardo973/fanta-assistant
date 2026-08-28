@@ -1306,6 +1306,48 @@ def applica_fasce_automatiche():
     )
 
 
+
+def _get_inline_stats(nome, stats_2627):
+    """Restituisce HTML con badge stats dalla stagione 2026/27."""
+    if stats_2627 is None or stats_2627.empty or "Nome" not in stats_2627.columns:
+        return ""
+    match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
+    if match.empty:
+        close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
+        if close:
+            match = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
+    if match.empty:
+        return ""
+    r = match.iloc[0]
+    badges = []
+    icons = {"Gol": "⚽", "Assist": "🅰️", "Partite": "🏃", "Rigori": "🎯", "Ammonizioni": "🟨", "Espulsioni": "🟥"}
+    for col, icon in icons.items():
+        if col in r and pd.notna(r[col]):
+            val = int(r[col])
+            if val > 0:
+                badges.append(f'<span style="background:#1a1a2e;color:#ddd;padding:2px 6px;border-radius:8px;font-size:0.7em;margin-right:4px;">{icon} {val}</span>')
+    return " ".join(badges)
+
+
+def _get_fm_trend_badge(nome, row_fm, stats_2627):
+    """Restituisce badge trend se FM 2026/27 diverge dal listone."""
+    if stats_2627 is None or stats_2627.empty or "Nome" not in stats_2627.columns:
+        return ""
+    match = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
+    if match.empty:
+        close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
+        if close:
+            match = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
+    if match.empty or "FantaMedia" not in match.columns or pd.isna(match.iloc[0]["FantaMedia"]):
+        return ""
+    fm_2627 = float(match.iloc[0]["FantaMedia"])
+    delta = fm_2627 - row_fm
+    if delta >= 0.5:
+        return f'<span style="background:#00d26a20;color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:bold;border:1px solid #00d26a;">📈 +{delta:.1f}</span>'
+    elif delta <= -0.5:
+        return f'<span style="background:#ff6b6b20;color:#ff6b6b;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:bold;border:1px solid #ff6b6b;">📉 {delta:.1f}</span>'
+    return f'<span style="background:#2a2a4a;color:#888;padding:2px 8px;border-radius:12px;font-size:0.7em;">➡️ {delta:+.1f}</span>'
+
 def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     """Restituisce HTML per una card giocatore accattivante."""
     nome = row["Nome"]
@@ -1344,7 +1386,44 @@ def render_card_giocatore(row, stats_2627=None, show_titolarita=True):
     # Effetto hover: ingrandimento + illuminazione
     hover_js = "onmouseover=\"this.style.transform='scale(1.04)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';\" onmouseout=\"this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';\""
 
-    html = f'<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}><div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div></div>'
+    # Stats inline dalla stagione 2026/27
+    inline_stats = _get_inline_stats(nome, stats_2627)
+    trend_badge = _get_fm_trend_badge(nome, fm, stats_2627)
+
+    # FM display con eventuale badge 2026/27
+    fm_display = f'{fm}'
+    if stats_2627 is not None and not stats_2627.empty and "Nome" in stats_2627.columns:
+        match_fm = stats_2627[stats_2627["Nome"].str.lower() == nome.lower()]
+        if match_fm.empty:
+            close = difflib.get_close_matches(nome.lower(), [n.lower() for n in stats_2627["Nome"].tolist()], n=1, cutoff=0.8)
+            if close:
+                match_fm = stats_2627[stats_2627["Nome"].str.lower() == close[0]]
+        if not match_fm.empty and "FantaMedia" in match_fm.columns and pd.notna(match_fm.iloc[0]["FantaMedia"]):
+            fm_2627_val = float(match_fm.iloc[0]["FantaMedia"])
+            fm_display = f'{fm_2627_val:.1f} <span style="font-size:0.6em;color:#00d26a;">📊</span>'
+
+    html = f'''<div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;cursor:pointer;position:relative;" {hover_js}>
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+            <div>
+                <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
+                <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm_display}</div>
+                <div style="font-size:0.75em;color:#888;">FM</div>
+                {trend_badge}
+            </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
+            <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
+            {pc_span}
+            <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
+        </div>
+        {barra_tit}
+        <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">{inline_stats}</div>
+        <div style="margin-top:8px;">{badge_prop}</div>
+    </div>'''
     return html
 
 
@@ -1352,6 +1431,8 @@ def _build_stats_html(nome, stats_per_stagione):
     """Costruisce HTML con le statistiche storiche di un giocatore + mini grafico FM."""
     rows = []
     fm_points = []
+    gol_points = []
+    ast_points = []
     stagioni_label = []
     for stagione, df in sorted(stats_per_stagione.items()):
         if df.empty or "Nome" not in df.columns:
@@ -1372,7 +1453,9 @@ def _build_stats_html(nome, stats_per_stagione):
             ast = r.get("Assist", "—")
             part = r.get("Partite", "—")
             rig = r.get("Rigori", "—")
-            rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td></tr>')
+            amm = r.get("Ammonizioni", "—")
+            esp = r.get("Espulsioni", "—")
+            rows.append(f'<tr><td style="padding:4px 8px;color:#aaa;font-size:0.8em;">{stagione}</td><td style="padding:4px 8px;color:#ffd700;font-size:0.85em;font-weight:bold;">{fm}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{gol}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{ast}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{part}</td><td style="padding:4px 8px;color:#fff;font-size:0.8em;">{rig}</td><td style="padding:4px 8px;color:#eab308;font-size:0.8em;">{amm}</td><td style="padding:4px 8px;color:#ef4444;font-size:0.8em;">{esp}</td></tr>')
             try:
                 fm_val = float(fm)
                 if fm_val > 0:
@@ -1380,37 +1463,64 @@ def _build_stats_html(nome, stats_per_stagione):
                     stagioni_label.append(stagione)
             except (TypeError, ValueError):
                 pass
+            try:
+                g_val = float(gol)
+                gol_points.append(g_val)
+            except (TypeError, ValueError):
+                gol_points.append(0)
+            try:
+                a_val = float(ast)
+                ast_points.append(a_val)
+            except (TypeError, ValueError):
+                ast_points.append(0)
 
-    # Mini grafico SVG andamento FM
+    # Mini grafico SVG andamento FM + Gol + Assist
     chart_svg = ""
     if len(fm_points) >= 2:
-        w, h = 280, 80
-        pad = 10
+        w, h = 320, 100
+        pad_x, pad_y = 25, 15
         max_fm = max(fm_points + [8.0])
         min_fm = min(fm_points + [4.0])
         rng = max_fm - min_fm if max_fm != min_fm else 1
         n = len(fm_points)
         pts = []
+        pts_gol = []
+        pts_ast = []
         for i, val in enumerate(fm_points):
-            x = pad + (i / (n - 1)) * (w - 2 * pad)
-            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
+            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
+            y = h - pad_y - ((val - min_fm) / rng) * (h - 2 * pad_y)
             pts.append(f"{x:.1f},{y:.1f}")
+            # Gol scala 0-30
+            y_g = h - pad_y - (gol_points[i] / 30) * (h - 2 * pad_y) if gol_points else h - pad_y
+            pts_gol.append(f"{x:.1f},{max(pad_y, min(h-pad_y, y_g)):.1f}")
+            # Assist scala 0-20
+            y_a = h - pad_y - (ast_points[i] / 20) * (h - 2 * pad_y) if ast_points else h - pad_y
+            pts_ast.append(f"{x:.1f},{max(pad_y, min(h-pad_y, y_a)):.1f}")
         polyline = " ".join(pts)
+        poly_gol = " ".join(pts_gol)
+        poly_ast = " ".join(pts_ast)
         circles = ""
         for i, val in enumerate(fm_points):
-            x = pad + (i / (n - 1)) * (w - 2 * pad)
-            y = h - pad - ((val - min_fm) / rng) * (h - 2 * pad)
-            circles += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#00d26a"/><text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" fill="#ffd700" font-size="8">{val:.1f}</text>'
+            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
+            y = h - pad_y - ((val - min_fm) / rng) * (h - 2 * pad_y)
+            circles += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#00d26a"/><text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" fill="#ffd700" font-size="8" font-weight="bold">{val:.1f}</text>'
         labels = ""
         for i, lbl in enumerate(stagioni_label):
-            x = pad + (i / (n - 1)) * (w - 2 * pad)
+            x = pad_x + (i / (n - 1)) * (w - 2 * pad_x)
             labels += f'<text x="{x:.1f}" y="{h-2:.1f}" text-anchor="middle" fill="#888" font-size="7">{lbl}</text>'
-        chart_svg = f'<div style="margin:10px 0;"><svg width="{w}" height="{h}" style="background:#0f0f24;border-radius:6px;"><polyline points="{polyline}" fill="none" stroke="#00d26a" stroke-width="2"/>{circles}{labels}</svg></div>'
+        legend = f'<text x="{w-5}" y="12" text-anchor="end" fill="#00d26a" font-size="8" font-weight="bold">● FM</text><text x="{w-5}" y="24" text-anchor="end" fill="#3b82f6" font-size="8" font-weight="bold">● Gol</text><text x="{w-5}" y="36" text-anchor="end" fill="#eab308" font-size="8" font-weight="bold">● Assist</text>'
+        chart_svg = f'''<div style="margin:10px 0;">
+            <svg width="{w}" height="{h}" style="background:#0f0f24;border-radius:6px;">
+                <polyline points="{polyline}" fill="none" stroke="#00d26a" stroke-width="2.5"/>
+                <polyline points="{poly_gol}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,2"/>
+                <polyline points="{poly_ast}" fill="none" stroke="#eab308" stroke-width="1.5" stroke-dasharray="2,2"/>
+                {circles}{labels}{legend}
+            </svg>
+        </div>'''
 
     if not rows:
         return '<div style="padding:8px;color:#888;font-size:0.8em;text-align:center;">📭 Nessuno storico disponibile</div>'
-    return chart_svg + f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
-
+    return chart_svg + f'<table style="width:100%;border-collapse:collapse;margin-top:8px;"><thead><tr style="border-bottom:1px solid #2a2a4a;"><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">Stagione</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">FM</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">⚽</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🅰️</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🏃</th><th style="padding:4px 8px;color:#888;font-size:0.7em;text-align:left;">🎯</th><th style="padding:4px 8px;color:#eab308;font-size:0.7em;text-align:left;">🟨</th><th style="padding:4px 8px;color:#ef4444;font-size:0.7em;text-align:left;">🟥</th></tr></thead><tbody>{""".join(rows)}</tbody></table>'
 
 def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=None, show_titolarita=True):
     """Card giocatore con hover + click per espandere statistiche."""
@@ -1464,7 +1574,31 @@ def render_card_giocatore_espandibile(row, stats_per_stagione=None, stats_2627=N
             fm_2627 = float(match.iloc[0]["FantaMedia"])
             fm_extra = f' <span style="color:#00d26a;font-size:0.85em;">(📊 2026/27: {fm_2627})</span>'
 
-    card_inner = f'''<div style="display:flex;justify-content:space-between;align-items:start;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:right;"><div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}{fm_extra}</div><div style="font-size:0.75em;color:#888;">FM</div></div></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;"><span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span><span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_span}<span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span></div>{barra_tit}<div style="margin-top:8px;">{badge_prop}</div>{note_html}'''
+    # Stats inline dalla stagione 2026/27
+    inline_stats = _get_inline_stats(nome, stats_2627)
+    trend_badge = _get_fm_trend_badge(nome, fm, stats_2627)
+
+    card_inner = f'''<div style="display:flex;justify-content:space-between;align-items:start;">
+        <div>
+            <div style="font-size:1.1em;font-weight:bold;color:#fff;">{nome}</div>
+            <div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:1.3em;font-weight:bold;color:#ffd700;">{fm}{fm_extra}</div>
+            <div style="font-size:0.75em;color:#888;">FM</div>
+            {trend_badge}
+        </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <span style="background:{colore}20;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;">{badge_fascia}</span>
+        <span style="background:#1a1a2e;color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>
+        {pc_span}
+        <span style="background:#1a1a2e;color:#aaa;padding:2px 8px;border-radius:12px;font-size:0.7em;">IA {idx_aff}</span>
+    </div>
+    {barra_tit}
+    <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">{inline_stats}</div>
+    <div style="margin-top:8px;">{badge_prop}</div>
+    {note_html}'''
 
     html = f'''<details style="margin-bottom:10px;"><summary style="list-style:none;cursor:pointer;"><div style="background:linear-gradient(135deg,#1e1e3f 0%,#2a2a4a 100%);border-radius:12px;padding:14px;border-left:4px solid {colore};box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='scale(1.03)';this.style.boxShadow='0 0 25px rgba(0,210,106,0.45)';this.style.zIndex='10';" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.3)';this.style.zIndex='1';">{card_inner}</div></summary><div style="background:#15152b;border-radius:0 0 12px 12px;padding:12px;border-left:4px solid {colore};border-top:1px solid #2a2a4a;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 Statistiche Storiche</div>{stats_html}</div></details>'''
     return html
