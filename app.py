@@ -1603,20 +1603,30 @@ if menu == "🔍 Scouting & Database":
         # ============================================================
         st.markdown("---")
         st.subheader("⚽ Formazioni Titolar Serie A (dal Listone)")
-        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. Seleziona il modulo per vedere chi sarebbe titolare.")
-
-        modulo_sa = st.selectbox("Modulo", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], index=2, key="modulo_sa")
-        try:
-            d_mod, c_mod, a_mod = map(int, modulo_sa.split("-"))
-        except:
-            d_mod, c_mod, a_mod = 4, 3, 3
-        moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
+        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. Ogni squadra ha il proprio modulo indipendente.")
 
         squadre_sa_list = sorted(df["Squadra_SerieA"].dropna().unique())
         if len(squadre_sa_list) > 0:
             tabs_sa = st.tabs(squadre_sa_list)
             for i, sa in enumerate(squadre_sa_list):
                 with tabs_sa[i]:
+                    # Modulo INDIPENDENTE per ogni squadra
+                    c_mod1, c_mod2 = st.columns([1, 3])
+                    with c_mod1:
+                        modulo_sa = st.selectbox(
+                            "Modulo",
+                            ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"],
+                            index=2,
+                            key=f"modulo_sa_{sa.replace(' ', '_')}"
+                        )
+                    with c_mod2:
+                        try:
+                            d_mod, c_mod, a_mod = map(int, modulo_sa.split("-"))
+                        except:
+                            d_mod, c_mod, a_mod = 4, 3, 3
+                        moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
+                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | Panchina: i successivi 2 per ruolo")
+
                     form = get_formazione_titolare_serie_a(sa, df, idx, modulo_sa)
                     if not form:
                         st.info("Nessun giocatore nel listone per questa squadra.")
@@ -2536,6 +2546,62 @@ if menu == "📋 Rose & Contratti":
                 if not rosa_df.empty:
                     conti = rosa_df["Ruolo"].value_counts().to_dict()
                     st.caption(f"P: {conti.get('P',0)} | D: {conti.get('D',0)} | C: {conti.get('C',0)} | A: {conti.get('A',0)} | Tot: {len(rosa_df)}")
+
+                    # --- ORDINAMENTO MANUALE ---
+                    c_ord1, c_ord2 = st.columns([2, 1])
+                    with c_ord1:
+                        ordine = st.selectbox(
+                            "📋 Ordina per",
+                            ["Ruolo → FantaMedia ↓", "Ruolo → Costo ↓", "Ruolo → Nome", "FantaMedia ↓", "Costo ↓", "Nome", "Scadenza", "Inserimento (default)"],
+                            index=0,
+                            key=f"ordine_{sq}"
+                        )
+                    with c_ord2:
+                        if ordine.startswith("Ruolo"):
+                            ordine_ruoli = st.selectbox(
+                                "Ordine ruoli",
+                                ["P → D → C → A", "A → C → D → P", "D → C → A → P"],
+                                index=0,
+                                key=f"ord_ruoli_{sq}"
+                            )
+
+                    # Applica ordinamento
+                    if ordine == "Ruolo → FantaMedia ↓":
+                        rosa_df = rosa_df.sort_values(["Ruolo", "FantaMedia"], ascending=[True, False])
+                    elif ordine == "Ruolo → Costo ↓":
+                        rosa_df = rosa_df.sort_values(["Ruolo", "Costo_Acquisto"], ascending=[True, False])
+                    elif ordine == "Ruolo → Nome":
+                        rosa_df = rosa_df.sort_values(["Ruolo", "Nome"], ascending=[True, True])
+                    elif ordine == "FantaMedia ↓":
+                        rosa_df = rosa_df.sort_values("FantaMedia", ascending=False)
+                    elif ordine == "Costo ↓":
+                        rosa_df = rosa_df.sort_values("Costo_Acquisto", ascending=False)
+                    elif ordine == "Nome":
+                        rosa_df = rosa_df.sort_values("Nome", ascending=True)
+                    elif ordine == "Scadenza":
+                        rosa_df["_scad_temp"] = rosa_df.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
+                        rosa_df = rosa_df.sort_values("_scad_temp", ascending=True)
+                        rosa_df = rosa_df.drop(columns=["_scad_temp"], errors="ignore")
+                    # "Inserimento (default)" → lascia l'ordine originale
+
+                    # Se ordinamento per ruolo con ordine custom dei ruoli
+                    if ordine.startswith("Ruolo") and 'ordine_ruoli' in locals():
+                        mappa_ordine = {
+                            "P → D → C → A": {"P": 0, "D": 1, "C": 2, "A": 3},
+                            "A → C → D → P": {"P": 3, "D": 2, "C": 1, "A": 0},
+                            "D → C → A → P": {"P": 3, "D": 0, "C": 1, "A": 2},
+                        }
+                        ord_map = mappa_ordine.get(ordine_ruoli, {"P": 0, "D": 1, "C": 2, "A": 3})
+                        rosa_df["_ruolo_ord"] = rosa_df["Ruolo"].map(ord_map)
+                        # Ri-ordina mantenendo il secondo criterio
+                        if "FantaMedia" in ordine:
+                            rosa_df = rosa_df.sort_values(["_ruolo_ord", "FantaMedia"], ascending=[True, False])
+                        elif "Costo" in ordine:
+                            rosa_df = rosa_df.sort_values(["_ruolo_ord", "Costo_Acquisto"], ascending=[True, False])
+                        else:
+                            rosa_df = rosa_df.sort_values(["_ruolo_ord", "Nome"], ascending=[True, True])
+                        rosa_df = rosa_df.drop(columns=["_ruolo_ord"], errors="ignore")
+
                     display = rosa_df.copy()
 
                     # --- FIX FANTAMEDIA: arricchisci con stats 2026/27 ---
