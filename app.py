@@ -1773,16 +1773,14 @@ if menu == "🔍 Scouting & Database":
                 st.rerun()
 
         # ============================================================
-        # FORMAZIONI TITOLARI SERIE A — CARD 3D CON EFFETTO RILIEVO
+        # FORMAZIONI TITOLARI SERIE A — CARD INTERATTIVE
         # ============================================================
         st.markdown("---")
         st.subheader("⚽ Formazioni Titolar Serie A — Clicca le Card")
-        st.caption("Clicca ⭐ per promuovere, 🪑 per retrocedere, ▲▼ per riordinare. Le card si illuminano quando ci passi sopra.")
+        st.caption("Usa i bottoni per spostare i giocatori tra titolari e panchina, e per riordinare i titolari.")
 
         if "formazioni_sa" not in st.session_state:
             st.session_state.formazioni_sa = {}
-        if "card_flash" not in st.session_state:
-            st.session_state.card_flash = {}
 
         squadre_sa_list = sorted(df["Squadra_SerieA"].dropna().unique())
         if len(squadre_sa_list) > 0:
@@ -1810,7 +1808,7 @@ if menu == "🔍 Scouting & Database":
                         except:
                             d_mod, c_mod, a_mod = 4, 3, 3
                         moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
-                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | Clicca le icone per spostare")
+                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A")
 
                     giocatori_sa = df[df["Squadra_SerieA"] == sa].copy()
 
@@ -1841,24 +1839,31 @@ if menu == "🔍 Scouting & Database":
                             if action_key in st.session_state:
                                 action = st.session_state[action_key]
                                 del st.session_state[action_key]
-                                if action["type"] == "promuovi":
-                                    if len(prev_sel) < n_titolari and action["nome"] not in prev_sel:
-                                        prev_sel.append(action["nome"])
-                                elif action["type"] == "retrocedi" and action["nome"] in prev_sel:
-                                    prev_sel.remove(action["nome"])
-                                elif action["type"] == "su" and action["nome"] in prev_sel:
-                                    idx_pos = prev_sel.index(action["nome"])
-                                    if idx_pos > 0:
-                                        prev_sel[idx_pos], prev_sel[idx_pos - 1] = prev_sel[idx_pos - 1], prev_sel[idx_pos]
-                                elif action["type"] == "giu" and action["nome"] in prev_sel:
-                                    idx_pos = prev_sel.index(action["nome"])
-                                    if idx_pos < len(prev_sel) - 1:
-                                        prev_sel[idx_pos], prev_sel[idx_pos + 1] = prev_sel[idx_pos + 1], prev_sel[idx_pos]
-                                st.session_state.formazioni_sa[sa]["titolari"][ruolo] = prev_sel
-                                st.session_state.card_flash = {"sa": sa, "ruolo": ruolo, "nome": action.get("nome", ""), "type": action["type"]}
-                                st.rerun()
+                                try:
+                                    if action["type"] == "promuovi":
+                                        if len(prev_sel) < n_titolari and action["nome"] not in prev_sel:
+                                            prev_sel.append(action["nome"])
+                                            st.toast(f"Promosso: {action['nome']}", icon="⭐")
+                                    elif action["type"] == "retrocedi":
+                                        if action["nome"] in prev_sel:
+                                            prev_sel.remove(action["nome"])
+                                            st.toast(f"Retrocesso: {action['nome']}", icon="🪑")
+                                    elif action["type"] == "su":
+                                        if action["nome"] in prev_sel:
+                                            idx_pos = prev_sel.index(action["nome"])
+                                            if idx_pos > 0:
+                                                prev_sel[idx_pos], prev_sel[idx_pos - 1] = prev_sel[idx_pos - 1], prev_sel[idx_pos]
+                                    elif action["type"] == "giu":
+                                        if action["nome"] in prev_sel:
+                                            idx_pos = prev_sel.index(action["nome"])
+                                            if idx_pos < len(prev_sel) - 1:
+                                                prev_sel[idx_pos], prev_sel[idx_pos + 1] = prev_sel[idx_pos + 1], prev_sel[idx_pos]
+                                    st.session_state.formazioni_sa[sa]["titolari"][ruolo] = prev_sel
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Errore: {e}")
 
-                            st.markdown(f"<div style='font-size:0.75em;color:#00d26a;font-weight:600;margin:8px 0 4px 0;letter-spacing:1px;'>⭐ TITOLARI ({len(prev_sel)}/{n_titolari})</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='font-size:0.75em;color:#00d26a;font-weight:600;margin:8px 0 4px 0;'>⭐ TITOLARI ({len(prev_sel)}/{n_titolari})</div>", unsafe_allow_html=True)
 
                             for pos, nome_g in enumerate(prev_sel):
                                 row_g = subset[subset["Nome"] == nome_g].iloc[0]
@@ -1867,70 +1872,43 @@ if menu == "🔍 Scouting & Database":
                                 prop_col = "#ff6b6b" if prop != "Svincolato" else "#00d26a"
                                 col_r = colori_ruolo[ruolo]
 
-                                flash = (st.session_state.card_flash.get("sa") == sa and 
-                                        st.session_state.card_flash.get("ruolo") == ruolo and
-                                        st.session_state.card_flash.get("nome") == nome_g)
-                                flash_style = "box-shadow: 0 0 25px rgba(0,210,106,0.7), 0 0 0 2px #00d26a;" if flash else ""
-
-                                st.html(
-                                    '<div style="background: linear-gradient(145deg, #1e1e3f, #2a2a4a);'
-                                    ' border-left: 4px solid ' + col_r + ';'
-                                    ' border-radius: 12px;'
-                                    ' padding: 10px 12px;'
-                                    ' margin-bottom: 8px;'
-                                    ' box-shadow: 0 6px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);'
-                                    ' transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);'
-                                    ' cursor: default;'
-                                    ' position: relative;'
-                                    ' ' + flash_style + '">'
-                                    ' <div style="display:flex;justify-content:space-between;align-items:center;">'
-                                    ' <div>'
-                                    ' <div style="font-size:0.95em;font-weight:700;color:#fff;">⭐ ' + nome_g + '</div>'
-                                    ' <div style="font-size:0.75em;color:#aaa;margin-top:2px;">FM ' + str(row_g["FantaMedia"]) + ' | ' + str(int(row_g["Quotazione"])) + 'cr</div>'
-                                    ' <div style="font-size:0.7em;color:' + prop_col + ';margin-top:2px;">' + prop_txt + '</div>'
-                                    ' </div>'
-                                    ' </div>'
-                                    ' </div>'
-                                )
-
-                                c1, c2, c3, c4 = st.columns(4)
-                                with c1:
+                                c_card, c_btns = st.columns([3, 1])
+                                with c_card:
+                                    card_html = (
+                                        '<div class="card-3d-titolare" style="border-left: 4px solid ' + col_r + ';">'
+                                        '<div style="font-size:0.95em;font-weight:700;color:#fff;">' + nome_g + '</div>'
+                                        '<div style="font-size:0.75em;color:#aaa;margin-top:2px;">FM ' + str(row_g["FantaMedia"]) + ' | ' + str(int(row_g["Quotazione"])) + 'cr</div>'
+                                        '<div style="font-size:0.7em;color:' + prop_col + ';margin-top:2px;">' + prop_txt + '</div>'
+                                        '</div>'
+                                    )
+                                    st.html(card_html)
+                                with c_btns:
                                     if pos > 0:
-                                        if st.button("▲", key=f"su_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Sposta su", use_container_width=True):
+                                        if st.button("▲ Su", key=f"su_{sa.replace(' ', '_')}_{ruolo}_{pos}", use_container_width=True):
                                             st.session_state[action_key] = {"type": "su", "nome": nome_g}
                                             st.rerun()
                                     else:
-                                        st.button("▲", key=f"su_{sa.replace(' ', '_')}_{ruolo}_{pos}", disabled=True, use_container_width=True)
-                                with c2:
+                                        st.button("▲ Su", key=f"su_{sa.replace(' ', '_')}_{ruolo}_{pos}", disabled=True, use_container_width=True)
                                     if pos < len(prev_sel) - 1:
-                                        if st.button("▼", key=f"giu_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Sposta giù", use_container_width=True):
+                                        if st.button("▼ Giu", key=f"giu_{sa.replace(' ', '_')}_{ruolo}_{pos}", use_container_width=True):
                                             st.session_state[action_key] = {"type": "giu", "nome": nome_g}
                                             st.rerun()
                                     else:
-                                        st.button("▼", key=f"giu_{sa.replace(' ', '_')}_{ruolo}_{pos}", disabled=True, use_container_width=True)
-                                with c3:
-                                    st.write("")
-                                with c4:
-                                    if st.button("🪑", key=f"retro_{sa.replace(' ', '_')}_{ruolo}_{pos}", help="Retrocedi in panchina", use_container_width=True):
+                                        st.button("▼ Giu", key=f"giu_{sa.replace(' ', '_')}_{ruolo}_{pos}", disabled=True, use_container_width=True)
+                                    if st.button("🪑 Panchina", key=f"retro_{sa.replace(' ', '_')}_{ruolo}_{pos}", use_container_width=True):
                                         st.session_state[action_key] = {"type": "retrocedi", "nome": nome_g}
                                         st.rerun()
 
                             for _ in range(n_titolari - len(prev_sel)):
-                                st.html(
-                                    '<div style="background: #15152b;'
-                                    ' border: 2px dashed #2a2a4a;'
-                                    ' border-radius: 12px;'
-                                    ' padding: 14px 12px;'
-                                    ' margin-bottom: 8px;'
-                                    ' text-align: center;'
-                                    ' color: #444;'
-                                    ' font-size: 0.85em;'
-                                    ' font-style: italic;">'
-                                    ' 🪑 Slot libero'
-                                    ' </div>'
+                                slot_html = (
+                                    '<div style="background: #15152b; border: 2px dashed #2a2a4a;'
+                                    ' border-radius: 12px; padding: 14px; margin-bottom: 6px;'
+                                    ' text-align: center; color: #555; font-size: 0.85em;">'
+                                    '🪑 Slot libero</div>'
                                 )
+                                st.html(slot_html)
 
-                            st.markdown(f"<div style='font-size:0.75em;color:#888;font-weight:600;margin:12px 0 4px 0;letter-spacing:1px;'>🪑 PANCHINA</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='font-size:0.75em;color:#888;font-weight:600;margin:12px 0 4px 0;'>🪑 PANCHINA</div>", unsafe_allow_html=True)
 
                             panchina = [n for n in nomi_disponibili if n not in prev_sel]
                             for nome_g in panchina:
@@ -1938,33 +1916,24 @@ if menu == "🔍 Scouting & Database":
                                 prop = idx.get(nome_g.lower(), "Svincolato")
                                 prop_txt = f"🔒 {prop}" if prop != "Svincolato" else "🟢 Libero"
                                 prop_col = "#ff6b6b" if prop != "Svincolato" else "#00d26a"
-                                col_r = colori_ruolo[ruolo]
 
-                                st.html(
-                                    '<div style="background: linear-gradient(145deg, #15152b, #1a1a2e);'
-                                    ' border-left: 3px solid #2a2a4a;'
-                                    ' border-radius: 10px;'
-                                    ' padding: 8px 12px;'
-                                    ' margin-bottom: 6px;'
-                                    ' box-shadow: 0 2px 4px rgba(0,0,0,0.2);'
-                                    ' opacity: 0.75;'
-                                    ' transition: all 0.3s ease;">'
-                                    ' <div style="display:flex;justify-content:space-between;align-items:center;">'
-                                    ' <div>'
-                                    ' <div style="font-size:0.9em;font-weight:600;color:#ccc;">' + nome_g + '</div>'
-                                    ' <div style="font-size:0.7em;color:#666;margin-top:1px;">FM ' + str(row_g["FantaMedia"]) + ' | ' + str(int(row_g["Quotazione"])) + 'cr</div>'
-                                    ' <div style="font-size:0.65em;color:' + prop_col + ';margin-top:1px;">' + prop_txt + '</div>'
-                                    ' </div>'
-                                    ' </div>'
-                                    ' </div>'
-                                )
-
-                                if len(prev_sel) < n_titolari:
-                                    if st.button("⭐ Promuovi", key=f"prom_{sa.replace(' ', '_')}_{ruolo}_{nome_g.replace(' ', '_')}", use_container_width=True):
-                                        st.session_state[action_key] = {"type": "promuovi", "nome": nome_g}
-                                        st.rerun()
-                                else:
-                                    st.button("⭐ Rosa piena", key=f"prom_full_{sa.replace(' ', '_')}_{ruolo}_{nome_g.replace(' ', '_')}", disabled=True, use_container_width=True)
+                                c_card, c_btn = st.columns([3, 1])
+                                with c_card:
+                                    card_html = (
+                                        '<div class="card-3d-panchina">'
+                                        '<div style="font-size:0.9em;font-weight:600;color:#ccc;">' + nome_g + '</div>'
+                                        '<div style="font-size:0.7em;color:#666;margin-top:1px;">FM ' + str(row_g["FantaMedia"]) + ' | ' + str(int(row_g["Quotazione"])) + 'cr</div>'
+                                        '<div style="font-size:0.65em;color:' + prop_col + ';margin-top:1px;">' + prop_txt + '</div>'
+                                        '</div>'
+                                    )
+                                    st.html(card_html)
+                                with c_btn:
+                                    if len(prev_sel) < n_titolari:
+                                        if st.button("⭐ Titolare", key=f"prom_{sa.replace(' ', '_')}_{ruolo}_{nome_g.replace(' ', '_')}", use_container_width=True):
+                                            st.session_state[action_key] = {"type": "promuovi", "nome": nome_g}
+                                            st.rerun()
+                                    else:
+                                        st.button("⭐ Pieno", key=f"prom_full_{sa.replace(' ', '_')}_{ruolo}_{nome_g.replace(' ', '_')}", disabled=True, use_container_width=True)
         # ============================================================
         # TABELLA RISULTATI
         # ============================================================
