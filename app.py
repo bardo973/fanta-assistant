@@ -3391,33 +3391,63 @@ if menu == "📋 Rose & Contratti":
 
     with tab_consigli:
         st.subheader("💡 Consigli Fantacalcio 2026/27")
-        consigli = {
-            "Portieri": {
-                "top": ["Svilar (Roma) - 18 clean sheet, FM 6.0", "Carnesecchi (Atalanta) - 13 CS, media 6.5", "Maignan (Milan) - 13 CS, 2 rigori parati", "Butez (Como) - 19 CS, miglior difesa"],
-                "consigliati": ["Martinez (Inter) - nuovo titolare, fiducia Chivu", "Meret (Napoli) - sottovalutato con Allegri", "De Gea (Fiorentina) - stagione del riscatto", "Vicario (Juve) - ex Empoli, top in Serie A", "Mandas (Lazio) - portiere da modificatore"],
-                "scommesse": ["Falcone (Lecce) - media voto 6.41, low cost", "Stankovic (Venezia) - torna in A", "Corvi (Parma) - nuovo titolare", "Caprile (Cagliari) - modificatore"]
-            },
-            "Difensori": {
-                "top": ["Dimarco (Inter) - top assoluto, +3 a giornata", "Bremer (Juve) - 4 gol, 3 assist, FM 6.9", "Bisseck (Inter) - voti alti e bonus", "Mancini (Roma) - 4 gol, leader difesa Gasperini", "Wesley (Roma) - 5 gol, potenziale alla Gosens"],
-                "consigliati": ["Pavlovic (Milan) - 5 gol, media 6.24", "Ostigard (Napoli) - 5 gol, centrale prolifico", "Cambiaso (Juve) - 3 gol, 4 assist", "Spinazzola (Roma) - sottovalutato, bonus garantiti", "Zappacosta (Atalanta) - gran gamba", "Di Lorenzo (Napoli) - 6-7 bonus potenziali", "Kempf (Como) - certezza voti e bonus"],
-                "scommesse": ["Rensch (Roma) - 1 gol, 4 assist in 19 partite", "Doekhi (Lazio) - 7 gol in Europa, sostituto Gila", "Jimenez (Fiorentina) - jolly tattico", "Kaiki (Como) - terzino di spinta", "Çelik (Juve) - duttile, Spalletti lo schiera"]
-            },
-            "Centrocampisti": {
-                "top": ["Pulisic (Milan) - cambio ruolo, doppia-doppia potenziale", "Orsolini (Bologna) - cambio ruolo, bonus garantiti", "McTominay (Napoli) - doppia cifra, sposta equilibri", "Nico Paz (Inter) - doppia cifra, top assoluto", "Calhanoglu (Inter) - 9 gol, media >6.5", "Rabiot (Milan) - 6 gol, 4 assist"],
-                "consigliati": ["Vlasic (Torino) - 8 gol, rigorista", "Frattesi (Lazio) - alla Milinkovic-Savic", "Zaniolo (Udinese) - 5 gol, 6 assist", "Modric (Inter) - rendimento garantito", "Koné (Juve) - mai sotto sufficienza", "De Bruyne (Juve) - calcia rigori", "Barella (Inter) - secondo slot ideale", "Bernardeschi (Bologna) - da prendere con Rowe", "Rowe (Bologna) - 3 gol, 3 assist", "Thorstvedt (Sassuolo) - 5-6 gol potenziali"],
-                "scommesse": ["Alajbegovic (Juve) - talentino trequarti", "Douglas Luiz (Juve) - può tornare ai livelli di 2 anni fa", "Gaetano (Atalanta) - Sarri lo vuole", "Stankovic A. (Inter) - fiducia Chivu", "Calò (Frosinone) - 10 gol, 14 assist in B", "Milla (Como) - solo Yamal più assist in Liga", "Liberali (Como) - giovane, spazio con Champions"]
-            },
-            "Attaccanti": {
-                "top": ["Lautaro (Inter) - capocannoniere 17 gol", "Malen (Roma) - vice-cannoniere 14 gol", "Thuram (Inter) - 13 gol, primo slot", "Hojlund (Napoli) - obiettivo 15 gol, Allegri punta forte", "Goncalo Ramos (Milan) - colpo 70M, titolare Amorim", "Kolo Muani (Juve) - Spalletti lo vuole", "Leao (Milan) - prima fascia, talento puro"],
-                "consigliati": ["Kean (Fiorentina) - doppia cifra garantita", "Yildiz (Juve) - 10 gol, centro progetto", "Douvikas (Como) - 14 gol, sorpresa 2024-25", "Dybala (Roma) - sempre utile, clutch", "Davis (Udinese) - 10 gol, rigorista", "Scamacca (Atalanta) - attenzione infortuni", "Simeone (Napoli) - 11 gol, conferma", "Dovbyk (Bologna) - doppia cifra", "Colombo (Roma) - 7 gol, obiettivo doppia cifra"],
-                "scommesse": ["Yeboah (Venezia) - doppia cifra in Serie B, convocato Mondiale", "Bowie (Sassuolo) - ex Verona, goal li sa fare", "Alajbegovic K. (Juve) - colpo di mercato", "Rrahmani (Venezia) - 15 gol in Rep. Ceca", "Ekhator (Juve) - low cost, potenziale", "Mendy (Cagliari) - 2 gol in 8 partite, 2007", "Camarda (Milan) - vice Ramos, a 1cr ci sta", "Ratkov (Lazio) - Gattuso lo rilancia"]
-            }
-        }
-        for ruolo, dati in consigli.items():
-            with st.expander(ruolo):
-                st.markdown("**⭐ Top:** " + " • ".join(dati["top"]))
-                st.markdown("**👍 Consigliati:** " + " • ".join(dati["consigliati"]))
-                st.markdown("**🎲 Scommesse:** " + " • ".join(dati["scommesse"]))
+        st.caption("I consigli sono generati automaticamente dalla colonna 'Consiglio' del listone.")
+
+        db_consigli = st.session_state.giocatori_db.copy()
+        if db_consigli.empty or "Consiglio" not in db_consigli.columns:
+            st.warning("⚠️ Nessun listone con colonna 'Consiglio' disponibile. Importa un listone valido.")
+        else:
+            # Arricchisci con dati proprietà
+            idx_prop = get_player_index()
+            db_consigli["Proprietario"] = db_consigli["Nome"].apply(lambda x: idx_prop.get(x.lower(), None))
+            db_consigli["Stato"] = db_consigli["Proprietario"].apply(lambda x: "🔒 Assegnato" if x else "🟢 Libero")
+
+            # Arricchisci con FM 2026/27 se disponibile
+            if "stats_per_stagione" in st.session_state and "2026-27" in st.session_state.stats_per_stagione:
+                s2627 = st.session_state.stats_per_stagione["2026-27"]
+                if not s2627.empty and "Nome" in s2627.columns and "FantaMedia" in s2627.columns:
+                    s2627_f = s2627[["Nome", "FantaMedia"]].copy()
+                    s2627_f["Nome_lower"] = s2627_f["Nome"].str.lower().str.strip()
+                    db_consigli["Nome_lower"] = db_consigli["Nome"].str.lower().str.strip()
+                    db_consigli = db_consigli.merge(s2627_f[["Nome_lower", "FantaMedia"]], on="Nome_lower", how="left", suffixes=("", "_2627"))
+                    db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia_2627"].fillna(db_consigli["FantaMedia"])
+                    db_consigli["FM_Badge"] = db_consigli.apply(lambda r: f"{r['FantaMedia_Display']:.1f} 📊" if pd.notna(r.get('FantaMedia_2627')) else f"{r['FantaMedia']:.1f} 📋", axis=1)
+                    db_consigli = db_consigli.drop(columns=["Nome_lower", "FantaMedia_2627"], errors="ignore")
+                else:
+                    db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia"]
+                    db_consigli["FM_Badge"] = db_consigli["FantaMedia"].apply(lambda x: f"{x:.1f} 📋")
+            else:
+                db_consigli["FantaMedia_Display"] = db_consigli["FantaMedia"]
+                db_consigli["FM_Badge"] = db_consigli["FantaMedia"].apply(lambda x: f"{x:.1f} 📋")
+
+            ruoli_map = {"Portieri": "P", "Difensori": "D", "Centrocampisti": "C", "Attaccanti": "A"}
+            colori_fascia = {"top": "⭐", "consigliato": "👍", "scommessa": "🎲"}
+            nomi_fascia = {"top": "Top", "consigliato": "Consigliati", "scommessa": "Scommesse"}
+
+            for ruolo_nome, ruolo_cod in ruoli_map.items():
+                with st.expander(ruolo_nome):
+                    df_ruolo = db_consigli[db_consigli["Ruolo"] == ruolo_cod].copy()
+                    if df_ruolo.empty:
+                        st.caption("Nessun giocatore trovato per questo ruolo.")
+                        continue
+
+                    for fascia in ["top", "consigliato", "scommessa"]:
+                        df_fascia = df_ruolo[df_ruolo["Consiglio"] == fascia].sort_values("FantaMedia_Display", ascending=False)
+                        if df_fascia.empty:
+                            continue
+
+                        st.markdown(f"**{colori_fascia[fascia]} {nomi_fascia[fascia]}:**")
+                        righe = []
+                        for _, row in df_fascia.iterrows():
+                            nome = row["Nome"]
+                            sa = row.get("Squadra_SerieA", "N/D")
+                            quot = int(row.get("Quotazione", 0))
+                            fm = row.get("FM_Badge", "N/D")
+                            pc = row.get("Prezzo_Consigliato")
+                            pc_txt = f" | 💡{int(pc)}cr" if pd.notna(pc) else ""
+                            stato = row.get("Stato", "")
+                            righe.append(f"**{nome}** ({sa}) — FM {fm} | Q {quot}cr{pc_txt} {stato}")
+                        st.markdown(" • ".join(righe))
 
     with tab_formazione:
         st.subheader("🎮 Simula Formazione")
