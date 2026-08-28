@@ -966,6 +966,7 @@ if "initialized" not in st.session_state:
     st.session_state.stats_per_stagione = {}
     st.session_state.wizard_completato = False
     st.session_state.crediti_iniziali = CREDITI_INIZIALI
+    st.session_state.formazioni_sa = {}
     st.session_state._riepiloghi_dirty = True
     st.session_state._player_index_dirty = True
     st.session_state._undo_stack = []
@@ -1181,18 +1182,26 @@ with st.sidebar:
     st.markdown("---")
 
 # ============================================================
-# NAVIGAZIONE
+# NAVIGAZIONE IN ALTO
 # ============================================================
-menu = st.sidebar.selectbox("Navigazione", [
-    "🏠 Dashboard",
-    "🔍 Scouting & Database",
-    "🔨 Asta Live",
-    "🛒 Mercato",
-    "🤝 Scambi & Prestiti",
-    "📋 Rose & Contratti",
-    "📈 Statistiche Storiche",
-    "⚙️ Importa & Esporta"
-])
+st.markdown("<div style='margin-top: -20px;'></div>", unsafe_allow_html=True)
+menu = st.radio(
+    "",
+    options=[
+        "🏠 Dashboard",
+        "🔍 Scouting & Database",
+        "🔨 Asta Live",
+        "🛒 Mercato",
+        "🤝 Scambi & Prestiti",
+        "📋 Rose & Contratti",
+        "📈 Statistiche Storiche",
+        "⚙️ Importa & Esporta"
+    ],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="nav_top"
+)
+st.markdown("---")
 
 # ============================================================
 # WIZARD (se necessario)
@@ -1599,38 +1608,45 @@ if menu == "🔍 Scouting & Database":
                 st.rerun()
 
         # ============================================================
-        # FORMAZIONI TITOLARI SERIE A
+        # FORMAZIONI TITOLARI SERIE A (EDITABILI)
         # ============================================================
         st.markdown("---")
-        st.subheader("⚽ Formazioni Titolar Serie A (dal Listone)")
-        st.caption("Per ogni squadra di Serie A, i giocatori presenti nel listone ordinati per ruolo e FantaMedia. Ogni squadra ha il proprio modulo indipendente.")
+        st.subheader("⚽ Formazioni Titolar Serie A (Modificabili)")
+        st.caption("Per ogni squadra di Serie A seleziona il modulo e i titolari. Puoi scegliere tra tutti i giocatori del listone di quella squadra. Le tue scelte vengono salvate automaticamente.")
+
+        # Inizializza stato formazioni se mancante
+        if "formazioni_sa" not in st.session_state:
+            st.session_state.formazioni_sa = {}
 
         squadre_sa_list = sorted(df["Squadra_SerieA"].dropna().unique())
         if len(squadre_sa_list) > 0:
             tabs_sa = st.tabs(squadre_sa_list)
             for i, sa in enumerate(squadre_sa_list):
                 with tabs_sa[i]:
+                    # Inizializza stato per questa squadra
+                    if sa not in st.session_state.formazioni_sa:
+                        st.session_state.formazioni_sa[sa] = {"modulo": "4-3-3", "titolari": {}}
+
                     # Modulo INDIPENDENTE per ogni squadra
                     c_mod1, c_mod2 = st.columns([1, 3])
                     with c_mod1:
                         modulo_sa = st.selectbox(
                             "Modulo",
                             ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"],
-                            index=2,
+                            index=["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"].index(st.session_state.formazioni_sa[sa]["modulo"]),
                             key=f"modulo_sa_{sa.replace(' ', '_')}"
                         )
+                    st.session_state.formazioni_sa[sa]["modulo"] = modulo_sa
+
                     with c_mod2:
                         try:
                             d_mod, c_mod, a_mod = map(int, modulo_sa.split("-"))
                         except:
                             d_mod, c_mod, a_mod = 4, 3, 3
                         moduli_sa = {"P": 1, "D": d_mod, "C": c_mod, "A": a_mod}
-                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | Panchina: i successivi 2 per ruolo")
+                        st.caption(f"Titolari: 1P + {d_mod}D + {c_mod}C + {a_mod}A | I non selezionati sono panchinari")
 
-                    form = get_formazione_titolare_serie_a(sa, df, idx, modulo_sa)
-                    if not form:
-                        st.info("Nessun giocatore nel listone per questa squadra.")
-                        continue
+                    giocatori_sa = df[df["Squadra_SerieA"] == sa].copy()
 
                     col_ruoli = st.columns(4)
                     ruoli_order = ["P", "D", "C", "A"]
@@ -1639,27 +1655,53 @@ if menu == "🔍 Scouting & Database":
                     for j, ruolo in enumerate(ruoli_order):
                         with col_ruoli[j]:
                             st.markdown(f"**{ruoli_nomi[ruolo]}**")
-                            giocatori_r = form.get(ruolo, [])
-                            for k, g in enumerate(giocatori_r):
-                                is_titolare = k < moduli_sa[ruolo]
-                                alpha = "1.0" if is_titolare else "0.5"
-                                bordo = "#00d26a" if is_titolare else "#2a2a4a"
-                                bg = "#1e1e3f" if is_titolare else "#15152b"
-                                badge = "⭐" if is_titolare else "🪑"
-                                prop_badge = ""
-                                if g["Proprietario"] != "Svincolato":
-                                    prop_badge = f'<span style="font-size:0.65em;color:#ff6b6b;">🔒 {g["Proprietario"]}</span>'
+                            subset = giocatori_sa[giocatori_sa["Ruolo"] == ruolo].sort_values("FantaMedia", ascending=False)
+                            nomi_disponibili = subset["Nome"].tolist()
+                            n_titolari = moduli_sa[ruolo]
+
+                            if not nomi_disponibili:
+                                st.caption("Nessun giocatore")
+                                continue
+
+                            # Recupera selezione precedente
+                            prev_sel = st.session_state.formazioni_sa[sa]["titolari"].get(ruolo, [])
+                            prev_sel = [n for n in prev_sel if n in nomi_disponibili]
+
+                            # Se vuoto o incompleto, precompila con i migliori
+                            if len(prev_sel) < n_titolari:
+                                prev_sel = nomi_disponibili[:n_titolari]
+
+                            sel = st.multiselect(
+                                f"Titolari {ruolo}",
+                                options=nomi_disponibili,
+                                default=prev_sel,
+                                max_selections=n_titolari,
+                                key=f"tit_sa_{sa.replace(' ', '_')}_{ruolo}",
+                                help=f"Seleziona esattamente {n_titolari} titolari"
+                            )
+                            st.session_state.formazioni_sa[sa]["titolari"][ruolo] = sel
+
+                            # Mostra giocatori
+                            for _, row in subset.iterrows():
+                                is_tit = row["Nome"] in sel
+                                alpha = "1.0" if is_tit else "0.5"
+                                bordo = "#00d26a" if is_tit else "#2a2a4a"
+                                bg = "#1e1e3f" if is_tit else "#15152b"
+                                badge = "⭐" if is_tit else "🪑"
+
+                                prop = idx.get(row["Nome"].lower(), "Svincolato")
+                                if prop != "Svincolato":
+                                    prop_badge = f'<span style="font-size:0.65em;color:#ff6b6b;">🔒 {prop}</span>'
                                 else:
                                     prop_badge = f'<span style="font-size:0.65em;color:#00d26a;">🟢 Libero</span>'
 
                                 st.html(
                                     f'<div style="background:{bg};border-left:3px solid {bordo};'
                                     f'border-radius:6px;padding:6px 8px;margin-bottom:4px;opacity:{alpha};">'
-                                    f'<div style="font-size:0.9em;font-weight:600;">{badge} {g["Nome"]}</div>'
-                                    f'<div style="font-size:0.75em;color:#aaa;">FM {g["FantaMedia"]} | {int(g["Quotazione"])}cr</div>'
+                                    f'<div style="font-size:0.9em;font-weight:600;">{badge} {row["Nome"]}</div>'
+                                    f'<div style="font-size:0.75em;color:#aaa;">FM {row["FantaMedia"]} | {int(row["Quotazione"])}cr</div>'
                                     f'{prop_badge}</div>'
                                 )
-
         # ============================================================
         # TABELLA RISULTATI
         # ============================================================
