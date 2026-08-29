@@ -2453,7 +2453,7 @@ if menu == "🔨 Asta Live":
                                     st.caption(f"💡 Suggerito: {sug_val}cr")
                                 offerte[sq] = st.number_input(
                                     f"Offerta {sq}", min_value=0, max_value=crediti_sq,
-                                    value=sug_val,
+                                    value=min(sug_val, crediti_sq),
                                     step=1, key=f"off_{sq}"
                                 )
                     submitted = st.form_submit_button("📊 Calcola Vincitore", use_container_width=True)
