@@ -29,7 +29,7 @@ NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "
 
 def get_nomi_squadre():
     """Ritorna la lista dinamica delle squadre dallo stato, o il default."""
-    return st.session_state.get("nomi_squadre", get_nomi_squadre())
+    return st.session_state.get("nomi_squadre", list(NOMI_SQUADRE))
 ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 3
 CREDITI_INIZIALI = 50
