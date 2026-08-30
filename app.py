@@ -2589,10 +2589,16 @@ if menu == "🔨 Asta Live":
 
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                 pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
-                col_ai, col_spieg = st.columns([1, 2])
-                with col_ai:
-                    st.metric("💡 Prezzo AI", f"{pc_ai}cr")
-                with col_spieg:
+                c_pc, c_exp = st.columns([1, 3])
+                with c_pc:
+                    st.markdown(
+                        f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
+                        f"<div style='font-size:0.85em;color:#aaa;'>💡 PREZZO CONSIGLIATO</div>"
+                        f"<div style='font-size:1.8em;font-weight:bold;color:#00d26a;'>{pc_ai}cr</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with c_exp:
                     with st.expander("🧠 Spiegazione prezzo"):
                         st.markdown(spiegazione)
 
@@ -2725,7 +2731,6 @@ if menu == "🛒 Mercato":
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
 
                 st.markdown("---")
-                col_info, col_prezzo = st.columns([2, 1])
                 stats_2627_row = None
                 if "stats_per_stagione" in st.session_state and "2026-27" in st.session_state.stats_per_stagione:
                     s2627 = st.session_state.stats_per_stagione["2026-27"]
@@ -2738,23 +2743,19 @@ if menu == "🛒 Mercato":
                         if not match_2627.empty:
                             stats_2627_row = match_2627.iloc[0]
 
-                with col_info:
-                    st.markdown(f"**{g_sel}** — {info['Ruolo']} | {info['Squadra_SerieA']}")
-                    fm_display = f"**{info['FantaMedia']}**"
-                    if stats_2627_row is not None and "FantaMedia" in stats_2627_row and pd.notna(stats_2627_row["FantaMedia"]):
-                        fm_display += f" <span style='color:#00d26a;'>(📊 2026/27: {stats_2627_row['FantaMedia']})</span>"
-                    st.markdown(f"Quotazione listone: **{int(info['Quotazione'])}cr** | FantaMedia: {fm_display} | Fascia: **{info.get('Consiglio','')}**", unsafe_allow_html=True)
-                    if stats_2627_row is not None:
-                        extra_stats = []
-                        for col in ["Gol", "Assist", "Partite", "Rigori"]:
-                            if col in stats_2627_row and pd.notna(stats_2627_row[col]):
-                                extra_stats.append(f"{col}: **{stats_2627_row[col]}**")
-                        if extra_stats:
-                            st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
-
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                 pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
-                with col_prezzo:
+
+                stats_ps_merc = st.session_state.get("stats_per_stagione", {})
+                stats_2627_merc = stats_ps_merc.get("2026-27") if "2026-27" in stats_ps_merc else None
+                rdict_merc = info.to_dict()
+                rdict_merc["Proprietario"] = "Svincolato 🟢"
+                rdict_merc["Indice_Affare"] = round(float(rdict_merc.get("FantaMedia", 6.0)) / max(float(rdict_merc.get("Quotazione", 1)), 1), 2)
+                rdict_merc["Indice_Titolarita"] = calcola_indice_titolarita(rdict_merc, stats_2627_merc)
+                st.markdown(render_flip_card(rdict_merc, stats_ps_merc, stats_2627_merc), unsafe_allow_html=True)
+
+                c_pc, c_exp = st.columns([1, 3])
+                with c_pc:
                     st.markdown(
                         f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
                         f"<div style='font-size:0.85em;color:#aaa;'>💡 PREZZO CONSIGLIATO</div>"
@@ -2762,8 +2763,18 @@ if menu == "🛒 Mercato":
                         f"</div>",
                         unsafe_allow_html=True
                     )
-                with st.expander("🧠 Come è calcolato il prezzo consigliato?"):
-                    st.markdown(spiegazione)
+                with c_exp:
+                    with st.expander("🧠 Spiegazione prezzo"):
+                        st.markdown(spiegazione)
+
+                if stats_2627_row is not None:
+                    extra_stats = []
+                    for col in ["Gol", "Assist", "Partite", "Rigori"]:
+                        if col in stats_2627_row and pd.notna(stats_2627_row[col]):
+                            extra_stats.append(f"{col}: **{stats_2627_row[col]}**")
+                    if extra_stats:
+                        st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
+
 
                 stats_g = mostra_statistiche_giocatore(g_sel, stats_df)
                 if stats_g is not None:
