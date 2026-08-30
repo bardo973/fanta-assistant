@@ -2438,7 +2438,7 @@ if menu == "🔨 Asta Live":
                 rdict_sim["Indice_Titolarita"] = calcola_indice_titolarita(rdict_sim, stats_2627_sim)
                 # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
                 stats_df_sim = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_sim, _ = calcola_prezzo_consigliato(info_sim.to_dict(), stats_df_sim)
+                pc_sim, _ = calcola_prezzo_consigliato(info_sim.to_dict(), stats_df_sim, None)
                 rdict_sim["Prezzo_Consigliato"] = pc_sim
 
                 if fvm_val_sim := info_sim.get("FVM"):
@@ -2514,7 +2514,7 @@ if menu == "🔨 Asta Live":
                 rdict_rap["Indice_Titolarita"] = calcola_indice_titolarita(rdict_rap, stats_2627_rap)
                 # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
                 stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap)
+                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap, None)
                 rdict_rap["Prezzo_Consigliato"] = pc_rap
 
                 # FVM per tutte le squadre in asta rapida
@@ -2638,8 +2638,7 @@ if menu == "🔨 Asta Live":
                 rdict_ast["Indice_Titolarita"] = calcola_indice_titolarita(rdict_ast, stats_2627_ast)
                 # ⬇️ Prezzo consigliato integrato nella card
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                crediti_sq_merc = st.session_state.squadre[sq]["crediti"]
-                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, crediti_sq_merc)
+                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, None)
                 rdict_ast["Prezzo_Consigliato"] = pc_ai
                 st.markdown(render_flip_card(rdict_ast, stats_ps_ast, stats_2627_ast), unsafe_allow_html=True)
 
