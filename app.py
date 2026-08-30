@@ -599,6 +599,26 @@ def calcola_prezzo_consigliato(g_info, stats_df=None, crediti_squadra=None):
     spiegazione += f"\n**💡 Prezzo consigliato: {prezzo}cr**"
     return prezzo, spiegazione
 
+def tabella_prezzi_fvm(g_info):
+    """Genera DataFrame con prezzo FVM riproporzionato per ogni squadra."""
+    fvm = g_info.get("FVM")
+    if fvm is None or pd.isna(fvm) or float(fvm) <= 0:
+        return None
+    rows = []
+    for sq in get_nomi_squadre():
+        crediti = st.session_state.squadre[sq]["crediti"]
+        prezzo = max(1, round(float(fvm) * crediti / 1000))
+        pct = round(prezzo / crediti * 100, 1) if crediti > 0 else 0
+        rows.append({
+            "Squadra": sq,
+            "Crediti": crediti,
+            "FVM Base": int(float(fvm)),
+            "Prezzo FVM": prezzo,
+            "% Budget": f"{pct}%"
+        })
+    return pd.DataFrame(rows).sort_values("Prezzo FVM", ascending=False)
+
+
 def riepilogo_rosa(squadra_nome):
     rosa = st.session_state.squadre[squadra_nome]["rosa"]
     crediti = st.session_state.squadre[squadra_nome]["crediti"]
@@ -2375,6 +2395,22 @@ if menu == "🔍 Scouting & Database":
                 applica_fasce_automatiche()
                 st.rerun()
 
+        with st.expander("💰 Analisi FVM per Squadra", expanded=False):
+            st.subheader("💰 FVM Squadra per Squadra")
+            st.caption("Seleziona un giocatore per vedere quanto costerebbe il suo FVM per ogni squadra in base ai crediti attuali.")
+            g_fvm = st.selectbox("Giocatore", df["Nome"].values, key="fvm_scout_g")
+            if g_fvm:
+                info_fvm = df[df["Nome"] == g_fvm].iloc[0]
+                df_fvm_scout = tabella_prezzi_fvm(info_fvm.to_dict())
+                if df_fvm_scout is not None:
+                    st.markdown(f"**{g_fvm}** — FVM base: **{int(float(info_fvm.get('FVM', 0)))}** su 1000")
+                    st.dataframe(df_fvm_scout, use_container_width=True, hide_index=True)
+                    # Evidenzia la squadra con più crediti
+                    top_sq = df_fvm_scout.iloc[0]["Squadra"]
+                    st.info(f"🏆 {top_sq} può offrire di più: **{df_fvm_scout.iloc[0]['Prezzo FVM']}cr**")
+                else:
+                    st.warning("Nessun valore FVM disponibile per questo giocatore. Importa un listone con la colonna FVM.")
+
         with st.expander("⭐ Watchlist", expanded=True):
             st.subheader("⭐ Watchlist")
             g_sel = st.selectbox("Aggiungi giocatore", df["Nome"].values, key="wl")
@@ -2686,7 +2722,17 @@ if menu == "🔨 Asta Live":
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                 pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, crediti_asta_mia)
                 rdict_ast["Prezzo_Consigliato"] = pc_ai
+
                 st.markdown(render_flip_card(rdict_ast, stats_ps_ast, stats_2627_ast), unsafe_allow_html=True)
+
+                # --- 💰 TABELLA FVM PER SQUADRA ---
+                df_fvm_ast = tabella_prezzi_fvm(info.to_dict())
+                if df_fvm_ast is not None:
+                    st.markdown("---")
+                    st.subheader("💰 Prezzo FVM per Squadra")
+                    st.caption(f"FVM base {int(float(info.get('FVM', 0)))} su 1000 → riproporzionato sui crediti attuali di ogni squadra.")
+                    st.dataframe(df_fvm_ast, use_container_width=True, hide_index=True)
+
 
                 c_pc, c_exp = st.columns([1, 3])
                 with c_pc:
@@ -2854,7 +2900,17 @@ if menu == "🛒 Mercato":
                 rdict_merc["Indice_Titolarita"] = calcola_indice_titolarita(rdict_merc, stats_2627_merc)
                 # ⬇️ Prezzo consigliato integrato nella card
                 rdict_merc["Prezzo_Consigliato"] = pc_ai
+
                 st.markdown(render_flip_card(rdict_merc, stats_ps_merc, stats_2627_merc), unsafe_allow_html=True)
+
+                # --- 💰 TABELLA FVM PER SQUADRA ---
+                df_fvm_merc = tabella_prezzi_fvm(info.to_dict())
+                if df_fvm_merc is not None:
+                    st.markdown("---")
+                    st.subheader("💰 Prezzo FVM per Squadra")
+                    st.caption(f"FVM base {int(float(info.get('FVM', 0)))} su 1000 → riproporzionato sui crediti attuali di ogni squadra.")
+                    st.dataframe(df_fvm_merc, use_container_width=True, hide_index=True)
+
 
                 c_pc, c_exp = st.columns([1, 3])
                 with c_pc:
