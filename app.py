@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 import io
 import random
+import hashlib
 
 # ============================================================
 # CONFIGURAZIONE
@@ -23,6 +24,7 @@ st.set_page_config(
 
 SAVE_FILE_PKL = "fantamanager_state_v2.pkl"
 SAVE_FILE_JSON = "fantamanager_save.json"
+ACCOUNTS_FILE = "fantamanager_accounts.json"
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
 ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 3
@@ -243,6 +245,30 @@ LISTONE_DEFAULT = [
 for g in LISTONE_DEFAULT:
     g.setdefault("Prezzo_Consigliato", None)
 
+
+# ============================================================
+# AUTH & MULTI-USER
+# ============================================================
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_accounts():
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_accounts(accounts):
+    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(accounts, f, ensure_ascii=False, indent=2)
+
+def get_user_save_paths():
+    user = st.session_state.get("current_user")
+    if user:
+        return f"fantamanager_state_{user}.pkl", f"fantamanager_save_{user}.json"
+    return SAVE_FILE_PKL, SAVE_FILE_JSON
+
 # ============================================================
 # STATE MANAGER (Pickle Atomico + Undo)
 # ============================================================
@@ -290,6 +316,7 @@ class StateManager:
 
     @staticmethod
     def save():
+        pkl_path, _ = get_user_save_paths()
         data = {
             "squadre": st.session_state.squadre,
             "storico_mercato": st.session_state.storico_mercato,
@@ -308,7 +335,7 @@ class StateManager:
         try:
             with open(tmp.name, "wb") as f:
                 pickle.dump(data, f)
-            shutil.move(tmp.name, SAVE_FILE_PKL)
+            shutil.move(tmp.name, pkl_path)
         except Exception:
             if os.path.exists(tmp.name):
                 os.remove(tmp.name)
@@ -316,17 +343,18 @@ class StateManager:
 
     @staticmethod
     def load():
-        if os.path.exists(SAVE_FILE_PKL):
+        pkl_path, json_path = get_user_save_paths()
+        if os.path.exists(pkl_path):
             try:
-                with open(SAVE_FILE_PKL, "rb") as f:
+                with open(pkl_path, "rb") as f:
                     data = pickle.load(f)
                 StateManager._hydrate(data)
                 return True
             except Exception:
                 pass
-        if os.path.exists(SAVE_FILE_JSON):
+        if os.path.exists(json_path):
             try:
-                with open(SAVE_FILE_JSON, "r", encoding="utf-8") as f:
+                with open(json_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 db = data.get("giocatori_db", [])
                 data["giocatori_db"] = pd.DataFrame(db) if db else pd.DataFrame(LISTONE_DEFAULT)
@@ -372,7 +400,8 @@ def save_state():
         # Salva anche un backup con timestamp
         try:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_name = f"fantamanager_auto_{ts}.pkl"
+            user = st.session_state.get("current_user", "default")
+            backup_name = f"fantamanager_auto_{user}_{ts}.pkl"
             data = {
                 "squadre": st.session_state.squadre,
                 "storico_mercato": st.session_state.storico_mercato,
@@ -1087,8 +1116,67 @@ def _build_stats_html(nome, stats_per_stagione):
 
 
 # ============================================================
+# AUTH — LOGIN / REGISTRAZIONE
+# ============================================================
+
+def render_login():
+    st.title("🔐 FantaManager 2026/27 — Accesso")
+    st.markdown("Accedi o crea un account per gestire il tuo fantacalcio in modo indipendente. Ogni utente ha il proprio salvataggio separato.")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        with st.container(border=True):
+            st.subheader("🔑 Login")
+            username = st.text_input("Username", key="login_user")
+            password = st.text_input("Password", type="password", key="login_pass")
+            if st.button("Accedi", type="primary", use_container_width=True):
+                accounts = load_accounts()
+                if username in accounts and accounts[username]["password"] == hash_password(password):
+                    st.session_state.current_user = username
+                    st.session_state._last_user = username
+                    st.rerun()
+                else:
+                    st.error("❌ Username o password errati")
+
+    with col2:
+        with st.container(border=True):
+            st.subheader("📝 Nuovo Account")
+            new_user = st.text_input("Scegli Username", key="reg_user")
+            new_pass = st.text_input("Scegli Password", type="password", key="reg_pass")
+            new_pass2 = st.text_input("Conferma Password", type="password", key="reg_pass2")
+            if st.button("Crea Account", type="primary", use_container_width=True):
+                if not new_user or not new_pass:
+                    st.error("Compila tutti i campi")
+                elif new_pass != new_pass2:
+                    st.error("Le password non coincidono")
+                elif len(new_pass) < 4:
+                    st.error("Password troppo corta (min 4 caratteri)")
+                else:
+                    accounts = load_accounts()
+                    if new_user in accounts:
+                        st.error("Username già esistente")
+                    else:
+                        accounts[new_user] = {"password": hash_password(new_pass)}
+                        save_accounts(accounts)
+                        st.success("✅ Account creato! Ora effettua il login.")
+
+def require_auth():
+    if "current_user" not in st.session_state:
+        render_login()
+        st.stop()
+    # Se l'utente è cambiato dall'ultima volta, ricarica tutto
+    if st.session_state.get("_last_user") != st.session_state.current_user:
+        for k in list(st.session_state.keys()):
+            if k not in ["current_user", "_last_user"]:
+                del st.session_state[k]
+        st.session_state._last_user = st.session_state.current_user
+        st.rerun()
+
+# ============================================================
 # INIZIALIZZAZIONE
 # ============================================================
+require_auth()
+
 if "initialized" not in st.session_state:
     st.session_state.squadre = {}
     st.session_state.storico_mercato = []
@@ -1172,6 +1260,11 @@ def render_wizard():
 with st.sidebar:
     st.title("⚽ FantaManager")
     st.caption("2026/27 — 10 Squadre")
+    st.markdown(f"👤 **Account:** `{st.session_state.get('current_user', 'N/D')}`")
+    if st.button("🚪 Logout", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
     st.markdown("---")
 
     if st.session_state.get("_undo_stack"):
@@ -1308,11 +1401,13 @@ with st.sidebar:
 
     with st.expander("⚠️ Reset"):
         if st.button("🗑️ Resetta TUTTO", use_container_width=True):
-            for f in [SAVE_FILE_PKL, SAVE_FILE_JSON]:
+            pkl_path, json_path = get_user_save_paths()
+            for f in [pkl_path, json_path]:
                 if os.path.exists(f):
                     os.remove(f)
             for k in list(st.session_state.keys()):
-                del st.session_state[k]
+                if k not in ["current_user", "_last_user"]:
+                    del st.session_state[k]
             st.success("Resettato! Ricarica la pagina.")
             st.rerun()
 
