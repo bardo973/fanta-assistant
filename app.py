@@ -26,6 +26,10 @@ SAVE_FILE_PKL = "fantamanager_state_v2.pkl"
 SAVE_FILE_JSON = "fantamanager_save.json"
 ACCOUNTS_FILE = "fantamanager_accounts.json"
 NOMI_SQUADRE = ["BARDO", "NILO", "GALVA", "ROBBA", "PAOLO B.", "ASTI", "DODO", "PECU", "GIOPPY", "BEPPE"]
+
+def get_nomi_squadre():
+    """Ritorna la lista dinamica delle squadre dallo stato, o il default."""
+    return st.session_state.get("nomi_squadre", get_nomi_squadre())
 ANNO_CORRENTE = 2026
 CONTRATTO_ANNI = 3
 CREDITI_INIZIALI = 50
@@ -289,7 +293,7 @@ class StateManager:
             "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
             "quotazioni_2025_26": st.session_state.quotazioni_2025_26.copy() if not st.session_state.quotazioni_2025_26.empty else pd.DataFrame(),
             "wizard_completato": st.session_state.get("wizard_completato", False),
-            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
+            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in get_nomi_squadre()}),
         }
         st.session_state._undo_stack.append(snap)
         if len(st.session_state._undo_stack) > MAX_UNDO:
@@ -318,6 +322,7 @@ class StateManager:
     def save():
         pkl_path, _ = get_user_save_paths()
         data = {
+            "nomi_squadre": st.session_state.get("nomi_squadre", list(NOMI_SQUADRE)),
             "squadre": st.session_state.squadre,
             "storico_mercato": st.session_state.storico_mercato,
             "watchlist": st.session_state.watchlist,
@@ -329,7 +334,7 @@ class StateManager:
             "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
             "quotazioni_2025_26": st.session_state.quotazioni_2025_26,
             "wizard_completato": st.session_state.get("wizard_completato", False),
-            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
+            "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in st.session_state.get("nomi_squadre", list(NOMI_SQUADRE))}),
         }
         tmp = tempfile.NamedTemporaryFile(delete=False, dir=".")
         try:
@@ -384,8 +389,8 @@ class StateManager:
         st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
         st.session_state.quotazioni_2025_26 = data.get("quotazioni_2025_26", pd.DataFrame())
         st.session_state.wizard_completato = data.get("wizard_completato", False)
-        st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE})
-        for sq in NOMI_SQUADRE:
+        st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in get_nomi_squadre()})
+        for sq in get_nomi_squadre():
             if sq not in st.session_state.squadre:
                 st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
         invalidate_cache()
@@ -403,6 +408,7 @@ def save_state():
             user = st.session_state.get("current_user", "default")
             backup_name = f"fantamanager_auto_{user}_{ts}.pkl"
             data = {
+                "nomi_squadre": st.session_state.get("nomi_squadre", list(NOMI_SQUADRE)),
                 "squadre": st.session_state.squadre,
                 "storico_mercato": st.session_state.storico_mercato,
                 "watchlist": st.session_state.watchlist,
@@ -611,7 +617,7 @@ def riepilogo_rosa(squadra_nome):
 
 def get_all_riepiloghi():
     if st.session_state.get("_riepiloghi_dirty", True):
-        st.session_state._riepiloghi = {sq: riepilogo_rosa(sq) for sq in NOMI_SQUADRE}
+        st.session_state._riepiloghi = {sq: riepilogo_rosa(sq) for sq in get_nomi_squadre()}
         st.session_state._riepiloghi_dirty = False
     return st.session_state._riepiloghi
 
@@ -1116,6 +1122,43 @@ def _build_stats_html(nome, stats_per_stagione):
 
 
 # ============================================================
+# GESTIONE SQUADRE (FANTALLENATORI)
+# ============================================================
+
+def aggiungi_squadra(nome: str, crediti: int = None):
+    nome = nome.strip().upper()
+    if not nome:
+        return False, "Nome vuoto"
+    if nome in st.session_state.nomi_squadre:
+        return False, "Squadra già esistente"
+    st.session_state.nomi_squadre.append(nome)
+    st.session_state.squadre[nome] = {"crediti": crediti or st.session_state.get("crediti_iniziali", CREDITI_INIZIALI), "rosa": []}
+    st.session_state.simulatore_rosa[nome] = {"P": [], "D": [], "C": [], "A": []}
+    invalidate_cache()
+    save_state()
+    return True, f"Squadra {nome} aggiunta"
+
+def rimuovi_squadra(nome: str):
+    nome = nome.strip().upper()
+    if nome not in st.session_state.nomi_squadre:
+        return False, "Squadra non trovata"
+    # Rimuovi giocatori dalla rosa (tornano svincolati)
+    if nome in st.session_state.squadre:
+        del st.session_state.squadre[nome]
+    # Rimuovi prestiti correlati
+    st.session_state.prestiti = [p for p in st.session_state.prestiti if p["Da"] != nome and p["A"] != nome]
+    # Rimuovi contratti correlati
+    st.session_state.contratti = {k: v for k, v in st.session_state.contratti.items() if v.get("squadra") != nome}
+    # Rimuovi da simulatore
+    if nome in st.session_state.simulatore_rosa:
+        del st.session_state.simulatore_rosa[nome]
+    # Rimuovi dalla lista
+    st.session_state.nomi_squadre.remove(nome)
+    invalidate_cache()
+    save_state()
+    return True, f"Squadra {nome} rimossa"
+
+# ============================================================
 # AUTH — LOGIN / REGISTRAZIONE
 # ============================================================
 
@@ -1196,7 +1239,7 @@ if "initialized" not in st.session_state:
     st.session_state._undo_stack = []
 
     if not load_state():
-        for sq in NOMI_SQUADRE:
+        for sq in get_nomi_squadre():
             st.session_state.squadre[sq] = {"crediti": CREDITI_INIZIALI, "rosa": []}
 
     st.session_state.initialized = True
@@ -1207,7 +1250,7 @@ if "initialized" not in st.session_state:
 def check_wizard_needed():
     if st.session_state.get("wizard_completato", False):
         return False
-    return all(len(st.session_state.squadre[sq]["rosa"]) == 0 for sq in NOMI_SQUADRE)
+    return all(len(st.session_state.squadre[sq]["rosa"]) == 0 for sq in get_nomi_squadre())
 
 def render_wizard():
     st.header("⚽ Benvenuto in FantaManager 2026/27")
@@ -1234,7 +1277,7 @@ def render_wizard():
         cred = st.number_input("Crediti iniziali per squadra", min_value=10, max_value=500, value=CREDITI_INIZIALI, step=5)
         if st.button("💾 Imposta Crediti", type="primary", use_container_width=True):
             st.session_state.crediti_iniziali = cred
-            for sq in NOMI_SQUADRE:
+            for sq in get_nomi_squadre():
                 st.session_state.squadre[sq]["crediti"] = cred
             st.session_state.wizard_step = 3
             save_state()
@@ -1291,6 +1334,7 @@ with st.sidebar:
                 st.toast("⚠️ Nessun salvataggio trovato", icon="⚠️")
 
     save_data = {
+        "nomi_squadre": st.session_state.get("nomi_squadre", list(NOMI_SQUADRE)),
         "squadre": st.session_state.squadre,
         "storico_mercato": st.session_state.storico_mercato,
         "watchlist": st.session_state.watchlist,
@@ -1302,7 +1346,7 @@ with st.sidebar:
         "quotazioni_2025_26": st.session_state.quotazioni_2025_26.to_dict(orient="records") if not st.session_state.quotazioni_2025_26.empty else [],
         "crediti_iniziali": st.session_state.get("crediti_iniziali", CREDITI_INIZIALI),
         "wizard_completato": st.session_state.get("wizard_completato", False),
-        "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}),
+        "simulatore_rosa": st.session_state.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in st.session_state.get("nomi_squadre", list(NOMI_SQUADRE))}),
     }
     json_bytes = json.dumps(save_data, ensure_ascii=False, indent=2).encode('utf-8')
     st.download_button(
@@ -1323,6 +1367,7 @@ with st.sidebar:
         if file_key != st.session_state.last_json_key:
             try:
                 data = json.load(up_json)
+                st.session_state.nomi_squadre = data.get("nomi_squadre", list(NOMI_SQUADRE))
                 st.session_state.squadre = data.get("squadre", {})
                 st.session_state.storico_mercato = data.get("storico_mercato", [])
                 st.session_state.watchlist = data.get("watchlist", [])
@@ -1345,8 +1390,8 @@ with st.sidebar:
                 st.session_state.quotazioni_2025_26 = pd.DataFrame(q25) if q25 else pd.DataFrame()
                 st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
                 st.session_state.wizard_completato = data.get("wizard_completato", False)
-                st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE})
-                for sq in NOMI_SQUADRE:
+                st.session_state.simulatore_rosa = data.get("simulatore_rosa", {sq: {"P": [], "D": [], "C": [], "A": []} for sq in get_nomi_squadre()})
+                for sq in get_nomi_squadre():
                     if sq not in st.session_state.squadre:
                         st.session_state.squadre[sq] = {"crediti": st.session_state.crediti_iniziali, "rosa": []}
                 st.session_state.last_json_key = file_key
@@ -1364,7 +1409,7 @@ with st.sidebar:
     new_cred = st.number_input("Crediti iniziali", min_value=10, max_value=1000, value=int(st.session_state.crediti_iniziali), step=10, key="cred_ini")
     if new_cred != st.session_state.crediti_iniziali:
         st.session_state.crediti_iniziali = new_cred
-        for sq in NOMI_SQUADRE:
+        for sq in get_nomi_squadre():
             if len(st.session_state.squadre[sq]["rosa"]) == 0:
                 st.session_state.squadre[sq]["crediti"] = new_cred
         save_state()
@@ -1374,7 +1419,7 @@ with st.sidebar:
     st.subheader("💰 Crediti per Squadra")
     st.caption("Modifica i crediti attuali di ogni squadra")
     crediti_df_edit = pd.DataFrame([
-        {"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE
+        {"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in get_nomi_squadre()
     ])
     edited_crediti = st.data_editor(
         crediti_df_edit,
@@ -1451,14 +1496,14 @@ if menu == "🏠 Dashboard":
     st.header("🏠 FantaManager Dashboard")
     st.caption("Panoramica completa dello stato del fantacalcio 2026/27")
 
-    tot_scadenze = sum(1 for sq in NOMI_SQUADRE for g in st.session_state.squadre[sq]["rosa"]
+    tot_scadenze = sum(1 for sq in get_nomi_squadre() for g in st.session_state.squadre[sq]["rosa"]
                       if g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI) <= ANNO_CORRENTE + 1)
     if tot_scadenze > 0:
         st.toast(f"🔔 {tot_scadenze} contratti in scadenza! Vai su Rose & Contratti.", icon="⚠️")
 
     st.subheader("📊 Stato delle Squadre")
     dash_data = []
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         dati = st.session_state.squadre[sq]
         rosa = dati["rosa"]
         p=d=c=a=spesa=0
@@ -1488,7 +1533,7 @@ if menu == "🏠 Dashboard":
     st.markdown("---")
     st.subheader("⭕ Completamento Rosa — Cerchi di Progresso")
     st.caption("Ogni cerchio mostra quanti giocatori mancano per completare il reparto (P=3, D=9, C=9, A=7)")
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         rosa = st.session_state.squadre[sq]["rosa"]
         conti = {"P": 0, "D": 0, "C": 0, "A": 0}
         for g in rosa:
@@ -1522,13 +1567,13 @@ if menu == "🏠 Dashboard":
     st.subheader("📈 Metriche Chiave")
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in NOMI_SQUADRE)
+        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in get_nomi_squadre())
         st.metric("Giocatori Assegnati", tot_giocatori)
     with c2:
-        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in NOMI_SQUADRE)
+        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in get_nomi_squadre())
         st.metric("Crediti Liberi", tot_crediti)
     with c3:
-        squadre_complete = sum(1 for sq in NOMI_SQUADRE if len(st.session_state.squadre[sq]["rosa"]) >= 25)
+        squadre_complete = sum(1 for sq in get_nomi_squadre() if len(st.session_state.squadre[sq]["rosa"]) >= 25)
         st.metric("Rose Completate", f"{squadre_complete}/10")
     with c4:
         db = st.session_state.giocatori_db
@@ -1542,7 +1587,7 @@ if menu == "🏠 Dashboard":
     st.markdown("---")
     st.subheader("🔔 Alert Contratti in Scadenza")
     scad_rows = []
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         for g in st.session_state.squadre[sq]["rosa"]:
             sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
             if sa <= ANNO_CORRENTE + 1:
@@ -1573,13 +1618,13 @@ if menu == "🏠 Dashboard":
     st.subheader("📈 Metriche Chiave")
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in NOMI_SQUADRE)
+        tot_giocatori = sum(len(st.session_state.squadre[sq]["rosa"]) for sq in get_nomi_squadre())
         st.metric("Giocatori Assegnati", tot_giocatori)
     with c2:
-        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in NOMI_SQUADRE)
+        tot_crediti = sum(st.session_state.squadre[sq]["crediti"] for sq in get_nomi_squadre())
         st.metric("Crediti Liberi", tot_crediti)
     with c3:
-        squadre_complete = sum(1 for sq in NOMI_SQUADRE if len(st.session_state.squadre[sq]["rosa"]) >= 25)
+        squadre_complete = sum(1 for sq in get_nomi_squadre() if len(st.session_state.squadre[sq]["rosa"]) >= 25)
         st.metric("Rose Completate", f"{squadre_complete}/10")
     with c4:
         db = st.session_state.giocatori_db
@@ -1621,7 +1666,7 @@ if menu == "🏠 Dashboard":
     st.markdown("---")
     st.subheader("🔔 Alert Contratti in Scadenza")
     scad_rows = []
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         for g in st.session_state.squadre[sq]["rosa"]:
             sa = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
             if sa <= ANNO_CORRENTE + 1:
@@ -1661,9 +1706,9 @@ if menu == "🏠 Dashboard":
         cols_bil = st.columns(5)
         for col_idx in range(5):
             sq_idx = row_idx * 5 + col_idx
-            if sq_idx >= len(NOMI_SQUADRE):
+            if sq_idx >= len(get_nomi_squadre()):
                 break
-            sq = NOMI_SQUADRE[sq_idx]
+            sq = get_nomi_squadre()[sq_idx]
             with cols_bil[col_idx]:
                 rosa_b = st.session_state.squadre[sq]["rosa"]
                 budget_r = {"P": 0, "D": 0, "C": 0, "A": 0}
@@ -1741,7 +1786,7 @@ if menu == "🏠 Dashboard":
     st.subheader("🎯 Budget Libero per Top (>40cr)")
     st.caption("Crediti effettivamente spendibili su un giocatore costoso, dopo riserva minima per completare la rosa.")
     budget_top_data = []
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         riep = riepilogo_rosa(sq)
         libero = budget_libero_effettivo(sq)
         budget_top_data.append({
@@ -1771,7 +1816,7 @@ if menu == "🏠 Dashboard":
     st.markdown("---")
     st.subheader("💸 Heatmap Spese per Ruolo")
     spese_data = []
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         spese = spese_per_ruolo(sq)
         for ruolo in ["P", "D", "C", "A"]:
             spese_data.append({"Squadra": sq, "Ruolo": ruolo, "Spesa": spese[ruolo]["tot"], "N": spese[ruolo]["n"]})
@@ -1783,7 +1828,7 @@ if menu == "🏠 Dashboard":
     html_spese = '<table style="width:100%;border-collapse:collapse;font-size:0.9em;"><thead><tr style="background:#1a1a2e;"><th style="padding:8px;text-align:left;color:#888;border-bottom:2px solid #2a2a4a;">Squadra</th>'
     for ruolo in ["P", "D", "C", "A"]: html_spese += f'<th style="padding:8px;text-align:center;color:#888;border-bottom:2px solid #2a2a4a;">{ruolo}</th>'
     html_spese += '</tr></thead><tbody>'
-    for sq in NOMI_SQUADRE:
+    for sq in get_nomi_squadre():
         html_spese += f'<tr><td style="padding:8px;color:#fff;font-weight:600;border-bottom:1px solid #2a2a4a;">{sq}</td>'
         for ruolo in ["P", "D", "C", "A"]:
             val = df_spese[(df_spese["Squadra"]==sq)&(df_spese["Ruolo"]==ruolo)]["Spesa"].values
@@ -1796,7 +1841,7 @@ if menu == "🏠 Dashboard":
     st.html(html_spese)
     st.markdown("---")
     st.subheader("💰 Classifica Crediti")
-    crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in NOMI_SQUADRE]).sort_values("Crediti", ascending=False)
+    crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in get_nomi_squadre()]).sort_values("Crediti", ascending=False)
     st.bar_chart(crediti_df.set_index("Squadra"))
 
 # ============================================================
@@ -1831,7 +1876,7 @@ if menu == "🔍 Scouting & Database":
         with st.expander("🔧 Filtri Avanzati", expanded=True):
             f0, f1, f2, f3, f4, f5 = st.columns(6)
             with f0:
-                sq_budget = st.selectbox("Budget Squadra", ["Nessuno"] + NOMI_SQUADRE, key="scout_budget_sq")
+                sq_budget = st.selectbox("Budget Squadra", ["Nessuno"] + get_nomi_squadre(), key="scout_budget_sq")
                 filtro_budget = st.checkbox("Solo chi posso permettermi", value=False, key="scout_budget_chk")
             with f1:
                 ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P", "D", "C", "A"]
@@ -1859,7 +1904,7 @@ if menu == "🔍 Scouting & Database":
                 solo_svinc = st.checkbox("Solo Svincolati", value=False, key="scout_svinc")
                 search = st.text_input("Cerca nome", key="scout_search")
             with f7:
-                sq_mancanti = st.selectbox("🎯 Solo ruoli che mi mancano", ["Nessuno"] + NOMI_SQUADRE, key="scout_mancanti")
+                sq_mancanti = st.selectbox("🎯 Solo ruoli che mi mancano", ["Nessuno"] + get_nomi_squadre(), key="scout_mancanti")
                 if sq_mancanti != "Nessuno":
                     riep_m = riepilogo_rosa(sq_mancanti)
                     ruoli_mancanti = [r for r in ROSA_REQ if riep_m[r]["mancanti"] > 0]
@@ -1992,7 +2037,7 @@ if menu == "🔍 Scouting & Database":
             with c_rand1:
                 rand_ruolo = st.selectbox("Ruolo", ["Qualsiasi", "P", "D", "C", "A"], key="rand_ruolo")
             with c_rand2:
-                rand_budget_sq = st.selectbox("Budget squadra", ["Nessuno"] + NOMI_SQUADRE, key="rand_budget")
+                rand_budget_sq = st.selectbox("Budget squadra", ["Nessuno"] + get_nomi_squadre(), key="rand_budget")
             with c_rand3:
                 st.write("")
                 st.write("")
@@ -2155,7 +2200,7 @@ if menu == "🔍 Scouting & Database":
                 st.markdown(f"**{g_target}** — {ruolo_t} | Quotazione: {quot_t}cr | Titolarità: {info_t['Indice_Titolarita']}/100")
                 avv_data = []
                 riepiloghi = get_all_riepiloghi()
-                for sq_avv in NOMI_SQUADRE:
+                for sq_avv in get_nomi_squadre():
                     riep_avv = riepiloghi[sq_avv]
                     mancanti_avv = riep_avv[ruolo_t]["mancanti"]
                     off_max_avv = riep_avv[ruolo_t]["offerta_max"]
@@ -2324,7 +2369,7 @@ if menu == "🔨 Asta Live":
                 st.markdown(render_flip_card(rdict_sim, stats_ps_sim, stats_2627_sim), unsafe_allow_html=True)
                 riep_sim = get_all_riepiloghi()
                 avv_data = []
-                for sq_avv in NOMI_SQUADRE:
+                for sq_avv in get_nomi_squadre():
                     riep_avv = riep_sim[sq_avv]
                     mancanti_avv = riep_avv[ruolo_sim]["mancanti"]
                     off_max_avv = riep_avv[ruolo_sim]["offerta_max"]
@@ -2516,7 +2561,7 @@ if menu == "🔨 Asta Live":
 
                 # Calcola offerta smart: media tra prezzo AI e offerta max del ruolo, con margine
                 offerte_smart = {}
-                for sq in NOMI_SQUADRE:
+                for sq in get_nomi_squadre():
                     riep_sq = riepiloghi[sq]
                     off_max = riep_sq[ruolo_g]["offerta_max"]
                     mancanti = riep_sq[ruolo_g]["mancanti"]
@@ -2531,7 +2576,7 @@ if menu == "🔨 Asta Live":
                 offerte = {}
                 with st.form("offerte_asta"):
                     cols_off = st.columns(5)
-                    for idx_sq, sq in enumerate(NOMI_SQUADRE):
+                    for idx_sq, sq in enumerate(get_nomi_squadre()):
                         with cols_off[idx_sq % 5]:
                             riep_sq = riepiloghi[sq]
                             off_max = riep_sq[ruolo_g]["offerta_max"]
@@ -2617,7 +2662,7 @@ if menu == "🛒 Mercato":
 
     with t_acq:
         st.subheader("Acquista giocatore svincolato")
-        sq = st.selectbox("Squadra acquirente", NOMI_SQUADRE, key="acq_sq")
+        sq = st.selectbox("Squadra acquirente", get_nomi_squadre(), key="acq_sq")
         cred = st.session_state.squadre[sq]["crediti"]
         rosa_len = len(st.session_state.squadre[sq]["rosa"])
         c1, c2 = st.columns(2)
@@ -2720,7 +2765,7 @@ if menu == "🛒 Mercato":
                 st.subheader("🎭 Cosa Possono Offrire gli Avversari?")
                 avversari = []
                 riepiloghi = get_all_riepiloghi()
-                for sq_avv in NOMI_SQUADRE:
+                for sq_avv in get_nomi_squadre():
                     if sq_avv == sq:
                         continue
                     riep_avv = riepiloghi[sq_avv]
@@ -2769,7 +2814,7 @@ if menu == "🛒 Mercato":
 
     with t_vend:
         st.subheader("Vendi / Svincola giocatore")
-        sq_v = st.selectbox("Squadra", NOMI_SQUADRE, key="vend_sq")
+        sq_v = st.selectbox("Squadra", get_nomi_squadre(), key="vend_sq")
         rosa = st.session_state.squadre[sq_v]["rosa"]
         rosa_proprieta_list = [g for g in rosa if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq_v]
         if rosa_proprieta_list:
@@ -2817,7 +2862,7 @@ if menu == "🛒 Mercato":
     with t_rinn:
         st.subheader("🔄 Rinnova Contratto")
         st.info("Il rinnovo estende il contratto a 3 anni dalla data attuale e aggiorna il costo alla quotazione di listone corrente.")
-        sq_r = st.selectbox("Squadra", NOMI_SQUADRE, key="rinn_sq")
+        sq_r = st.selectbox("Squadra", get_nomi_squadre(), key="rinn_sq")
         rosa_r = st.session_state.squadre[sq_r]["rosa"]
         rosa_rinnovabili = [g for g in rosa_r if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq_r]
         if rosa_rinnovabili:
@@ -2890,13 +2935,13 @@ if menu == "🤝 Scambi & Prestiti":
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Squadra A")
-        sq1 = st.selectbox("Squadra 1", NOMI_SQUADRE, key="sc1")
+        sq1 = st.selectbox("Squadra 1", get_nomi_squadre(), key="sc1")
         rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq1]
         g1 = st.multiselect("Cede giocatori", [g["Nome"] for g in rosa1], key="g1")
         d1 = st.number_input(f"Conguaglio da {sq1}", min_value=0, max_value=st.session_state.squadre[sq1]["crediti"], value=0, key="d1")
     with c2:
         st.subheader("Squadra B")
-        sq2 = st.selectbox("Squadra 2", [s for s in NOMI_SQUADRE if s != sq1], key="sc2")
+        sq2 = st.selectbox("Squadra 2", [s for s in get_nomi_squadre() if s != sq1], key="sc2")
         rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq2]
         g2 = st.multiselect("Cede giocatori", [g["Nome"] for g in rosa2], key="g2")
         d2 = st.number_input(f"Conguaglio da {sq2}", min_value=0, max_value=st.session_state.squadre[sq2]["crediti"], value=0, key="d2")
@@ -3142,8 +3187,8 @@ if menu == "📋 Rose & Contratti":
     )
 
     with tab_singole:
-        tabs = st.tabs(NOMI_SQUADRE)
-        for i, sq in enumerate(NOMI_SQUADRE):
+        tabs = st.tabs(get_nomi_squadre())
+        for i, sq in enumerate(get_nomi_squadre()):
             with tabs[i]:
                 dati = st.session_state.squadre[sq]
                 c1, c2 = st.columns([3, 1])
@@ -3410,7 +3455,7 @@ if menu == "📋 Rose & Contratti":
     with tab_matrice:
         st.subheader("📊 Quadro Generale")
         summary = []
-        for sq in NOMI_SQUADRE:
+        for sq in get_nomi_squadre():
             dati = st.session_state.squadre[sq]
             rosa = dati["rosa"]
             p=d=c=a=spesa=0
@@ -3477,7 +3522,7 @@ if menu == "📋 Rose & Contratti":
     with tab_formazione:
         st.subheader("🎮 Simula Formazione")
         st.caption("Seleziona una squadra e un modulo per vedere la fantamedia potenziale della formazione titolare.")
-        sq_form = st.selectbox("Squadra", NOMI_SQUADRE, key="sim_sq")
+        sq_form = st.selectbox("Squadra", get_nomi_squadre(), key="sim_sq")
         modulo = st.selectbox("Modulo", ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"], key="sim_mod")
         if st.button("🚀 Simula", type="primary"):
             fm_tot, panchina, titolari = simula_formazione(sq_form, modulo)
@@ -3498,9 +3543,9 @@ if menu == "📋 Rose & Contratti":
         st.subheader("⚔️ Confronto Head-to-Head")
         c1, c2 = st.columns(2)
         with c1:
-            sq_a = st.selectbox("Squadra A", NOMI_SQUADRE, index=0, key="h2h_a")
+            sq_a = st.selectbox("Squadra A", get_nomi_squadre(), index=0, key="h2h_a")
         with c2:
-            sq_b = st.selectbox("Squadra B", [s for s in NOMI_SQUADRE if s != sq_a], index=0, key="h2h_b")
+            sq_b = st.selectbox("Squadra B", [s for s in get_nomi_squadre() if s != sq_a], index=0, key="h2h_b")
 
         def stats_squadra(sq_name):
             rosa = st.session_state.squadre[sq_name]["rosa"]
@@ -3924,7 +3969,7 @@ if menu == "⚙️ Importa & Esporta":
                                 sq_nome = str(row[col_sq]).strip().upper() if pd.notna(row[col_sq]) else ""
                                 if not sq_nome: continue
                                 sq_match = None
-                                for s in NOMI_SQUADRE:
+                                for s in get_nomi_squadre():
                                     if s.upper() == sq_nome or s.upper() in sq_nome or sq_nome in s.upper():
                                         sq_match = s
                                         break
@@ -4116,7 +4161,7 @@ if menu == "🎯 Simulatore Rosa":
             try:
                 piano_loaded = json.load(up_piano)
                 # Validazione base
-                if isinstance(piano_loaded, dict) and all(sq in piano_loaded for sq in NOMI_SQUADRE):
+                if isinstance(piano_loaded, dict) and all(sq in piano_loaded for sq in get_nomi_squadre()):
                     st.session_state.simulatore_rosa = piano_loaded
                     save_state()
                     st.success("✅ Piano caricato!")
@@ -4131,9 +4176,9 @@ if menu == "🎯 Simulatore Rosa":
 
     # --- INIZIALIZZAZIONE STATO SIMULATORE ---
     if "simulatore_rosa" not in st.session_state:
-        st.session_state.simulatore_rosa = {sq: {"P": [], "D": [], "C": [], "A": []} for sq in NOMI_SQUADRE}
+        st.session_state.simulatore_rosa = {sq: {"P": [], "D": [], "C": [], "A": []} for sq in get_nomi_squadre()}
 
-    sq_sim = st.selectbox("Squadra da simulare", NOMI_SQUADRE, key="sim_sq")
+    sq_sim = st.selectbox("Squadra da simulare", get_nomi_squadre(), key="sim_sq")
     dati_sq = st.session_state.squadre[sq_sim]
     crediti_disp = dati_sq["crediti"]
 
