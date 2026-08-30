@@ -3896,168 +3896,140 @@ if menu == "⚙️ Importa & Esporta":
         st.subheader("📁 Importa Listone (CSV/Excel)")
         st.markdown("""
         **Formati supportati:**
-        - **Standard**: colonne `Nome`, `Ruolo`, `Squadra_SerieA`, `Quotazione`, `FantaMedia`
-        - **Fantacalcio.it**: file quotazioni ufficiale (es. `Quotazioni_Fantacalcio_Stagione_2026_27.xlsx`)
+        - File ufficiali Fantacalcio (colonne: *Nome, R, Squadra, Qt.A, FVM*)
+        - CSV custom (colonne: *Nome, Ruolo, Squadra, Quotazione, FantaMedia*)
+
+        Se il file Excel ha più sheet (es. *Tutti, Portieri, Difensori...*), verrà proposto di selezionare quale importare.
         """)
         up_listone = st.file_uploader("File Listone", type=["csv","xlsx"], key="ul")
-
         if up_listone is not None:
             try:
-                # --- LETTURA FILE ---
                 if up_listone.name.endswith('.csv'):
                     df_load = pd.read_csv(up_listone, encoding='utf-8', on_bad_lines='skip')
+                    sheet_sel = None
                 else:
                     xl = pd.ExcelFile(up_listone)
-                    # Se c'è lo sheet "Tutti" usalo, altrimenti il primo
-                    sheet_name = "Tutti" if "Tutti" in xl.sheet_names else xl.sheet_names[0]
-
-                    # Provo a rilevare se è il formato Fantacalcio.it (header alla riga 3)
-                    df_test = pd.read_excel(up_listone, sheet_name=sheet_name, nrows=5)
-                    if 'Qt.A' in df_test.columns or 'Qt.I' in df_test.columns or 'FVM' in df_test.columns:
-                        # Formato Fantacalcio: salta le prime 2 righe di titolo
-                        df_load = pd.read_excel(up_listone, sheet_name=sheet_name, header=2)
-                        st.info("📄 Rilevato formato **Fantacalcio.it** (header alla riga 3)")
+                    sheets = xl.sheet_names
+                    if len(sheets) > 1:
+                        # Filtra sheet utili, escludendo "Ceduti" di default
+                        default_sheet = "Tutti" if "Tutti" in sheets else sheets[0]
+                        sheet_sel = st.selectbox("Seleziona sheet", sheets, index=sheets.index(default_sheet) if default_sheet in sheets else 0, key="ul_sheet")
                     else:
-                        df_load = pd.read_excel(up_listone, sheet_name=sheet_name)
-                        st.info("📄 Rilevato formato **standard**")
+                        sheet_sel = sheets[0]
+                    # Prova a leggere con header automatico — a volte i file Fantacalcio hanno 2 righe di titolo sopra l'header
+                    df_load = None
+                    for header_row in [0, 1, 2]:
+                        try:
+                            df_tmp = pd.read_excel(up_listone, sheet_name=sheet_sel, header=header_row)
+                            df_tmp.columns = [str(c).strip() for c in df_tmp.columns]
+                            cols_lower = [c.lower() for c in df_tmp.columns]
+                            if 'nome' in cols_lower or 'r' in cols_lower or 'quot' in cols_lower or 'qt.a' in cols_lower:
+                                df_load = df_tmp
+                                break
+                        except Exception:
+                            continue
+                    if df_load is None:
+                        df_load = pd.read_excel(up_listone, sheet_name=sheet_sel)
 
-                # --- PULIZIA BASE ---
                 df_load.columns = [str(c).strip() for c in df_load.columns]
-                # Rimuovi eventuali righe vuote o di intestazione duplicate
-                if 'Nome' in df_load.columns:
-                    df_load = df_load[df_load['Nome'].notna()]
-                    df_load = df_load[~df_load['Nome'].astype(str).str.contains('Quotazioni Fantacalcio', na=False)]
-                else:
-                    st.error("❌ Colonna 'Nome' non trovata. Colonne rilevate: " + ", ".join(df_load.columns))
-                    st.stop()
 
-                # --- MAPPING COLONNE (auto-detect) ---
-                col_map = {}
+                # Mostra anteprima colonne rilevate
+                with st.expander("🔍 Anteprima colonne rilevate"):
+                    st.write(f"**Sheet:** {sheet_sel or 'N/D'} | **Righe:** {len(df_load)} | **Colonne:** {', '.join(df_load.columns)}")
+                    st.dataframe(df_load.head(5), use_container_width=True)
+
+                col_mappa = {}
                 for col in df_load.columns:
                     cl = str(col).lower().strip()
-                    if col == 'Nome' or 'nome' in cl:
-                        col_map[col] = 'Nome'
-                    elif col == 'R' or col == 'Ruolo' or cl == 'r':
-                        col_map[col] = 'Ruolo'
-                    elif col == 'Squadra' or 'squadra' in cl:
-                        col_map[col] = 'Squadra_SerieA'
-                    elif col == 'Qt.A' or 'qt.a' in cl or 'quotazione attuale' in cl:
-                        col_map[col] = 'Quotazione'
-                    elif 'fm' in cl or 'fantamedia' in cl or 'fanta media' in cl:
-                        col_map[col] = 'FantaMedia'
-                    elif 'prezzo' in cl or 'consigliato' in cl or 'acquisto' in cl:
-                        col_map[col] = 'Prezzo_Consigliato'
+                    if cl in ['nome', 'giocatore', 'calciatore', 'player', 'name']:
+                        col_mappa[col] = 'Nome'
+                    elif cl == 'r' or cl == 'ruolo' or cl == 'role':
+                        col_mappa[col] = 'Ruolo'
+                    elif cl in ['squadra', 'team', 'club', 'sq']:
+                        col_mappa[col] = 'Squadra_SerieA'
+                    elif cl in ['qt.a', 'qta', 'quotazione', 'quot', 'valore', 'fc', 'qt', 'prezzo']:
+                        if any(x in cl for x in ['2025', 'prec', 'old', 'last', 'precedente', 'iniz']):
+                            col_mappa[col] = 'Quotazione_2025_26'
+                        else:
+                            col_mappa[col] = 'Quotazione'
+                    elif cl in ['qt.i', 'qti']:
+                        col_mappa[col] = 'Quotazione_2025_26'
+                    elif cl in ['fvm', 'fvm m', 'fanta media', 'fantamedia', 'fm', 'media']:
+                        col_mappa[col] = 'FantaMedia'
+                    elif cl in ['rm', 'ruolo mantra', 'mantra']:
+                        col_mappa[col] = 'Ruolo_Mantra'
+                    elif cl in ['id', 'codice']:
+                        col_mappa[col] = 'Id'
+                    elif 'prezzo' in cl or 'consigliato' in cl or 'suggerito' in cl or 'acquisto' in cl or 'buy' in cl:
+                        col_mappa[col] = 'Prezzo_Consigliato'
 
-                df_load = df_load.rename(columns=col_map)
+                df_load = df_load.rename(columns=col_mappa)
 
-                # Assicurati che le colonne minime esistano
-                if 'Ruolo' not in df_load.columns and 'R' in df_load.columns:
-                    df_load = df_load.rename(columns={'R': 'Ruolo'})
-                if 'Squadra_SerieA' not in df_load.columns and 'Squadra' in df_load.columns:
-                    df_load = df_load.rename(columns={'Squadra': 'Squadra_SerieA'})
-                if 'Quotazione' not in df_load.columns and 'Qt.A' in df_load.columns:
-                    df_load = df_load.rename(columns={'Qt.A': 'Quotazione'})
+                # Se non c'è FantaMedia ma c'è FVM, usa FVM
+                if 'FantaMedia' not in df_load.columns and 'FVM' in df_load.columns:
+                    df_load['FantaMedia'] = df_load['FVM']
 
-                # --- NORMALIZZAZIONE TIPI ---
-                if 'Quotazione' in df_load.columns:
+                if 'Nome' in df_load.columns:
+                    df_load = df_load.loc[:, ~df_load.columns.duplicated()]
+
+                    # Colonne di default
+                    defaults = {
+                        'Ruolo': 'C',
+                        'Squadra_SerieA': 'N/D',
+                        'Quotazione': 10,
+                        'FantaMedia': 6.0,
+                        'Quotazione_2025_26': None,
+                        'Ruolo_Mantra': '',
+                        'Id': None,
+                        'Consiglio': 'consigliato',
+                        'Note': '',
+                        'Prezzo_Consigliato': None
+                    }
+                    for c, d in defaults.items():
+                        if c not in df_load.columns:
+                            df_load[c] = d
+
+                    # Pulizia dati
+                    if 'Quotazione_2025_26' in df_load.columns:
+                        df_load['Quotazione_2025_26'] = pd.to_numeric(df_load['Quotazione_2025_26'], errors='coerce')
+
                     df_load['Quotazione'] = pd.to_numeric(df_load['Quotazione'], errors='coerce').fillna(10).astype(int)
-                if 'FantaMedia' in df_load.columns:
-                    df_load['FantaMedia'] = pd.to_numeric(df_load['FantaMedia'].astype(str).str.replace(',', '.', regex=False), errors='coerce').fillna(6.0)
+
+                    fm = df_load['FantaMedia']
+                    if isinstance(fm, pd.DataFrame):
+                        fm = fm.iloc[:, 0]
+                    df_load['FantaMedia'] = pd.to_numeric(fm.astype(str).str.replace(',', '.', regex=False), errors='coerce').fillna(6.0)
+
+                    if 'Prezzo_Consigliato' in df_load.columns:
+                        df_load['Prezzo_Consigliato'] = pd.to_numeric(df_load['Prezzo_Consigliato'], errors='coerce')
+
+                    # Pulizia Ruolo: prendi solo la prima lettera (P, D, C, A)
+                    df_load['Ruolo'] = df_load['Ruolo'].astype(str).str.strip().str.upper().str[0]
+                    df_load['Ruolo'] = df_load['Ruolo'].apply(lambda x: x if x in ['P','D','C','A'] else 'C')
+
+                    # Rimuovi righe senza nome valido
+                    df_load = df_load[df_load['Nome'].notna()]
+                    df_load = df_load[df_load['Nome'].astype(str).str.strip() != '']
+                    df_load = df_load[df_load['Nome'].astype(str).str.lower() != 'nan']
+
+                    cols_final = ['Nome', 'Ruolo', 'Squadra_SerieA', 'Quotazione', 'FantaMedia', 'Consiglio', 'Note', 'Prezzo_Consigliato']
+                    if 'Quotazione_2025_26' in df_load.columns:
+                        cols_final.append('Quotazione_2025_26')
+                    if 'Ruolo_Mantra' in df_load.columns:
+                        cols_final.append('Ruolo_Mantra')
+                    if 'Id' in df_load.columns:
+                        cols_final.append('Id')
+
+                    st.session_state.giocatori_db = df_load[cols_final].copy()
+                    save_state()
+                    st.success(f"✅ Listone importato! **{len(df_load)}** giocatori caricati da sheet '{sheet_sel or 'N/D'}'.")
+                    st.caption(f"📊 Ruoli: P={len(df_load[df_load['Ruolo']=='P'])}, D={len(df_load[df_load['Ruolo']=='D'])}, C={len(df_load[df_load['Ruolo']=='C'])}, A={len(df_load[df_load['Ruolo']=='A'])}")
                 else:
-                    df_load['FantaMedia'] = 6.0
-                if 'Consiglio' not in df_load.columns:
-                    df_load['Consiglio'] = 'consigliato'
-                if 'Note' not in df_load.columns:
-                    df_load['Note'] = ''
-                if 'Prezzo_Consigliato' not in df_load.columns:
-                    df_load['Prezzo_Consigliato'] = None
-                else:
-                    df_load['Prezzo_Consigliato'] = pd.to_numeric(df_load['Prezzo_Consigliato'], errors='coerce')
-                if 'Quotazione_2025_26' not in df_load.columns:
-                    df_load['Quotazione_2025_26'] = None
-
-                # --- MERGE INTELLIGENTE CON DB ESISTENTE ---
-                db = st.session_state.giocatori_db.copy()
-                nomi_db = db["Nome"].dropna().tolist()
-
-                n_aggiornati = 0
-                n_nuovi = 0
-                log_aggiornamenti = []
-
-                for _, row in df_load.iterrows():
-                    nome_file = str(row.get("Nome", "")).strip()
-                    if not nome_file or nome_file.lower() in ['nan', 'none', '']:
-                        continue
-
-                    ruolo = str(row.get("Ruolo", "C")).strip().upper()
-                    # Prendi solo la prima lettera se è un ruolo composto (es. "Por" -> "P")
-                    if len(ruolo) > 1 and ruolo[0] in "PDCA":
-                        ruolo = ruolo[0]
-                    elif ruolo not in ["P", "D", "C", "A"]:
-                        ruolo = "C"
-
-                    squadra = str(row.get("Squadra_SerieA", "N/D")).strip()
-                    quot = int(row.get("Quotazione", 10)) if pd.notna(row.get("Quotazione")) else 10
-                    fm = float(row.get("FantaMedia", 6.0)) if pd.notna(row.get("FantaMedia")) else 6.0
-
-                    # Cerca match
-                    match = db[db["Nome"].str.lower() == nome_file.lower()]
-                    if match.empty:
-                        nome_fuzzy = fuzzy_match(nome_file, nomi_db)
-                        if nome_fuzzy:
-                            match = db[db["Nome"] == nome_fuzzy]
-
-                    if not match.empty:
-                        idx = match.index[0]
-                        vecchia_q = int(match.iloc[0].get("Quotazione", 0))
-                        vecchia_sq = str(match.iloc[0].get("Squadra_SerieA", ""))
-                        db.at[idx, "Ruolo"] = ruolo
-                        db.at[idx, "Squadra_SerieA"] = squadra
-                        db.at[idx, "Quotazione"] = quot
-                        # Aggiorna FantaMedia solo se nel file c'era un valore valido diverso da default
-                        if 'FantaMedia' in row and pd.notna(row.get("FantaMedia")) and float(row["FantaMedia"]) != 6.0:
-                            db.at[idx, "FantaMedia"] = float(row["FantaMedia"])
-                        n_aggiornati += 1
-                        if vecchia_q != quot or vecchia_sq != squadra:
-                            log_aggiornamenti.append(f"🔄 **{nome_file}**: {vecchia_sq} → {squadra} | {vecchia_q}cr → {quot}cr")
-                    else:
-                        nuovo = {
-                            "Nome": nome_file,
-                            "Ruolo": ruolo,
-                            "Squadra_SerieA": squadra,
-                            "Quotazione": quot,
-                            "FantaMedia": fm,
-                            "Consiglio": "consigliato",
-                            "Note": "",
-                            "Prezzo_Consigliato": None,
-                            "Quotazione_2025_26": None
-                        }
-                        db = pd.concat([db, pd.DataFrame([nuovo])], ignore_index=True)
-                        n_nuovi += 1
-                        log_aggiornamenti.append(f"➕ **{nome_file}** ({ruolo}) {squadra} @ {quot}cr — nuovo")
-
-                # Rimuovi duplicati eventualmente creati (per sicurezza)
-                db = db.drop_duplicates(subset=["Nome"], keep="first")
-
-                st.session_state.giocatori_db = db
-                save_state()
-
-                st.success(f"✅ Listone aggiornato! **{n_aggiornati}** giocatori aggiornati, **{n_nuovi}** nuovi aggiunti. Totale: {len(db)} giocatori.")
-
-                if log_aggiornamenti:
-                    with st.expander("📋 Dettaglio modifiche"):
-                        for l in log_aggiornamenti[:50]:
-                            st.markdown(l)
-                        if len(log_aggiornamenti) > 50:
-                            st.caption(f"... e altri {len(log_aggiornamenti)-50} cambiamenti")
-
+                    st.error("❌ Colonna 'Nome' non trovata. Colonne rilevate: " + ", ".join(df_load.columns))
+                    st.info("💡 Se il file ha righe di titolo sopra l'header, prova a salvare una copia pulita del file.")
             except Exception as e:
-                st.error(f"Errore durante l'importazione: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-
-
-    with tab_imp_rose:
+                st.error(f"Errore: {e}")
+with tab_imp_rose:
         st.subheader("📋 Importa Rose (con anteprima)")
         st.markdown("""
         **Colonne attese:** Squadra, Nome, Ruolo, Costo
