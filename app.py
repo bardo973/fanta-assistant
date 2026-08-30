@@ -248,6 +248,7 @@ LISTONE_DEFAULT = [
 
 for g in LISTONE_DEFAULT:
     g.setdefault("Prezzo_Consigliato", None)
+    g.setdefault("FVM", None)
 
 
 # ============================================================
@@ -384,6 +385,8 @@ class StateManager:
         st.session_state.giocatori_db = data.get("giocatori_db", pd.DataFrame(LISTONE_DEFAULT))
         if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
             st.session_state.giocatori_db["Prezzo_Consigliato"] = None
+        if "FVM" not in st.session_state.giocatori_db.columns:
+            st.session_state.giocatori_db["FVM"] = None
         st.session_state.stats_storiche = data.get("stats_storiche", pd.DataFrame())
         st.session_state.stats_per_stagione = data.get("stats_per_stagione", {})
         st.session_state.crediti_iniziali = data.get("crediti_iniziali", CREDITI_INIZIALI)
@@ -502,9 +505,23 @@ def get_db_info(nome):
 # ============================================================
 # BUSINESS LOGIC
 # ============================================================
-def calcola_prezzo_consigliato(g_info, stats_df=None):
+def calcola_prezzo_consigliato(g_info, stats_df=None, crediti_squadra=None):
     nome = g_info.get("Nome", "")
     ruolo = g_info.get("Ruolo", "C")
+
+    # ─── FVM PRIORITY ───
+    fvm = g_info.get("FVM")
+    if fvm is not None and pd.notna(fvm) and float(fvm) > 0:
+        base_crediti = crediti_squadra if crediti_squadra is not None and crediti_squadra > 0 else CREDITI_INIZIALI
+        prezzo_fvm = max(1, round(float(fvm) * base_crediti / 1000))
+        spiegazione = (
+            f"**Base FVM:** {float(fvm)} (indice su 1000)\n"
+            f"**Crediti riferimento:** {base_crediti}\n"
+            f"**Formula:** FVM × Crediti / 1000 = {prezzo_fvm}cr\n\n"
+            f"**💡 Prezzo consigliato FVM: {prezzo_fvm}cr**"
+        )
+        return prezzo_fvm, spiegazione
+
     quot = float(g_info.get("Quotazione", 10))
     fm = float(g_info.get("FantaMedia", 6.0))
     fascia = g_info.get("Consiglio", "consigliato")
@@ -566,6 +583,8 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
         fattore_affare = 0.90
 
     prezzo = base * fattore_fm * fattore_fascia * fattore_scarsita * fattore_trend * fattore_affare
+    if math.isnan(prezzo) or math.isinf(prezzo):
+        prezzo = base
     prezzo = max(1, round(prezzo))
 
     spiegazione = (
@@ -1034,7 +1053,9 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
     quot = int(row.get("Quotazione", 0)) if hasattr(row, "get") else int(row.get("Quotazione", 0))
     fascia = row.get("Consiglio", "consigliato") if hasattr(row, "get") else row.get("Consiglio", "consigliato")
     pc = row.get("Prezzo_Consigliato") if hasattr(row, "get") else row.get("Prezzo_Consigliato")
+    fvm_val = row.get("FVM") if hasattr(row, "get") else row.get("FVM")
     pc_txt = f"💡 {int(pc)}cr" if pd.notna(pc) else ""
+    fvm_txt = f"📊 FVM {int(fvm_val)}" if pd.notna(fvm_val) and float(fvm_val) > 0 else ""
     idx_aff = row.get("Indice_Affare", 0) if hasattr(row, "get") else row.get("Indice_Affare", 0)
     idx_tit = row.get("Indice_Titolarita", 0) if hasattr(row, "get") else row.get("Indice_Titolarita", 0)
 
@@ -1044,10 +1065,14 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
     flame_badge = flame_indicator(nome, stats_per_stagione) if stats_per_stagione else ""
 
     # FRONTE
-    front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}</div>{flame_badge}</div>'''
+    front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}<span style="background:rgba(0,210,106,0.15);color:#00d26a;padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid rgba(0,210,106,0.3);">{fvm_txt}</span></div>{flame_badge}</div>'''
 
-    # RETRO (stats)
-    stats_html = _build_stats_html(nome, stats_per_stagione if stats_per_stagione else {})
+    # RETRO (stats) — priorità a statistiche 2026/27 se disponibili
+    if stats_2627 is not None and not stats_2627.empty:
+        stats_for_back = {"2026-27": stats_2627}
+    else:
+        stats_for_back = stats_per_stagione if stats_per_stagione else {}
+    stats_html = _build_stats_html(nome, stats_for_back)
     back_html = f'''<div style="background:linear-gradient(135deg, #0f0f24 0%, #1a1a2e 100%);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border:1px solid {colore}40;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;overflow:hidden;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 {nome}</div><div style="overflow-y:auto;max-height:140px;">{stats_html}</div></div>'''
 
     return f'''<div class="flip-card" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
@@ -1245,6 +1270,8 @@ if "initialized" not in st.session_state:
     st.session_state.giocatori_db = pd.DataFrame(LISTONE_DEFAULT)
     if "Prezzo_Consigliato" not in st.session_state.giocatori_db.columns:
         st.session_state.giocatori_db["Prezzo_Consigliato"] = None
+    if "FVM" not in st.session_state.giocatori_db.columns:
+        st.session_state.giocatori_db["FVM"] = None
     st.session_state.stats_storiche = pd.DataFrame()
     st.session_state.quotazioni_2025_26 = pd.DataFrame()
     st.session_state.stats_per_stagione = {}
@@ -1898,6 +1925,25 @@ if menu == "🔍 Scouting & Database":
         stats_2627 = st.session_state.stats_per_stagione["2026-27"]
         st.caption("📊 Dati arricchiti con statistiche 2026/27 caricate")
 
+    # --- SELETTORE FANTALLENATORE PROMINENTE ---
+    st.markdown("---")
+    c_scout1, c_scout2, c_scout3 = st.columns([2, 1, 1])
+    with c_scout1:
+        sq_scout = st.selectbox("🧑‍💼 Seleziona Fantallenatore", ["Nessuno"] + get_nomi_squadre(), key="scout_sq_main")
+    with c_scout2:
+        if sq_scout != "Nessuno":
+            st.metric("💰 Crediti", f"{st.session_state.squadre[sq_scout]['crediti']}cr")
+        else:
+            st.metric("💰 Crediti", "—")
+    with c_scout3:
+        if sq_scout != "Nessuno":
+            riep_sq_scout = riepilogo_rosa(sq_scout)
+            st.metric("📦 Posti Liberi", f"{riep_sq_scout['tot_mancanti']}")
+        else:
+            st.metric("📦 Posti Liberi", "—")
+    st.markdown("---")
+    crediti_sq_scout = st.session_state.squadre[sq_scout]["crediti"] if sq_scout != "Nessuno" else None
+
     if df.empty:
         st.warning("Nessun giocatore nel database.")
     else:
@@ -1918,7 +1964,7 @@ if menu == "🔍 Scouting & Database":
         with st.expander("🔧 Filtri Avanzati", expanded=True):
             f0, f1, f2, f3, f4, f5 = st.columns(6)
             with f0:
-                sq_budget = st.selectbox("Budget Squadra", ["Nessuno"] + get_nomi_squadre(), key="scout_budget_sq")
+                sq_budget = sq_scout  # sincronizzato con selettore principale
                 filtro_budget = st.checkbox("Solo chi posso permettermi", value=False, key="scout_budget_chk")
             with f1:
                 ruoli = sorted(df["Ruolo"].unique()) if "Ruolo" in df.columns else ["P", "D", "C", "A"]
@@ -2027,12 +2073,18 @@ if menu == "🔍 Scouting & Database":
             st.caption("🖱️ Passa il mouse sulla card per girarla e vedere le statistiche!")
             svinc_df = df[df["Proprietario"] == "Svincolato 🟢"].copy()
             if not svinc_df.empty:
-                top_mixed = svinc_df.nlargest(8, "Indice_Titolarita")
+                top_mixed = svinc_df.nlargest(8, "Indice_Titolarita").copy()
+                # Calcola prezzo AI per la squadra selezionata
+                stats_df_scout = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                top_mixed["Prezzo_AI"] = top_mixed.apply(
+                    lambda r: calcola_prezzo_consigliato(r.to_dict(), stats_df_scout, crediti_sq_scout)[0], axis=1
+                )
                 cards = st.columns(4)
                 stats_ps = st.session_state.get("stats_per_stagione", {})
                 for i, (_, row) in enumerate(top_mixed.iterrows()):
                     with cards[i % 4]:
                         rdict = row.to_dict()
+                        rdict["Prezzo_Consigliato"] = row["Prezzo_AI"]
                         st.markdown(render_flip_card(rdict, stats_ps, stats_2627), unsafe_allow_html=True)
             else:
                 st.info("Nessuno svincolato disponibile.")
@@ -2049,8 +2101,11 @@ if menu == "🔍 Scouting & Database":
                     df_r = df[(df["Ruolo"] == ruolo) & (df["Proprietario"] == "Svincolato 🟢")].sort_values("Indice_Affare", ascending=False).head(3)
                     st.markdown(f"**{ruoli_color[ruolo]} {ruolo}**")
                     if not df_r.empty:
+                        stats_df_bb = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                         for _, row in df_r.iterrows():
-                            pc = row.get("Prezzo_Consigliato")
+                            pc_db = row.get("Prezzo_Consigliato")
+                            pc_ai_bb, _ = calcola_prezzo_consigliato(row.to_dict(), stats_df_bb, crediti_sq_scout)
+                            pc = pc_ai_bb if pd.isna(pc_db) else pc_db
                             pc_txt = f"💡{int(pc)}cr" if pd.notna(pc) else ""
                             tit_bar = ""
                             if row["Indice_Titolarita"] >= 80:
@@ -2116,7 +2171,13 @@ if menu == "🔍 Scouting & Database":
             # ============================================================
         with st.expander("📋 Risultati Tabella", expanded=True):
             st.subheader(f"📋 Risultati: {len(df_f)} giocatori")
-            display_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "Prezzo_Consigliato",
+            # Calcola prezzo AI personalizzato per la squadra selezionata
+            if crediti_sq_scout is not None:
+                stats_df_tab = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                df_f["Prezzo_AI_mio"] = df_f.apply(
+                    lambda r: calcola_prezzo_consigliato(r.to_dict(), stats_df_tab, crediti_sq_scout)[0], axis=1
+                )
+            display_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FVM", "Prezzo_Consigliato", "Prezzo_AI_mio",
                                         "Quotazione_2025_26", "Variazione_%", "FantaMedia", "Indice_Affare",
                                         "Indice_Titolarita", "Proprietario", "Consiglio", "Note"] if c in df_f.columns]
             st.dataframe(df_f[display_cols].sort_values("Indice_Titolarita", ascending=False),
@@ -2267,7 +2328,7 @@ if menu == "🔍 Scouting & Database":
             # ============================================================
         with st.expander("🛠️ Tools Editing — Prezzi, AI & Fasce", expanded=False):
             st.subheader("✏️ Modifica Prezzi Consigliati")
-            editor_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FantaMedia", "Prezzo_Consigliato", "Consiglio", "Note"] if c in df.columns]
+            editor_cols = [c for c in ["Nome", "Ruolo", "Squadra_SerieA", "Quotazione", "FVM", "FantaMedia", "Prezzo_Consigliato", "Consiglio", "Note"] if c in df.columns]
             df_edit = df[editor_cols].copy()
             df_edited = st.data_editor(
                 df_edit,
@@ -2334,7 +2395,10 @@ if menu == "🔍 Scouting & Database":
             if st.session_state.watchlist:
                 df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
+                crediti_wl = None
+                if sq_scout != "Nessuno":
+                    crediti_wl = st.session_state.squadre[sq_scout]["crediti"]
+                df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df, crediti_wl)[0], axis=1)
                 if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
                     df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
 
@@ -2391,6 +2455,16 @@ if menu == "🔨 Asta Live":
     st.header("🔨 Gestione Asta")
     st.caption("Gestisci l'asta in tempo reale: seleziona giocatore, raccogli offerte, assegna.")
 
+    # --- SELETTORE FANTALLENATORE ---
+    st.markdown("---")
+    c_asta1, c_asta2 = st.columns([2, 1])
+    with c_asta1:
+        sq_asta_mia = st.selectbox("🧑‍💼 La tua Squadra", get_nomi_squadre(), key="asta_mia_sq")
+    with c_asta2:
+        st.metric("💰 I tuoi Crediti", f"{st.session_state.squadre[sq_asta_mia]['crediti']}cr")
+    st.markdown("---")
+    crediti_asta_mia = st.session_state.squadre[sq_asta_mia]["crediti"]
+
     # --- SIMULAZIONE ASTA AVVERSARIA ---
     with st.expander("🔮 Simula Asta Avversaria", expanded=False):
         st.caption("Inserisci il giocatore che stanno chiamando gli altri: scopri chi può permetterselo e a quanto.")
@@ -2408,6 +2482,20 @@ if menu == "🔨 Asta Live":
                 rdict_sim["Proprietario"] = "Svincolato 🟢"
                 rdict_sim["Indice_Affare"] = round(float(rdict_sim.get("FantaMedia", 6.0)) / max(float(rdict_sim.get("Quotazione", 1)), 1), 2)
                 rdict_sim["Indice_Titolarita"] = calcola_indice_titolarita(rdict_sim, stats_2627_sim)
+                # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
+                stats_df_sim = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_sim, _ = calcola_prezzo_consigliato(info_sim.to_dict(), stats_df_sim, crediti_asta_mia)
+                rdict_sim["Prezzo_Consigliato"] = pc_sim
+
+                if fvm_val_sim := info_sim.get("FVM"):
+                    if pd.notna(fvm_val_sim) and float(fvm_val_sim) > 0:
+                        fvm_rows_sim = []
+                        for sq_fvm in get_nomi_squadre():
+                            cred_fvm = st.session_state.squadre[sq_fvm]["crediti"]
+                            pc_fvm_sq = max(1, round(float(fvm_val_sim) * cred_fvm / 1000))
+                            fvm_rows_sim.append({"Squadra": sq_fvm, "Crediti": cred_fvm, "Prezzo FVM": f"{pc_fvm_sq}cr"})
+                        with st.expander("💰 Prezzo FVM per Squadra"):
+                            st.dataframe(pd.DataFrame(fvm_rows_sim).sort_values("Crediti", ascending=False), use_container_width=True, hide_index=True)
                 st.markdown(render_flip_card(rdict_sim, stats_ps_sim, stats_2627_sim), unsafe_allow_html=True)
                 riep_sim = get_all_riepiloghi()
                 avv_data = []
@@ -2470,11 +2558,24 @@ if menu == "🔨 Asta Live":
                 rdict_rap["Proprietario"] = "Svincolato 🟢"
                 rdict_rap["Indice_Affare"] = round(float(rdict_rap.get("FantaMedia", 6.0)) / max(float(rdict_rap.get("Quotazione", 1)), 1), 2)
                 rdict_rap["Indice_Titolarita"] = calcola_indice_titolarita(rdict_rap, stats_2627_rap)
+                # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
+                stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap, crediti_asta_mia)
+                rdict_rap["Prezzo_Consigliato"] = pc_rap
+
+                # FVM per tutte le squadre in asta rapida
+                if fvm_val_rap := g_rap.get("FVM"):
+                    if pd.notna(fvm_val_rap) and float(fvm_val_rap) > 0:
+                        fvm_rows_rap = []
+                        for sq_fvm in get_nomi_squadre():
+                            cred_fvm = st.session_state.squadre[sq_fvm]["crediti"]
+                            pc_fvm_sq = max(1, round(float(fvm_val_rap) * cred_fvm / 1000))
+                            fvm_rows_rap.append({"Squadra": sq_fvm, "Crediti": cred_fvm, "Prezzo FVM": f"{pc_fvm_sq}cr"})
+                        with st.expander("💰 Prezzo FVM per Squadra"):
+                            st.dataframe(pd.DataFrame(fvm_rows_rap).sort_values("Crediti", ascending=False), use_container_width=True, hide_index=True)
                 st.markdown(render_flip_card(rdict_rap, stats_ps_rap, stats_2627_rap), unsafe_allow_html=True)
 
                 # Prezzo consigliato
-                stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap)
                 st.info(f"💡 Prezzo consigliato: **{pc_rap}cr**")
 
                 # Bottoni navigazione
@@ -2581,14 +2682,22 @@ if menu == "🔨 Asta Live":
                 rdict_ast["Proprietario"] = "Svincolato 🟢"
                 rdict_ast["Indice_Affare"] = round(float(rdict_ast.get("FantaMedia", 6.0)) / max(float(rdict_ast.get("Quotazione", 1)), 1), 2)
                 rdict_ast["Indice_Titolarita"] = calcola_indice_titolarita(rdict_ast, stats_2627_ast)
+                # ⬇️ Prezzo consigliato integrato nella card
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, crediti_asta_mia)
+                rdict_ast["Prezzo_Consigliato"] = pc_ai
                 st.markdown(render_flip_card(rdict_ast, stats_ps_ast, stats_2627_ast), unsafe_allow_html=True)
 
-                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
-                col_ai, col_spieg = st.columns([1, 2])
-                with col_ai:
-                    st.metric("💡 Prezzo AI", f"{pc_ai}cr")
-                with col_spieg:
+                c_pc, c_exp = st.columns([1, 3])
+                with c_pc:
+                    st.markdown(
+                        f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
+                        f"<div style='font-size:0.85em;color:#aaa;'>💡 PREZZO CONSIGLIATO</div>"
+                        f"<div style='font-size:1.8em;font-weight:bold;color:#00d26a;'>{pc_ai}cr</div>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+                with c_exp:
                     with st.expander("🧠 Spiegazione prezzo"):
                         st.markdown(spiegazione)
 
@@ -2721,7 +2830,6 @@ if menu == "🛒 Mercato":
                 info = svinc[svinc["Nome"] == g_sel].iloc[0]
 
                 st.markdown("---")
-                col_info, col_prezzo = st.columns([2, 1])
                 stats_2627_row = None
                 if "stats_per_stagione" in st.session_state and "2026-27" in st.session_state.stats_per_stagione:
                     s2627 = st.session_state.stats_per_stagione["2026-27"]
@@ -2734,23 +2842,22 @@ if menu == "🛒 Mercato":
                         if not match_2627.empty:
                             stats_2627_row = match_2627.iloc[0]
 
-                with col_info:
-                    st.markdown(f"**{g_sel}** — {info['Ruolo']} | {info['Squadra_SerieA']}")
-                    fm_display = f"**{info['FantaMedia']}**"
-                    if stats_2627_row is not None and "FantaMedia" in stats_2627_row and pd.notna(stats_2627_row["FantaMedia"]):
-                        fm_display += f" <span style='color:#00d26a;'>(📊 2026/27: {stats_2627_row['FantaMedia']})</span>"
-                    st.markdown(f"Quotazione listone: **{int(info['Quotazione'])}cr** | FantaMedia: {fm_display} | Fascia: **{info.get('Consiglio','')}**", unsafe_allow_html=True)
-                    if stats_2627_row is not None:
-                        extra_stats = []
-                        for col in ["Gol", "Assist", "Partite", "Rigori"]:
-                            if col in stats_2627_row and pd.notna(stats_2627_row[col]):
-                                extra_stats.append(f"{col}: **{stats_2627_row[col]}**")
-                        if extra_stats:
-                            st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
-
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
-                with col_prezzo:
+                crediti_sq_merc = st.session_state.squadre[sq]["crediti"]
+                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, crediti_sq_merc)
+
+                stats_ps_merc = st.session_state.get("stats_per_stagione", {})
+                stats_2627_merc = stats_ps_merc.get("2026-27") if "2026-27" in stats_ps_merc else None
+                rdict_merc = info.to_dict()
+                rdict_merc["Proprietario"] = "Svincolato 🟢"
+                rdict_merc["Indice_Affare"] = round(float(rdict_merc.get("FantaMedia", 6.0)) / max(float(rdict_merc.get("Quotazione", 1)), 1), 2)
+                rdict_merc["Indice_Titolarita"] = calcola_indice_titolarita(rdict_merc, stats_2627_merc)
+                # ⬇️ Prezzo consigliato integrato nella card
+                rdict_merc["Prezzo_Consigliato"] = pc_ai
+                st.markdown(render_flip_card(rdict_merc, stats_ps_merc, stats_2627_merc), unsafe_allow_html=True)
+
+                c_pc, c_exp = st.columns([1, 3])
+                with c_pc:
                     st.markdown(
                         f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
                         f"<div style='font-size:0.85em;color:#aaa;'>💡 PREZZO CONSIGLIATO</div>"
@@ -2758,8 +2865,18 @@ if menu == "🛒 Mercato":
                         f"</div>",
                         unsafe_allow_html=True
                     )
-                with st.expander("🧠 Come è calcolato il prezzo consigliato?"):
-                    st.markdown(spiegazione)
+                with c_exp:
+                    with st.expander("🧠 Spiegazione prezzo"):
+                        st.markdown(spiegazione)
+
+                if stats_2627_row is not None:
+                    extra_stats = []
+                    for col in ["Gol", "Assist", "Partite", "Rigori"]:
+                        if col in stats_2627_row and pd.notna(stats_2627_row[col]):
+                            extra_stats.append(f"{col}: **{stats_2627_row[col]}**")
+                    if extra_stats:
+                        st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
+
 
                 stats_g = mostra_statistiche_giocatore(g_sel, stats_df)
                 if stats_g is not None:
@@ -3870,7 +3987,7 @@ if menu == "⚙️ Importa & Esporta":
                 if pd.isna(row.get("Prezzo_Consigliato")):
                     pc_ai, _ = calcola_prezzo_consigliato(row.to_dict(), st.session_state.stats_storiche)
                     df_exp.at[idx, "Prezzo_Consigliato"] = pc_ai
-        cols_exp = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","Prezzo_Consigliato","FantaMedia","Consiglio","Note","Quotazione_2025_26"] if c in df_exp.columns]
+        cols_exp = [c for c in ["Nome","Ruolo","Squadra_SerieA","Quotazione","FVM","Prezzo_Consigliato","FantaMedia","Consiglio","Note","Quotazione_2025_26"] if c in df_exp.columns]
         df_exp = df_exp[cols_exp]
         with pd.ExcelWriter(buffer_exp, engine="openpyxl") as writer:
             df_exp.to_excel(writer, index=False, sheet_name="Listone")
@@ -3954,7 +4071,9 @@ if menu == "⚙️ Importa & Esporta":
                             col_mappa[col] = 'Quotazione'
                     elif cl in ['qt.i', 'qti']:
                         col_mappa[col] = 'Quotazione_2025_26'
-                    elif cl in ['fvm', 'fvm m', 'fanta media', 'fantamedia', 'fm', 'media']:
+                    elif cl in ['fvm', 'fvm m']:
+                        col_mappa[col] = 'FVM'
+                    elif cl in ['fanta media', 'fantamedia', 'fm', 'media']:
                         col_mappa[col] = 'FantaMedia'
                     elif cl in ['rm', 'ruolo mantra', 'mantra']:
                         col_mappa[col] = 'Ruolo_Mantra'
@@ -3978,6 +4097,7 @@ if menu == "⚙️ Importa & Esporta":
                         'Squadra_SerieA': 'N/D',
                         'Quotazione': 10,
                         'FantaMedia': 6.0,
+                        'FVM': None,
                         'Quotazione_2025_26': None,
                         'Ruolo_Mantra': '',
                         'Id': None,
