@@ -2412,6 +2412,10 @@ if menu == "🔨 Asta Live":
                 rdict_sim["Proprietario"] = "Svincolato 🟢"
                 rdict_sim["Indice_Affare"] = round(float(rdict_sim.get("FantaMedia", 6.0)) / max(float(rdict_sim.get("Quotazione", 1)), 1), 2)
                 rdict_sim["Indice_Titolarita"] = calcola_indice_titolarita(rdict_sim, stats_2627_sim)
+                # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
+                stats_df_sim = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_sim, _ = calcola_prezzo_consigliato(info_sim.to_dict(), stats_df_sim)
+                rdict_sim["Prezzo_Consigliato"] = pc_sim
                 st.markdown(render_flip_card(rdict_sim, stats_ps_sim, stats_2627_sim), unsafe_allow_html=True)
                 riep_sim = get_all_riepiloghi()
                 avv_data = []
@@ -2474,11 +2478,13 @@ if menu == "🔨 Asta Live":
                 rdict_rap["Proprietario"] = "Svincolato 🟢"
                 rdict_rap["Indice_Affare"] = round(float(rdict_rap.get("FantaMedia", 6.0)) / max(float(rdict_rap.get("Quotazione", 1)), 1), 2)
                 rdict_rap["Indice_Titolarita"] = calcola_indice_titolarita(rdict_rap, stats_2627_rap)
+                # ⬇️ Aggiunge prezzo consigliato AI sulla card come nello Scouting
+                stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap)
+                rdict_rap["Prezzo_Consigliato"] = pc_rap
                 st.markdown(render_flip_card(rdict_rap, stats_ps_rap, stats_2627_rap), unsafe_allow_html=True)
 
                 # Prezzo consigliato
-                stats_df_rap = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                pc_rap, _ = calcola_prezzo_consigliato(g_rap.to_dict(), stats_df_rap)
                 st.info(f"💡 Prezzo consigliato: **{pc_rap}cr**")
 
                 # Bottoni navigazione
@@ -2585,10 +2591,12 @@ if menu == "🔨 Asta Live":
                 rdict_ast["Proprietario"] = "Svincolato 🟢"
                 rdict_ast["Indice_Affare"] = round(float(rdict_ast.get("FantaMedia", 6.0)) / max(float(rdict_ast.get("Quotazione", 1)), 1), 2)
                 rdict_ast["Indice_Titolarita"] = calcola_indice_titolarita(rdict_ast, stats_2627_ast)
-                st.markdown(render_flip_card(rdict_ast, stats_ps_ast, stats_2627_ast), unsafe_allow_html=True)
-
+                # ⬇️ Prezzo consigliato integrato nella card
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
                 pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df)
+                rdict_ast["Prezzo_Consigliato"] = pc_ai
+                st.markdown(render_flip_card(rdict_ast, stats_ps_ast, stats_2627_ast), unsafe_allow_html=True)
+
                 c_pc, c_exp = st.columns([1, 3])
                 with c_pc:
                     st.markdown(
@@ -2752,6 +2760,8 @@ if menu == "🛒 Mercato":
                 rdict_merc["Proprietario"] = "Svincolato 🟢"
                 rdict_merc["Indice_Affare"] = round(float(rdict_merc.get("FantaMedia", 6.0)) / max(float(rdict_merc.get("Quotazione", 1)), 1), 2)
                 rdict_merc["Indice_Titolarita"] = calcola_indice_titolarita(rdict_merc, stats_2627_merc)
+                # ⬇️ Prezzo consigliato integrato nella card
+                rdict_merc["Prezzo_Consigliato"] = pc_ai
                 st.markdown(render_flip_card(rdict_merc, stats_ps_merc, stats_2627_merc), unsafe_allow_html=True)
 
                 c_pc, c_exp = st.columns([1, 3])
