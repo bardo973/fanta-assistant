@@ -4029,7 +4029,7 @@ if menu == "⚙️ Importa & Esporta":
                     st.info("💡 Se il file ha righe di titolo sopra l'header, prova a salvare una copia pulita del file.")
             except Exception as e:
                 st.error(f"Errore: {e}")
-with tab_imp_rose:
+    with tab_imp_rose:
         st.subheader("📋 Importa Rose (con anteprima)")
         st.markdown("""
         **Colonne attese:** Squadra, Nome, Ruolo, Costo
