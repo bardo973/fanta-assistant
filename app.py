@@ -133,7 +133,7 @@ st.markdown("""
 
     /* 🎴 Flip Card 3D */
     .flip-card {
-        background-color: transparent;
+def calcola_prezzo_consigliato(g_info, stats_df=None, squadra_nome=None):
         perspective: 1000px;
     }
     .flip-card-inner {
@@ -165,8 +165,16 @@ st.markdown("""
 # LISTONE DEFAULT
 # ============================================================
 LISTONE_DEFAULT = [
-    {"Nome":"Svilar","Ruolo":"P","Squadra_SerieA":"Roma","Quotazione":38,"FantaMedia":6.0,"Consiglio":"top","Note":"18 clean sheet, fantamedia 6, media voto 6.35", "Quotazione_2025_26":35, "Prezzo_Consigliato":None},
-    {"Nome":"Carnesecchi","Ruolo":"P","Squadra_SerieA":"Atalanta","Quotazione":34,"FantaMedia":6.1,"Consiglio":"top","Note":"13 clean sheet, media voto 6.5, con Sarri può migliorare", "Quotazione_2025_26":34, "Prezzo_Consigliato":None},
+    prezzo_base_ai = base * fattore_fm * fattore_fascia * fattore_scarsita * fattore_trend * fattore_affare
+    
+    # Opzione B: Usa i crediti attuali della squadra se disponibile, altrimenti il budget iniziale
+    if squadra_nome and squadra_nome in st.session_state.squadre:
+        budget_riferimento = st.session_state.squadre[squadra_nome]["crediti"]
+    else:
+        budget_riferimento = st.session_state.get("crediti_iniziali", CREDITI_INIZIALI)
+        
+    prezzo = (prezzo_base_ai * budget_riferimento) / 1000
+    prezzo = max(1, round(prezzo))
     {"Nome":"Maignan","Ruolo":"P","Squadra_SerieA":"Milan","Quotazione":34,"FantaMedia":5.9,"Consiglio":"top","Note":"13 clean sheet, 2 rigori parati, affidabile", "Quotazione_2025_26":29, "Prezzo_Consigliato":None},
     {"Nome":"Butez","Ruolo":"P","Squadra_SerieA":"Como","Quotazione":32,"FantaMedia":5.8,"Consiglio":"top","Note":"19 clean sheet, miglior difesa del campionato", "Quotazione_2025_26":32, "Prezzo_Consigliato":None},
     {"Nome":"Martinez","Ruolo":"P","Squadra_SerieA":"Inter","Quotazione":29,"FantaMedia":5.7,"Consiglio":"consigliato","Note":"Nuovo titolare, ex Genoa, fiducia Chivu", "Quotazione_2025_26":23, "Prezzo_Consigliato":None},
@@ -668,23 +676,24 @@ def simula_formazione(squadra_nome, modulo):
             g_copy["FM_Origine"] = "📋 Listone"
         enriched.append(g_copy)
     df = pd.DataFrame(enriched)
-    try:
-        d, c, a = map(int, modulo.split("-"))
-    except:
-        return 0, [], []
-    p = 1
-    titolari = []
-    panchina = []
-    for ruolo, n in [("P", p), ("D", d), ("C", c), ("A", a)]:
-        subset = df[df["Ruolo"] == ruolo].sort_values("FantaMedia_Usata", ascending=False)
-        presi = subset.head(n)
-        rimasti = subset.iloc[n:]
-        for _, row in presi.iterrows():
-            titolari.append(row.to_dict())
-        for _, row in rimasti.iterrows():
-            panchina.append(row.to_dict())
-    fm_tit = sum(g.get("FantaMedia_Usata", 0) for g in titolari)
-    return round(fm_tit, 2), panchina, titolari
+                # --- SUGGERIMENTO SMART ---
+                ruolo_g = info["Ruolo"]
+                quot_g = int(info["Quotazione"])
+                riepiloghi = get_all_riepiloghi()
+
+                # Calcola offerta smart: media tra prezzo AI e offerta max del ruolo, con margine
+                offerte_smart = {}
+                for sq in get_nomi_squadre():
+                    riep_sq = riepiloghi[sq]
+                    off_max = riep_sq[ruolo_g]["offerta_max"]
+                    mancanti = riep_sq[ruolo_g]["mancanti"]
+                    ha_gia = any(g["Nome"].lower() == g_asta.lower() for g in st.session_state.squadre[sq]["rosa"])
+                    if not ha_gia and mancanti_avv > 0:
+                        # 🆕 MODIFICA: Calcola il prezzo AI personalizzato per i crediti di questa specifica squadra (sq)
+                        pc_ai_squadra, _ = calcola_prezzo_consigliato(info.to_dict(), stats_df, squadra_nome=sq)
+                        # Usa pc_ai_squadra al posto di pc_ai
+                        sug = min(int(pc_ai_squadra * 1.05), int(off_max * 0.95), st.session_state.squadre[sq]["crediti"])
+                        offerte_smart[sq] = max(1, sug)
 
 def arricchisci_con_stats_2627(df_listone):
     df = df_listone.copy()
@@ -731,13 +740,14 @@ def calcola_indice_titolarita(row, stats_2627=None):
         if match.empty:
             nm = fuzzy_match(nome, stats_2627["Nome"].tolist())
             if nm:
-                match = stats_2627[stats_2627["Nome"] == nm]
-        if not match.empty and "Partite" in match.columns and pd.notna(match.iloc[0]["Partite"]):
-            partite = int(match.iloc[0]["Partite"])
-            bonus_presenze = min(25, (partite / 38) * 25)
+                        if extra_stats:
+                            st.caption("📊 Stagione 2026/27 — " + " | ".join(extra_stats))
 
-    # Quotazione come indicatore di fiducia del mercato (0-10 punti)
-    bonus_quot = min(10, max(0, (quot / 100) * 10))
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                # 🆕 MODIFICA: Aggiunto squadra_nome=sq per calcolare i prezzi sui crediti della squadra selezionata
+                pc_ai, spiegazione = calcola_prezzo_consigliato(info.to_dict(), stats_df, squadra_nome=sq)
+                with col_prezzo:
 
     totale = base + bonus_fascia + bonus_presenze + bonus_quot
     return min(100, round(totale, 1))
