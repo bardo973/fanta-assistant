@@ -1126,6 +1126,12 @@ def _build_stats_html(nome, stats_per_stagione):
 # ============================================================
 
 def aggiungi_squadra(nome: str, crediti: int = None):
+    if "nomi_squadre" not in st.session_state:
+        st.session_state.nomi_squadre = list(NOMI_SQUADRE)
+    if "squadre" not in st.session_state:
+        st.session_state.squadre = {}
+    if "simulatore_rosa" not in st.session_state:
+        st.session_state.simulatore_rosa = {sq: {"P": [], "D": [], "C": [], "A": []} for sq in st.session_state.nomi_squadre}
     nome = nome.strip().upper()
     if not nome:
         return False, "Nome vuoto"
@@ -1139,6 +1145,16 @@ def aggiungi_squadra(nome: str, crediti: int = None):
     return True, f"Squadra {nome} aggiunta"
 
 def rimuovi_squadra(nome: str):
+    if "nomi_squadre" not in st.session_state:
+        st.session_state.nomi_squadre = list(NOMI_SQUADRE)
+    if "squadre" not in st.session_state:
+        st.session_state.squadre = {}
+    if "prestiti" not in st.session_state:
+        st.session_state.prestiti = []
+    if "contratti" not in st.session_state:
+        st.session_state.contratti = {}
+    if "simulatore_rosa" not in st.session_state:
+        st.session_state.simulatore_rosa = {sq: {"P": [], "D": [], "C": [], "A": []} for sq in st.session_state.nomi_squadre}
     nome = nome.strip().upper()
     if nome not in st.session_state.nomi_squadre:
         return False, "Squadra non trovata"
