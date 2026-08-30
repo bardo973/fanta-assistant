@@ -1309,6 +1309,32 @@ with st.sidebar:
             del st.session_state[k]
         st.rerun()
     st.markdown("---")
+    st.subheader("👥 Gestione Fantallenatori")
+    st.caption(f"Attuali: {len(get_nomi_squadre())} squadre")
+    with st.expander("➕ Aggiungi / ➖ Rimuovi"):
+        nuova_sq = st.text_input("Nuova squadra", key="new_sq_name", placeholder="es. MARCO")
+        cred_sq = st.number_input("Crediti iniziali", min_value=10, max_value=500, value=int(st.session_state.get("crediti_iniziali", CREDITI_INIZIALI)), step=5, key="new_sq_cred")
+        if st.button("➕ Aggiungi Squadra", use_container_width=True):
+            ok, msg = aggiungi_squadra(nuova_sq, cred_sq)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+        st.markdown("---")
+        if len(get_nomi_squadre()) > 0:
+            sq_da_rimuovere = st.selectbox("Rimuovi squadra", get_nomi_squadre(), key="del_sq_sel")
+            if st.button("➖ Rimuovi Squadra", use_container_width=True):
+                rosa_sq = st.session_state.squadre.get(sq_da_rimuovere, {}).get("rosa", [])
+                if rosa_sq:
+                    st.warning(f"⚠️ {sq_da_rimuovere} ha {len(rosa_sq)} giocatori. Verranno svincolati e i prestiti annullati.")
+                ok, msg = rimuovi_squadra(sq_da_rimuovere)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+    st.markdown("---")
 
     if st.session_state.get("_undo_stack"):
         if st.button("↩️ Annulla Ultima Operazione", use_container_width=True):
