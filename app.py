@@ -514,7 +514,7 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
     media_rif = medie_ruolo.get(ruolo, 6.5)
     delta_fm = fm - media_rif
     fattore_fm = 1 + (delta_fm * 0.15)
-    fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85}.get(fascia, 1.0)
+    fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85, "rischio": 0.70}.get(fascia, 1.0)
 
     db = st.session_state.giocatori_db
     svinc = get_svincolati(db)
@@ -722,7 +722,7 @@ def calcola_indice_titolarita(row, stats_2627=None):
     base = min(50, (fm / 10) * 50)
 
     # Bonus fascia (0-25 punti)
-    bonus_fascia = {"top": 25, "consigliato": 15, "scommessa": 5}.get(fascia, 10)
+    bonus_fascia = {"top": 25, "consigliato": 15, "scommessa": 5, "rischio": 2}.get(fascia, 10)
 
     # Presenze da stats 2026/27 (0-25 punti)
     bonus_presenze = 12.5
@@ -941,7 +941,7 @@ def applica_fasce_automatiche():
     if not stats:
         st.warning("⚠️ Nessuna statistica storica caricata. Vai su 📈 Statistiche Storiche e carica almeno una stagione.")
         return
-    conteggi = {"top": 0, "consigliato": 0, "scommessa": 0}
+    conteggi = {"top": 0, "consigliato": 0, "scommessa": 0, "rischio": 0}
     for idx, row in db.iterrows():
         nome = row.get("Nome", "")
         ruolo = row.get("Ruolo", "C")
@@ -952,7 +952,7 @@ def applica_fasce_automatiche():
     save_state()
     st.success(
         f"✅ Fasce ricalcolate da storico!  "
-        f"⭐ Top: {conteggi['top']} | 👍 Consigliati: {conteggi['consigliato']} | 🎲 Scommesse: {conteggi['scommessa']}"
+        f"⭐ Top: {conteggi['top']} | 👍 Consigliati: {conteggi['consigliato']} | 🎲 Scommesse: {conteggi['scommessa']} | ⚠️ Rischi: {conteggi['rischio']}"
     )
 
 
@@ -1040,7 +1040,7 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
 
     colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
     colore = colori_ruolo.get(ruolo, "#888")
-    badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA"}.get(fascia, "")
+    badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA", "rischio": "⚠️ RISCHIO"}.get(fascia, "")
     flame_badge = flame_indicator(nome, stats_per_stagione) if stats_per_stagione else ""
 
     # FRONTE
@@ -1939,7 +1939,7 @@ if menu == "🔍 Scouting & Database":
                     min_fm_s, max_fm_s = round(max(4.0, min_fm_s - 1.0), 1), round(min(10.0, max_fm_s + 1.0), 1)
                 range_fm = st.slider("FantaMedia", min_value=min_fm_s, max_value=max_fm_s, value=(min_fm_s, max_fm_s), step=0.1, key="scout_fm")
             with f5:
-                consigli_fasce = st.multiselect("Fascia", ["top", "consigliato", "scommessa"], default=["top", "consigliato", "scommessa"], key="scout_fascia")
+                consigli_fasce = st.multiselect("Fascia", ["top", "consigliato", "scommessa", "rischio"], default=["top", "consigliato", "scommessa", "rischio"], key="scout_fascia")
 
             f6, f7 = st.columns(2)
             with f6:
@@ -2278,16 +2278,16 @@ if menu == "🔍 Scouting & Database":
                     "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
                     "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
                     "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
-                    "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
+                    "Consiglio": st.column_config.SelectboxColumn("Consiglio", options=["top", "consigliato", "scommessa", "rischio"], required=True),
                     "Note": st.column_config.TextColumn("Note", disabled=True),
                 },
                 use_container_width=True, num_rows="fixed", key="editor_prezzi"
             )
             if st.button("💾 Salva Prezzi Consigliati", type="primary"):
                 if "Prezzo_Consigliato" in df_edited.columns:
-                    st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
+                    st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato", "Consiglio"], errors="ignore")
                     st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
-                        df_edited[["Nome", "Prezzo_Consigliato"]], on="Nome", how="left"
+                        df_edited[["Nome", "Prezzo_Consigliato", "Consiglio"]], on="Nome", how="left"
                     )
                     save_state()
                     st.success("✅ Prezzi consigliati salvati!")
@@ -4376,7 +4376,7 @@ if menu == "🎯 Simulatore Rosa":
                 column_config={
                     "Nome": st.column_config.TextColumn("Giocatore", help="Nome del giocatore da acquistare"),
                     "Prezzo_Stimato": st.column_config.NumberColumn("Prezzo €", min_value=0, max_value=500, step=1, help="Quanto pensi di pagare"),
-                    "Fascia": st.column_config.SelectboxColumn("Fascia", options=["top", "consigliato", "scommessa"], help="Fascia di qualità prevista"),
+                    "Fascia": st.column_config.SelectboxColumn("Fascia", options=["top", "consigliato", "scommessa", "rischio"], help="Fascia di qualità prevista"),
                     "Note": st.column_config.TextColumn("Note", help="Es: 'Alternativa a X'"),
                 },
                 num_rows="dynamic",
