@@ -1100,8 +1100,16 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
     badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA"}.get(fascia, "")
     flame_badge = flame_indicator(nome, stats_per_stagione) if stats_per_stagione else ""
 
-    # 💎 PREMIUM BADGE — giocatori con quotazione > 40cr
-    is_premium = quot > 40
+    # 💎 PREMIUM BADGE — giocatori con Prezzo_Consigliato AI > 40cr
+    # Se il prezzo consigliato non è calcolato, lo calcola al volo
+    pc_premium = pc
+    if pd.isna(pc_premium) or pc_premium is None:
+        try:
+            stats_df_prem = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+            pc_premium, _ = calcola_prezzo_consigliato(row.to_dict() if hasattr(row, "to_dict") else dict(row), stats_df_prem)
+        except Exception:
+            pc_premium = quot  # fallback alla quotazione
+    is_premium = (pc_premium if pd.notna(pc_premium) else quot) > 40
     premium_badge = '<span class="badge-premium">💎 PREMIUM</span>' if is_premium else ""
     premium_class = " card-premium" if is_premium else ""
 
@@ -4084,11 +4092,26 @@ if menu == "⚙️ Importa & Esporta":
 
                     st.session_state.giocatori_db = df_load[cols_final].copy()
 
-                    # 🔄 Ricalcola indici dopo import per le card 3D
+                    # 🔄 Ricalcola indici e prezzi AI dopo import per le card 3D
                     db = st.session_state.giocatori_db
                     db["Indice_Affare"] = round(db["FantaMedia"] / db["Quotazione"].replace(0, 1), 2)
                     stats_2627_imp = st.session_state.get("stats_per_stagione", {}).get("2026-27")
                     db["Indice_Titolarita"] = db.apply(lambda r: calcola_indice_titolarita(r, stats_2627_imp), axis=1)
+
+                    # Calcola Prezzo_Consigliato AI per tutti (necessario per badge premium)
+                    stats_df_imp = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
+                    prezzi_ai = []
+                    for idx_imp, row_imp in db.iterrows():
+                        if pd.isna(row_imp.get("Prezzo_Consigliato")):
+                            try:
+                                pc_imp, _ = calcola_prezzo_consigliato(row_imp.to_dict(), stats_df_imp)
+                                prezzi_ai.append(pc_imp)
+                            except Exception:
+                                prezzi_ai.append(None)
+                        else:
+                            prezzi_ai.append(row_imp["Prezzo_Consigliato"])
+                    db["Prezzo_Consigliato"] = prezzi_ai
+
                     st.session_state.giocatori_db = db
 
                     save_state()
