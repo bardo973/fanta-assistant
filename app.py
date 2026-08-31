@@ -1089,6 +1089,11 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
     pc_txt = f"💡 {int(pc)}cr" if pd.notna(pc) else ""
     idx_aff = row.get("Indice_Affare", 0) if hasattr(row, "get") else row.get("Indice_Affare", 0)
     idx_tit = row.get("Indice_Titolarita", 0) if hasattr(row, "get") else row.get("Indice_Titolarita", 0)
+    # Fallback se i valori sono NaN (es. dopo import senza ricalcolo)
+    if pd.isna(idx_aff):
+        idx_aff = round(float(fm) / max(float(quot), 1), 2)
+    if pd.isna(idx_tit):
+        idx_tit = calcola_indice_titolarita(row, stats_2627)
 
     colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
     colore = colori_ruolo.get(ruolo, "#888")
@@ -4078,6 +4083,14 @@ if menu == "⚙️ Importa & Esporta":
                         cols_final.append('Id')
 
                     st.session_state.giocatori_db = df_load[cols_final].copy()
+
+                    # 🔄 Ricalcola indici dopo import per le card 3D
+                    db = st.session_state.giocatori_db
+                    db["Indice_Affare"] = round(db["FantaMedia"] / db["Quotazione"].replace(0, 1), 2)
+                    stats_2627_imp = st.session_state.get("stats_per_stagione", {}).get("2026-27")
+                    db["Indice_Titolarita"] = db.apply(lambda r: calcola_indice_titolarita(r, stats_2627_imp), axis=1)
+                    st.session_state.giocatori_db = db
+
                     save_state()
                     st.success(f"✅ Listone importato! **{len(df_load)}** giocatori caricati da sheet '{sheet_sel or 'N/D'}'.")
                     st.caption(f"📊 Ruoli: P={len(df_load[df_load['Ruolo']=='P'])}, D={len(df_load[df_load['Ruolo']=='D'])}, C={len(df_load[df_load['Ruolo']=='C'])}, A={len(df_load[df_load['Ruolo']=='A'])}")
