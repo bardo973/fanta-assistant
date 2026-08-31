@@ -158,6 +158,58 @@ st.markdown("""
     .flip-card-back {
         transform: rotateY(180deg);
     }
+    /* 💎 PREMIUM CARDS — >40cr */
+    .card-premium {
+        position: relative;
+        z-index: 1;
+    }
+    .card-premium::before {
+        content: "";
+        position: absolute;
+        top: -3px; left: -3px; right: -3px; bottom: -3px;
+        border-radius: 14px;
+        background: linear-gradient(45deg, #ffd700, #ff8c00, #ffd700, #ffaa00);
+        background-size: 400% 400%;
+        z-index: -1;
+        animation: gradient-rotate 3s ease infinite;
+        opacity: 0.85;
+    }
+    @keyframes gradient-rotate {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .card-premium .flip-card-front {
+        border-left: 4px solid #ffd700 !important;
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+    }
+    .card-premium .flip-card-front::after {
+        content: "✨";
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        font-size: 1.1em;
+        animation: sparkle 2s infinite;
+        pointer-events: none;
+    }
+    @keyframes sparkle {
+        0%, 100% { opacity: 0.3; transform: scale(1) rotate(0deg); }
+        50% { opacity: 1; transform: scale(1.4) rotate(15deg); }
+    }
+    .card-premium .flip-card-back {
+        border: 2px solid rgba(255, 215, 0, 0.5) !important;
+        box-shadow: 0 0 25px rgba(255, 215, 0, 0.25) !important;
+    }
+    .badge-premium {
+        background: linear-gradient(90deg, #ffd700, #ff8c00);
+        color: #1a1a00;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        font-weight: bold;
+        box-shadow: 0 0 10px rgba(255,215,0,0.5);
+        text-shadow: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -514,7 +566,7 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
     media_rif = medie_ruolo.get(ruolo, 6.5)
     delta_fm = fm - media_rif
     fattore_fm = 1 + (delta_fm * 0.15)
-    fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85, "rischio": 0.70}.get(fascia, 1.0)
+    fattore_fascia = {"top": 1.15, "consigliato": 1.0, "scommessa": 0.85}.get(fascia, 1.0)
 
     db = st.session_state.giocatori_db
     svinc = get_svincolati(db)
@@ -722,7 +774,7 @@ def calcola_indice_titolarita(row, stats_2627=None):
     base = min(50, (fm / 10) * 50)
 
     # Bonus fascia (0-25 punti)
-    bonus_fascia = {"top": 25, "consigliato": 15, "scommessa": 5, "rischio": 2}.get(fascia, 10)
+    bonus_fascia = {"top": 25, "consigliato": 15, "scommessa": 5}.get(fascia, 10)
 
     # Presenze da stats 2026/27 (0-25 punti)
     bonus_presenze = 12.5
@@ -941,7 +993,7 @@ def applica_fasce_automatiche():
     if not stats:
         st.warning("⚠️ Nessuna statistica storica caricata. Vai su 📈 Statistiche Storiche e carica almeno una stagione.")
         return
-    conteggi = {"top": 0, "consigliato": 0, "scommessa": 0, "rischio": 0}
+    conteggi = {"top": 0, "consigliato": 0, "scommessa": 0}
     for idx, row in db.iterrows():
         nome = row.get("Nome", "")
         ruolo = row.get("Ruolo", "C")
@@ -952,7 +1004,7 @@ def applica_fasce_automatiche():
     save_state()
     st.success(
         f"✅ Fasce ricalcolate da storico!  "
-        f"⭐ Top: {conteggi['top']} | 👍 Consigliati: {conteggi['consigliato']} | 🎲 Scommesse: {conteggi['scommessa']} | ⚠️ Rischi: {conteggi['rischio']}"
+        f"⭐ Top: {conteggi['top']} | 👍 Consigliati: {conteggi['consigliato']} | 🎲 Scommesse: {conteggi['scommessa']}"
     )
 
 
@@ -1040,17 +1092,17 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
 
     colori_ruolo = {"P": "#3b82f6", "D": "#22c55e", "C": "#eab308", "A": "#ef4444"}
     colore = colori_ruolo.get(ruolo, "#888")
-    badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA", "rischio": "⚠️ RISCHIO"}.get(fascia, "")
+    badge_fascia = {"top": "⭐ TOP", "consigliato": "👍 CONSIGLIATO", "scommessa": "🎲 SCOMMESSA"}.get(fascia, "")
     flame_badge = flame_indicator(nome, stats_per_stagione) if stats_per_stagione else ""
 
     # FRONTE
-    front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}</div>{flame_badge}</div>'''
+    front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}</div>{flame_badge}{premium_badge}</div>'''
 
     # RETRO (stats)
     stats_html = _build_stats_html(nome, stats_per_stagione if stats_per_stagione else {})
     back_html = f'''<div style="background:linear-gradient(135deg, #0f0f24 0%, #1a1a2e 100%);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border:1px solid {colore}40;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;overflow:hidden;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 {nome}</div><div style="overflow-y:auto;max-height:140px;">{stats_html}</div></div>'''
 
-    return f'''<div class="flip-card" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
+    return f'''<div class="flip-card{premium_class}" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
 
 
 
@@ -1939,7 +1991,7 @@ if menu == "🔍 Scouting & Database":
                     min_fm_s, max_fm_s = round(max(4.0, min_fm_s - 1.0), 1), round(min(10.0, max_fm_s + 1.0), 1)
                 range_fm = st.slider("FantaMedia", min_value=min_fm_s, max_value=max_fm_s, value=(min_fm_s, max_fm_s), step=0.1, key="scout_fm")
             with f5:
-                consigli_fasce = st.multiselect("Fascia", ["top", "consigliato", "scommessa", "rischio"], default=["top", "consigliato", "scommessa", "rischio"], key="scout_fascia")
+                consigli_fasce = st.multiselect("Fascia", ["top", "consigliato", "scommessa"], default=["top", "consigliato", "scommessa"], key="scout_fascia")
 
             f6, f7 = st.columns(2)
             with f6:
@@ -2278,16 +2330,16 @@ if menu == "🔍 Scouting & Database":
                     "Squadra_SerieA": st.column_config.TextColumn("Squadra Serie A", disabled=True),
                     "Quotazione": st.column_config.NumberColumn("Quotazione", disabled=True),
                     "FantaMedia": st.column_config.NumberColumn("FantaMedia", disabled=True),
-                    "Consiglio": st.column_config.SelectboxColumn("Consiglio", options=["top", "consigliato", "scommessa", "rischio"], required=True),
+                    "Consiglio": st.column_config.TextColumn("Consiglio", disabled=True),
                     "Note": st.column_config.TextColumn("Note", disabled=True),
                 },
                 use_container_width=True, num_rows="fixed", key="editor_prezzi"
             )
             if st.button("💾 Salva Prezzi Consigliati", type="primary"):
                 if "Prezzo_Consigliato" in df_edited.columns:
-                    st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato", "Consiglio"], errors="ignore")
+                    st.session_state.giocatori_db = st.session_state.giocatori_db.drop(columns=["Prezzo_Consigliato"], errors="ignore")
                     st.session_state.giocatori_db = st.session_state.giocatori_db.merge(
-                        df_edited[["Nome", "Prezzo_Consigliato", "Consiglio"]], on="Nome", how="left"
+                        df_edited[["Nome", "Prezzo_Consigliato"]], on="Nome", how="left"
                     )
                     save_state()
                     st.success("✅ Prezzi consigliati salvati!")
@@ -4376,7 +4428,7 @@ if menu == "🎯 Simulatore Rosa":
                 column_config={
                     "Nome": st.column_config.TextColumn("Giocatore", help="Nome del giocatore da acquistare"),
                     "Prezzo_Stimato": st.column_config.NumberColumn("Prezzo €", min_value=0, max_value=500, step=1, help="Quanto pensi di pagare"),
-                    "Fascia": st.column_config.SelectboxColumn("Fascia", options=["top", "consigliato", "scommessa", "rischio"], help="Fascia di qualità prevista"),
+                    "Fascia": st.column_config.SelectboxColumn("Fascia", options=["top", "consigliato", "scommessa"], help="Fascia di qualità prevista"),
                     "Note": st.column_config.TextColumn("Note", help="Es: 'Alternativa a X'"),
                 },
                 num_rows="dynamic",
