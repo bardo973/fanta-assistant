@@ -2218,12 +2218,16 @@ if menu == "🏠 Dashboard":
             df_cred = df_cred.dropna(subset=["Data_dt"])
             if not df_cred.empty:
                 # Pivot per squadra
-                pivot_cred = df_cred.pivot_table(index="Data_dt", columns="Squadra", values="Crediti", aggfunc="last").fillna(method="ffill")
+                pivot_cred = df_cred.pivot_table(index="Data_dt", columns="Squadra", values="Crediti", aggfunc=lambda x: x.iloc[-1])
                 # Aggiungi punto iniziale
                 for sq in get_nomi_squadre():
                     if sq not in pivot_cred.columns:
                         pivot_cred[sq] = st.session_state.get("crediti_iniziali", CREDITI_INIZIALI)
-                pivot_cred = pivot_cred.fillna(method="ffill").fillna(st.session_state.get("crediti_iniziali", CREDITI_INIZIALI))
+                pivot_cred = pivot_cred.ffill().bfill()
+                # Assicura che tutte le squadre abbiano almeno il valore iniziale
+                for sq in get_nomi_squadre():
+                    if sq not in pivot_cred.columns:
+                        pivot_cred[sq] = st.session_state.get("crediti_iniziali", CREDITI_INIZIALI)
                 st.line_chart(pivot_cred)
             else:
                 st.info("Nessun dato temporale valido per il grafico.")
