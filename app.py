@@ -211,7 +211,25 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(255,215,0,0.5);
         text-shadow: none;
     }
-</style>
+
+    /* 🔩 STANDARD CARDS — 11-39cr */
+    .card-standard .flip-card-front {
+        background: linear-gradient(135deg, #3a3a4e 0%, #5a5a6e 25%, #7a7a8e 50%, #5a5a6e 75%, #3a3a4e 100%) !important;
+        background-size: 200% 200% !important;
+        border-left: 4px solid #a0a0b8 !important;
+        box-shadow: 0 8px 32px rgba(120,120,140,0.25), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+    }
+    .card-standard .flip-card-back {
+        background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%) !important;
+        border: 1px solid rgba(160,160,176,0.25) !important;
+        box-shadow: 0 8px 32px rgba(100,100,120,0.2) !important;
+    }
+    .card-standard-smart {
+        background: linear-gradient(135deg, #3a3a4e 0%, #5a5a6e 25%, #7a7a8e 50%, #5a5a6e 75%, #3a3a4e 100%) !important;
+        border-left: 4px solid #a0a0b8 !important;
+        box-shadow: 0 8px 32px rgba(120,120,140,0.25), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
@@ -348,7 +366,13 @@ def render_smart_scout_card(row, stats_per_stagione=None, stats_2627=None):
     flame = flame_indicator(nome, stats_per_stagione) if stats_per_stagione else ""
     gauge_tit = gauge_svg(tit, max_val=100, size=50, label="Tit.")
 
-    return f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:12px;margin-bottom:8px;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    pc_smart = row.get("Prezzo_Consigliato")
+    if pd.isna(pc_smart) or pc_smart is None:
+        pc_smart = quot
+    is_standard_smart = 11 <= pc_smart <= 39 if pd.notna(pc_smart) else False
+    smart_class = "card-standard-smart" if is_standard_smart else ""
+
+    return f'''<div class="{smart_class}" style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:12px;margin-bottom:8px;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div style="min-width:120px;flex:1;">
             <div style="font-size:1.05em;font-weight:bold;color:#fff;">{nome}</div>
             <div style="font-size:0.8em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span> {badge_fascia}</div>
@@ -625,9 +649,26 @@ def get_db_info(nome):
 def calcola_prezzo_consigliato(g_info, stats_df=None):
     nome = g_info.get("Nome", "")
     ruolo = g_info.get("Ruolo", "C")
-    quot = float(g_info.get("Quotazione", 10))
-    fm = float(g_info.get("FantaMedia", 6.0))
+    # Robust handling for missing/NaN values
+    _quot = g_info.get("Quotazione", 10)
+    _fm = g_info.get("FantaMedia", 6.0)
+    try:
+        quot = float(_quot) if _quot is not None else 10.0
+    except (TypeError, ValueError):
+        quot = 10.0
+    try:
+        fm = float(_fm) if _fm is not None else 6.0
+    except (TypeError, ValueError):
+        fm = 6.0
+    # Handle pandas NaN
+    import math
+    if isinstance(quot, float) and math.isnan(quot):
+        quot = 10.0
+    if isinstance(fm, float) and math.isnan(fm):
+        fm = 6.0
     fascia = g_info.get("Consiglio", "consigliato")
+    if pd.isna(fascia) or fascia is None:
+        fascia = "consigliato"
 
     base = quot
     medie_ruolo = {"P": 5.5, "D": 6.2, "C": 6.8, "A": 7.5}
@@ -686,7 +727,11 @@ def calcola_prezzo_consigliato(g_info, stats_df=None):
         fattore_affare = 0.90
 
     prezzo = base * fattore_fm * fattore_fascia * fattore_scarsita * fattore_trend * fattore_affare
-    prezzo = max(1, round(prezzo))
+    import math
+    if isinstance(prezzo, float) and math.isnan(prezzo):
+        prezzo = max(1, int(base))
+    else:
+        prezzo = max(1, round(prezzo))
 
     spiegazione = (
         f"**Base listone:** {int(base)}cr\n"
@@ -1178,8 +1223,12 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
         except Exception:
             pc_premium = quot  # fallback alla quotazione
     is_premium = (pc_premium if pd.notna(pc_premium) else quot) > 40
+    is_standard = False
+    if not is_premium and pd.notna(pc_premium):
+        is_standard = 11 <= pc_premium <= 39
     premium_badge = '<span class="badge-premium">💎 PREMIUM</span>' if is_premium else ""
     premium_class = " card-premium" if is_premium else ""
+    standard_class = " card-standard" if is_standard else ""
 
     # FRONTE
     front_html = f'''<div style="background:linear-gradient(135deg, rgba(30,30,63,0.95) 0%, rgba(42,42,74,0.8) 100%);backdrop-filter:blur(10px);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border-left:4px solid {colore};box-shadow:0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);display:flex;flex-direction:column;justify-content:space-between;"><div><div style="font-size:1.1em;font-weight:bold;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);">{nome}</div><div style="font-size:0.85em;color:#aaa;">{sa} | <span style="color:{colore};font-weight:600;">{ruolo}</span></div></div><div style="text-align:center;margin:8px 0;"><div style="font-size:2em;font-weight:bold;color:#ffd700;">{fm}</div><div style="font-size:0.75em;color:#888;">FantaMedia</div></div><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;"><span style="background:{colore}30;color:{colore};padding:2px 8px;border-radius:12px;font-size:0.7em;font-weight:600;border:1px solid {colore}40;">{badge_fascia}</span><span style="background:rgba(26,26,46,0.6);color:#ddd;padding:2px 8px;border-radius:12px;font-size:0.7em;">{quot}cr</span>{pc_txt}</div>{flame_badge}{premium_badge}</div>'''
@@ -1188,7 +1237,7 @@ def render_flip_card(row, stats_per_stagione=None, stats_2627=None):
     stats_html = _build_stats_html(nome, stats_per_stagione if stats_per_stagione else {})
     back_html = f'''<div style="background:linear-gradient(135deg, #0f0f24 0%, #1a1a2e 100%);border-radius:12px;padding:14px;height:100%;box-sizing:border-box;border:1px solid {colore}40;box-shadow:0 8px 32px rgba(0,0,0,0.4);display:flex;flex-direction:column;justify-content:center;overflow:hidden;"><div style="font-size:0.85em;color:#00d26a;font-weight:bold;margin-bottom:6px;">📊 {nome}</div><div style="overflow-y:auto;max-height:140px;">{stats_html}</div></div>'''
 
-    return f'''<div class="flip-card{premium_class}" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
+    return f'''<div class="flip-card{premium_class}{standard_class}" style="height:200px;margin-bottom:10px;"><div class="flip-card-inner"><div class="flip-card-front">{front_html}</div><div class="flip-card-back">{back_html}</div></div></div>'''
 
 
 
@@ -2521,7 +2570,12 @@ if menu == "🔍 Scouting & Database":
             if st.session_state.watchlist:
                 df_wl = df[df["Nome"].isin(st.session_state.watchlist)].copy()
                 stats_df = st.session_state.stats_storiche if not st.session_state.stats_storiche.empty else None
-                df_wl["Prezzo_AI"] = df_wl.apply(lambda row: calcola_prezzo_consigliato(row.to_dict(), stats_df)[0], axis=1)
+                def _safe_prezzo_ai(row):
+                    try:
+                        return calcola_prezzo_consigliato(row.to_dict(), stats_df)[0]
+                    except Exception:
+                        return int(row.get("Quotazione", 1)) if pd.notna(row.get("Quotazione")) else 1
+                df_wl["Prezzo_AI"] = df_wl.apply(_safe_prezzo_ai, axis=1)
                 if "Quotazione_2025_26" in df_wl.columns and "Variazione_%" not in df_wl.columns:
                     df_wl["Variazione_%"] = round((df_wl["Quotazione"] - df_wl["Quotazione_2025_26"]) / df_wl["Quotazione_2025_26"].replace(0, 1) * 100, 1)
 
