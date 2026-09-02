@@ -1587,6 +1587,78 @@ with st.sidebar:
     )
 
     st.markdown("---")
+    st.subheader("📄 Export Rosa")
+    sq_exp = st.selectbox("Squadra da esportare", get_nomi_squadre(), key="exp_sq")
+    if sq_exp:
+        rosa_exp = st.session_state.squadre[sq_exp]["rosa"]
+        cred_exp = st.session_state.squadre[sq_exp]["crediti"]
+        # Excel
+        if rosa_exp:
+            df_exp_rosa = pd.DataFrame(rosa_exp)
+            if "Scadenza_Anno" not in df_exp_rosa.columns:
+                df_exp_rosa["Scadenza_Anno"] = ANNO_CORRENTE + CONTRATTO_ANNI
+            # Aggiungi FM 2026/27 se disponibile
+            df_exp_rosa["FantaMedia_2026_27"] = df_exp_rosa["Nome"].apply(lambda n: _get_fm_2627(n) if _get_fm_2627(n) is not None else "N/D")
+            buf_exp = io.BytesIO()
+            with pd.ExcelWriter(buf_exp, engine="openpyxl") as writer:
+                df_exp_rosa.to_excel(writer, index=False, sheet_name="Rosa")
+                # Watchlist
+                if st.session_state.watchlist:
+                    df_wl_exp = st.session_state.giocatori_db[st.session_state.giocatori_db["Nome"].isin(st.session_state.watchlist)].copy()
+                    df_wl_exp.to_excel(writer, index=False, sheet_name="Watchlist")
+                # Riepilogo
+                riep_exp = riepilogo_rosa(sq_exp)
+                riep_df = pd.DataFrame([{"Ruolo": r, "Posseduti": riep_exp[r]["posseduti"], "Mancanti": riep_exp[r]["mancanti"], "Req": riep_exp[r]["req"], "Offerta Max": riep_exp[r]["offerta_max"]} for r in ["P","D","C","A"]])
+                riep_df.to_excel(writer, index=False, sheet_name="Riepilogo")
+            st.download_button(
+                label="⬇️ Scarica Rosa (Excel)",
+                data=buf_exp.getvalue(),
+                file_name=f"rosa_{sq_exp}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="dl_rosa_xlsx"
+            )
+        # HTML per stampa PDF
+        html_rosa = f"""
+        <html><head><meta charset="utf-8"><style>
+        body {{ font-family: 'Segoe UI', sans-serif; background:#0b0f19; color:#fff; padding:20px; }}
+        h1 {{ color:#00d26a; }} h2 {{ color:#ffd700; }}
+        table {{ width:100%; border-collapse:collapse; margin-top:10px; }}
+        th {{ background:#1a1a2e; color:#00d26a; padding:8px; text-align:left; }}
+        td {{ padding:8px; border-bottom:1px solid #2a2a4a; }}
+        .badge {{ background:#00d26a; color:#000; padding:2px 8px; border-radius:12px; font-size:0.75em; font-weight:bold; }}
+        .alert {{ background:#ff6b6b; color:#fff; padding:10px; border-radius:8px; margin:10px 0; }}
+        </style></head><body>
+        <h1>🛡️ {sq_exp} — Rosa 2026/27</h1>
+        <p><b>Crediti rimanenti:</b> <span style="color:#00d26a;font-size:1.3em;">{cred_exp}cr</span></p>
+        """
+        if rosa_exp:
+            html_rosa += "<table><tr><th>Nome</th><th>Ruolo</th><th>Squadra</th><th>FM</th><th>Costo</th><th>Scadenza</th></tr>"
+            for g in rosa_exp:
+                fm_e = _get_fm_2627(g["Nome"])
+                fm_disp = f"{fm_e} 📊" if fm_e else f"{g.get('FantaMedia',6.0)} 📋"
+                scad = g.get("Scadenza_Anno", ANNO_CORRENTE + CONTRATTO_ANNI)
+                alert_scad = "<span class='badge'>SCADE PRESTO</span>" if scad <= ANNO_CORRENTE + 1 else ""
+                html_rosa += f"<tr><td><b>{g['Nome']}</b></td><td>{g['Ruolo']}</td><td>{g.get('Squadra_SerieA','N/D')}</td><td>{fm_disp}</td><td>{g.get('Costo_Acquisto',0)}cr</td><td>{scad} {alert_scad}</td></tr>"
+            html_rosa += "</table>"
+        else:
+            html_rosa += "<p>Rosa vuota.</p>"
+        if st.session_state.watchlist:
+            html_rosa += "<h2>⭐ Watchlist</h2><ul>"
+            for w in st.session_state.watchlist:
+                html_rosa += f"<li>{w}</li>"
+            html_rosa += "</ul>"
+        html_rosa += "</body></html>"
+        st.download_button(
+            label="⬇️ Scarica Rosa (HTML per stampa PDF)",
+            data=html_rosa.encode("utf-8"),
+            file_name=f"rosa_{sq_exp}_{datetime.now().strftime('%Y%m%d_%H%M')}.html",
+            mime="text/html",
+            use_container_width=True,
+            key="dl_rosa_html"
+        )
+
+    st.markdown("---")
     st.subheader("📂 Ripristina da PC")
     up_json = st.file_uploader("File JSON stato", type=["json"], key="up_json")
     if "last_json_key" not in st.session_state:
@@ -1864,6 +1936,50 @@ if menu == "🏠 Dashboard":
         st.metric("Contratti in Scadenza", tot_scadenze)
 
     st.markdown("---")
+    st.subheader("🎯 Suggeritore Prossimo Acquisto")
+    st.caption("Seleziona la tua squadra: ti dice cosa comprare con il budget che hai.")
+    sq_sugg = st.selectbox("La tua squadra", ["Nessuna"] + get_nomi_squadre(), key="sugg_sq")
+    if sq_sugg != "Nessuna":
+        riep_sugg = riepilogo_rosa(sq_sugg)
+        cred_sugg = riep_sugg["crediti"]
+        ruoli_mancanti = [r for r in ROSA_REQ if riep_sugg[r]["mancanti"] > 0]
+        if ruoli_mancanti:
+            st.info(f"💡 **{sq_sugg}**: mancano giocatori in **{', '.join(ruoli_mancanti)}** | **{cred_sugg}cr** disponibili")
+            db_sugg = st.session_state.giocatori_db.copy()
+            db_sugg = arricchisci_con_stats_2627(db_sugg)
+            db_sugg["Indice_Affare"] = round(db_sugg["FantaMedia"] / db_sugg["Quotazione"].replace(0, 1), 2)
+            db_sugg["Indice_Titolarita"] = db_sugg.apply(lambda r: calcola_indice_titolarita(r, st.session_state.get("stats_per_stagione", {}).get("2026-27")), axis=1)
+            idx_sugg = get_player_index()
+            db_sugg["Proprietario"] = db_sugg["Nome"].apply(lambda x: idx_sugg.get(x.lower(), "Svincolato 🟢"))
+            db_sugg = db_sugg[db_sugg["Proprietario"] == "Svincolato 🟢"]
+            sugg_cols = st.columns(len(ruoli_mancanti))
+            for i, ruolo in enumerate(ruoli_mancanti):
+                with sugg_cols[i]:
+                    st.markdown(f"**{'🧤' if ruolo=='P' else '🛡️' if ruolo=='D' else '⚙️' if ruolo=='C' else '⚔️'} {ruolo} — mancano {riep_sugg[ruolo]['mancanti']}**")
+                    df_r_sugg = db_sugg[db_sugg["Ruolo"] == ruolo].sort_values("Indice_Titolarita", ascending=False)
+                    df_r_sugg = df_r_sugg[df_r_sugg["Quotazione"] <= cred_sugg]
+                    top3 = df_r_sugg.head(3)
+                    if not top3.empty:
+                        for _, row_s in top3.iterrows():
+                            pc_s = row_s.get("Prezzo_Consigliato")
+                            pc_s_txt = f"💡{int(pc_s)}cr" if pd.notna(pc_s) else ""
+                            st.markdown(
+                                f"<div style='background:#1a1a2e;padding:8px;border-radius:6px;margin-bottom:4px;border-left:3px solid #00d26a;'>"
+                                f"<b>{row_s['Nome']}</b> ({row_s['Squadra_SerieA']})<br/>"
+                                f"<span style='color:#888;font-size:0.8em;'>FM {row_s['FantaMedia']} | Q {int(row_s['Quotazione'])}cr | IA {row_s['Indice_Affare']}</span> {pc_s_txt}"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        # Bottone rapido per comprare il primo
+                        primo = top3.iloc[0]
+                        if st.button(f"🛒 Compra {primo['Nome']}", key=f"sugg_buy_{ruolo}"):
+                            st.session_state["sugg_da_comprare"] = {"sq": sq_sugg, "nome": primo["Nome"], "prezzo": int(primo["Quotazione"])}
+                            st.toast(f"🛒 {primo['Nome']} selezionato! Vai su 🛒 Mercato per confermare.", icon="🛒")
+                    else:
+                        st.caption("Nessuno nei budget")
+        else:
+            st.success(f"✅ **{sq_sugg}** ha la rosa completa!")
+    st.markdown("---")
     st.subheader("🏆 Top 5 Affari Liberi per Ruolo")
     if not svinc.empty:
         svinc["FantaMedia_Originale"] = svinc["FantaMedia"]
@@ -2068,6 +2184,54 @@ if menu == "🏠 Dashboard":
         html_spese += '</tr>'
     html_spese += '</tbody></table>'
     st.html(html_spese)
+    st.markdown("---")
+    st.subheader("📉 Andamento Budget nel Tempo")
+    st.caption("Come i crediti di ogni squadra sono calati durante l'asta/mercato.")
+    if st.session_state.storico_mercato:
+        # Ricostruisci andamento crediti dallo storico
+        hist_cred = []
+        # Inizializza con crediti iniziali
+        crediti_corr = {sq: st.session_state.get("crediti_iniziali", CREDITI_INIZIALI) for sq in get_nomi_squadre()}
+        # Ordina storico per data crescente
+        storico_ord = sorted(st.session_state.storico_mercato, key=lambda x: x.get("Data", ""))
+        for op in storico_ord:
+            det = op.get("Dettagli", "")
+            data = op.get("Data", "")
+            # Estrai squadra e importo
+            import re as _re
+            # Pattern: "SQUADRA aggiudica/acquista/svincola/rinnova GIOCATORE ... per Xcr"
+            m = _re.search(r'^([A-Z][A-Z0-9\s\.]+?)\s+(?:aggiudica|acquista|svincola|rinnova)', det)
+            if m:
+                sq_op = m.group(1).strip()
+                # Trova importo
+                m_prezzo = _re.search(r'(?:per|incassa)\s+(\d+)cr', det)
+                if m_prezzo:
+                    prezzo = int(m_prezzo.group(1))
+                    if 'svincola' in det.lower():
+                        crediti_corr[sq_op] = crediti_corr.get(sq_op, 0) + prezzo
+                    else:
+                        crediti_corr[sq_op] = crediti_corr.get(sq_op, 0) - prezzo
+                    hist_cred.append({"Data": data, "Squadra": sq_op, "Crediti": crediti_corr[sq_op]})
+        if hist_cred:
+            df_cred = pd.DataFrame(hist_cred)
+            df_cred["Data_dt"] = pd.to_datetime(df_cred["Data"], errors="coerce")
+            df_cred = df_cred.dropna(subset=["Data_dt"])
+            if not df_cred.empty:
+                # Pivot per squadra
+                pivot_cred = df_cred.pivot_table(index="Data_dt", columns="Squadra", values="Crediti", aggfunc="last").fillna(method="ffill")
+                # Aggiungi punto iniziale
+                for sq in get_nomi_squadre():
+                    if sq not in pivot_cred.columns:
+                        pivot_cred[sq] = st.session_state.get("crediti_iniziali", CREDITI_INIZIALI)
+                pivot_cred = pivot_cred.fillna(method="ffill").fillna(st.session_state.get("crediti_iniziali", CREDITI_INIZIALI))
+                st.line_chart(pivot_cred)
+            else:
+                st.info("Nessun dato temporale valido per il grafico.")
+        else:
+            st.info("Nessuna operazione con importo trovata nello storico.")
+    else:
+        st.info("Nessuna operazione registrata. Il grafico apparirà dopo le prime operazioni.")
+
     st.markdown("---")
     st.subheader("💰 Classifica Crediti")
     crediti_df = pd.DataFrame([{"Squadra": sq, "Crediti": st.session_state.squadre[sq]["crediti"]} for sq in get_nomi_squadre()]).sort_values("Crediti", ascending=False)
@@ -2806,6 +2970,25 @@ if menu == "🔨 Asta Live":
 
             if g_asta:
                 info = svinc[svinc["Nome"] == g_asta].iloc[0]
+                # 🔔 ALERT WATCHLIST
+                if g_asta in st.session_state.watchlist:
+                    st.markdown(
+                        "<div style='background:linear-gradient(90deg,#ff6b6b,#ff8c00);padding:14px 20px;border-radius:10px;"
+                        "text-align:center;margin-bottom:12px;animation:pulse 1.5s infinite;'>"
+                        "<span style='font-size:1.3em;font-weight:bold;color:#fff;'>🔔 WATCHLIST ALERT</span><br/>"
+                        f"<span style='font-size:1.1em;color:#fff;'>{g_asta} è nella tua watchlist!</span>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown("""
+                    <style>
+                    @keyframes pulse {
+                        0% { box-shadow: 0 0 0 0 rgba(255,107,107,0.7); }
+                        70% { box-shadow: 0 0 0 15px rgba(255,107,107,0); }
+                        100% { box-shadow: 0 0 0 0 rgba(255,107,107,0); }
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
                 with col2:
                     st.markdown(
                         f"<div style='background:#1a1a2e;padding:12px;border-radius:8px;text-align:center;'>"
@@ -3210,11 +3393,117 @@ if menu == "🛒 Mercato":
             st.info("Nessuna operazione.")
 
 # ============================================================
+# 🤖 TRADE FINDER — Trova scambi bilanciati automaticamente
+# ============================================================
+def trova_scambi_bilanciati(sq1, sq2, max_diff=0.15):
+    """
+    Trova scambi 1-per-1, 2-per-1, 1-per-2, 2-per-2 tra sq1 e sq2
+    con equità >= 80% (max_diff=0.2).
+    Ritorna lista di dict ordinati per equità decrescente.
+    """
+    rosa1 = [g for g in st.session_state.squadre[sq1]["rosa"] if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq1]
+    rosa2 = [g for g in st.session_state.squadre[sq2]["rosa"] if g.get("Prestito_Da") is None or g.get("Prestito_Da") == sq2]
+    if not rosa1 or not rosa2:
+        return []
+
+    def valore_giocatore(g):
+        fm = _get_fm_2627(g["Nome"]) or g.get("FantaMedia", 6.0)
+        q = g.get("Quotazione", 10)
+        tit = calcola_indice_titolarita(g, st.session_state.get("stats_per_stagione", {}).get("2026-27"))
+        return fm * q * (tit / 100)
+
+    def equita(v1, v2):
+        if max(v1, v2) == 0:
+            return 100
+        return (min(v1, v2) / max(v1, v2)) * 100
+
+    risultati = []
+    # 1-per-1
+    for g1 in rosa1:
+        for g2 in rosa2:
+            v1 = valore_giocatore(g1)
+            v2 = valore_giocatore(g2)
+            eq = equita(v1, v2)
+            if eq >= (1 - max_diff) * 100:
+                risultati.append({
+                    "tipo": "1 ↔ 1", "da": [g1["Nome"]], "a": [g2["Nome"]],
+                    "valore_da": round(v1, 1), "valore_a": round(v2, 1),
+                    "equita": round(eq, 1), "conguaglio": 0
+                })
+    # 2-per-1
+    from itertools import combinations
+    for combo1 in combinations(rosa1, 2):
+        for g2 in rosa2:
+            v1 = sum(valore_giocatore(g) for g in combo1)
+            v2 = valore_giocatore(g2)
+            eq = equita(v1, v2)
+            if eq >= (1 - max_diff) * 100:
+                risultati.append({
+                    "tipo": "2 ↔ 1", "da": [g["Nome"] for g in combo1], "a": [g2["Nome"]],
+                    "valore_da": round(v1, 1), "valore_a": round(v2, 1),
+                    "equita": round(eq, 1), "conguaglio": 0
+                })
+    # 1-per-2
+    for g1 in rosa1:
+        for combo2 in combinations(rosa2, 2):
+            v1 = valore_giocatore(g1)
+            v2 = sum(valore_giocatore(g) for g in combo2)
+            eq = equita(v1, v2)
+            if eq >= (1 - max_diff) * 100:
+                risultati.append({
+                    "tipo": "1 ↔ 2", "da": [g1["Nome"]], "a": [g["Nome"] for g in combo2],
+                    "valore_da": round(v1, 1), "valore_a": round(v2, 1),
+                    "equita": round(eq, 1), "conguaglio": 0
+                })
+    # 2-per-2
+    for combo1 in combinations(rosa1, 2):
+        for combo2 in combinations(rosa2, 2):
+            v1 = sum(valore_giocatore(g) for g in combo1)
+            v2 = sum(valore_giocatore(g) for g in combo2)
+            eq = equita(v1, v2)
+            if eq >= (1 - max_diff) * 100:
+                risultati.append({
+                    "tipo": "2 ↔ 2", "da": [g["Nome"] for g in combo1], "a": [g["Nome"] for g in combo2],
+                    "valore_da": round(v1, 1), "valore_a": round(v2, 1),
+                    "equita": round(eq, 1), "conguaglio": 0
+                })
+    # Ordina per equità decrescente
+    risultati.sort(key=lambda x: x["equita"], reverse=True)
+    return risultati[:20]  # top 20
+
+# ============================================================
 # 4. SCAMBI & PRESTITI
 # ============================================================
 if menu == "🤝 Scambi & Prestiti":
     st.header("🤝 Scambi Definitivi & Prestiti")
 
+    # 🤖 TRADE FINDER AUTOMATICO
+    with st.expander("🤖 Trade Finder Automatico", expanded=False):
+        st.subheader("🤖 Trova Scambi Bilanciati")
+        st.caption("L'algoritmo cerca automaticamente combinazioni di giocatori con equità ≥ 80%.")
+        tf_sq1 = st.selectbox("Squadra 1", get_nomi_squadre(), key="tf1")
+        tf_sq2 = st.selectbox("Squadra 2", [s for s in get_nomi_squadre() if s != tf_sq1], key="tf2")
+        tf_max = st.slider("Tolleranza sbilanciamento", 0.05, 0.35, 0.15, 0.05, key="tf_tol")
+        if st.button("🔍 Cerca Scambi", type="primary", use_container_width=True):
+            with st.spinner("Analisi in corso..."):
+                trovati = trova_scambi_bilanciati(tf_sq1, tf_sq2, max_diff=tf_max)
+            if trovati:
+                st.success(f"✅ Trovati {len(trovati)} scambi bilanciati!")
+                for t in trovati[:10]:
+                    colore_eq = "#00d26a" if t["equita"] >= 90 else "#eab308" if t["equita"] >= 80 else "#ef4444"
+                    st.markdown(
+                        f"<div style='background:#1a1a2e;padding:10px;border-radius:8px;margin-bottom:6px;border-left:4px solid {colore_eq};'>"
+                        f"<b>{t['tipo']}</b> | Equità: <span style='color:{colore_eq};font-weight:bold;'>{t['equita']}%</span><br/>"
+                        f"<span style='color:#3b82f6;'>🔵 {tf_sq1}</span> cede: <b>{', '.join(t['da'])}</b> (val {t['valore_da']})<br/>"
+                        f"<span style='color:#00d26a;'>🟢 {tf_sq2}</span> cede: <b>{', '.join(t['a'])}</b> (val {t['valore_a']})"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.warning("⚠️ Nessuno scambio bilanciato trovato con questa tolleranza.")
+                st.info("💡 Prova ad aumentare la tolleranza o a scegliere squadre con rosa più ricca.")
+
+    st.markdown("---")
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Squadra A")
