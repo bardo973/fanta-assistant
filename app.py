@@ -227,7 +227,14 @@ LISTONE_DEFAULT = [
     {"Nome": "Vicario", "Ruolo": "P", "Squadra_SerieA": "Juventus", "Quotazione": 28, "FantaMedia": 5.7, "Consiglio": "consigliato", "Note": "Nuovo titolare, ex Empoli, top assoluto in Serie A", "Quotazione_2025_26": 15, "Prezzo_Consigliato": None},
     {"Nome": "Mandas", "Ruolo": "P", "Squadra_SerieA": "Lazio", "Quotazione": 22, "FantaMedia": 5.5, "Consiglio": "consigliato", "Note": "Titolare con Gattuso, portiere da modificatore", "Quotazione_2025_26": 12, "Prezzo_Consigliato": None},
     {"Nome": "Falcone", "Ruolo": "P", "Squadra_SerieA": "Lecce", "Quotazione": 17, "FantaMedia": 5.5, "Consiglio": "scommessa", "Note": "Media voto 6.41, low cost, garanzia voti alti", "Quotazione_2025_26": 5, "Prezzo_Consigliato": None},
-    {"Nome": "Stankovic", "Ruolo": "P", "Squadra_SerieA": "Venezia", "Quota": 13, "FantaMedia": 5.3, "Consiglio": "scommessa", "Note": "Torna in Serie A, potenziale sorpresa", "Quotazione_2025_26": 6, "Prezzo_Consigliato": None},
+    {"Nome": "Stankovic", "Ruolo": "P", "Squadra_SerieA": "Venezia", "Quotazione": 13, "FantaMedia": 5.3, "Consiglio": "scommessa", "Note": "Torna in Serie A, potenziale sorpresa", "Quotazione_2025_26": 6, "Prezzo_Consigliato": None},
     {"Nome": "Corvi", "Ruolo": "P", "Squadra_SerieA": "Parma", "Quotazione": 12, "FantaMedia": 5.4, "Consiglio": "scommessa", "Note": "Nuovo titolare, aveva fatto vedere buone cose", "Quotazione_2025_26": 4, "Prezzo_Consigliato": None},
     {"Nome": "Caprile", "Ruolo": "P", "Squadra_SerieA": "Cagliari", "Quotazione": 10, "FantaMedia": 5.3, "Consiglio": "scommessa", "Note": "Buon portiere da modificatore, low cost", "Quotazione_2025_26": 3, "Prezzo_Consigliato": None},
 ]
+
+# Inizializzazione base dello stato se necessario
+if "nomi_squadre" not in st.session_state:
+    st.session_state["nomi_squadre"] = NOMI_SQUADRE
+
+st.title("⚽ FantaManager 2026/27")
+st.write("Benvenuto nel gestionale FantaCalcio. L'applicazione è pronta e configurata correttamente!")
